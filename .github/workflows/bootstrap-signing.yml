@@ -1,0 +1,73 @@
+name: Bootstrap Signing Keystore
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-signing-material:
+    name: Generate signing material
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Generate keystore and secret values
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+
+          output_dir="$RUNNER_TEMP/masary-signing-bootstrap"
+          keystore_path="$output_dir/masary-signing.jks"
+          secrets_path="$output_dir/github-actions-secrets.txt"
+          instructions_path="$output_dir/README.txt"
+          mkdir -p "$output_dir"
+
+          keystore_password="$(openssl rand -base64 48 | tr -d '\n')"
+          key_password="$(openssl rand -base64 48 | tr -d '\n')"
+          key_alias="masary"
+
+          keytool -genkeypair \
+            -keystore "$keystore_path" \
+            -storetype JKS \
+            -storepass "$keystore_password" \
+            -alias "$key_alias" \
+            -keypass "$key_password" \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 10000 \
+            -dname "CN=Masary, OU=Mobile, O=Masary, L=Cairo, ST=Cairo, C=EG" \
+            -noprompt >/dev/null 2>&1
+
+          {
+            printf 'MASARY_KEYSTORE_BASE64='
+            base64 --wrap=0 "$keystore_path"
+            printf '\nMASARY_KEYSTORE_PASSWORD=%s\n' "$keystore_password"
+            printf 'MASARY_KEY_ALIAS=%s\n' "$key_alias"
+            printf 'MASARY_KEY_PASSWORD=%s\n' "$key_password"
+          } > "$secrets_path"
+
+          cat > "$instructions_path" <<'EOF'
+          This artifact contains the shared Masary signing keystore and the four
+          values that a repository administrator must add manually under:
+          Settings > Secrets and variables > Actions.
+
+          Keep these files private and store a secure backup. Delete the workflow
+          artifact after the secrets and backup have been verified. Never commit
+          the keystore or any value from github-actions-secrets.txt to Git.
+          EOF
+
+          chmod 600 "$keystore_path" "$secrets_path" "$instructions_path"
+          keytool -list \
+            -keystore "$keystore_path" \
+            -storepass "$keystore_password" \
+            -alias "$key_alias" >/dev/null 2>&1
+
+      - name: Upload private signing bootstrap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-signing-bootstrap
+          path: ${{ runner.temp }}/masary-signing-bootstrap/
+          if-no-files-found: error
+          retention-days: 1
