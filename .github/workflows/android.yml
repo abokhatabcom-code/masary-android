@@ -63,3 +63,91 @@ jobs:
           name: masary-pos-debug-apk
           path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
           if-no-files-found: error
+
+  build-signed-debug-apks:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      MASARY_KEYSTORE_BASE64: ${{ secrets.MASARY_KEYSTORE_BASE64 }}
+      MASARY_KEYSTORE_PASSWORD: ${{ secrets.MASARY_KEYSTORE_PASSWORD }}
+      MASARY_KEY_ALIAS: ${{ secrets.MASARY_KEY_ALIAS }}
+      MASARY_KEY_PASSWORD: ${{ secrets.MASARY_KEY_PASSWORD }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.11.1
+
+      - name: Validate signing secrets
+        shell: bash
+        run: |
+          required=(
+            MASARY_KEYSTORE_BASE64
+            MASARY_KEYSTORE_PASSWORD
+            MASARY_KEY_ALIAS
+            MASARY_KEY_PASSWORD
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required GitHub Actions secret is not configured: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Prepare temporary keystore
+        shell: bash
+        run: |
+          umask 077
+          MASARY_KEYSTORE_PATH="$RUNNER_TEMP/masary-signing.jks"
+          printf '%s' "$MASARY_KEYSTORE_BASE64" | base64 --decode > "$MASARY_KEYSTORE_PATH"
+          echo "MASARY_KEYSTORE_PATH=$MASARY_KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Run student unit tests
+        run: ./gradlew :app-student:testDebugUnitTest
+
+      - name: Build signed student debug APK
+        run: ./gradlew :app-student:assembleDebug
+
+      - name: Build signed admin debug APK
+        run: ./gradlew :app-admin:assembleDebug
+
+      - name: Build signed POS debug APK
+        run: ./gradlew :app-pos:assembleDebug
+
+      - name: Remove temporary keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/masary-signing.jks"
+
+      - name: Upload signed student debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-student-signed-debug-apk
+          path: app-student/build/outputs/apk/debug/app-student-debug.apk
+          if-no-files-found: error
+
+      - name: Upload signed admin debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-admin-signed-debug-apk
+          path: app-admin/build/outputs/apk/debug/app-admin-debug.apk
+          if-no-files-found: error
+
+      - name: Upload signed POS debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-pos-signed-debug-apk
+          path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
+          if-no-files-found: error
