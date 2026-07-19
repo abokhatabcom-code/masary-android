@@ -15,5 +15,12 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "MasaryEducational"
-include(":app")
-
+include(
+    ":app-student",
+    ":app-admin",
+    ":app-pos",
+    ":core-ui",
+    ":core-models",
+    ":core-network",
+    ":core-security",
+)

@@ -1,6 +1,6 @@
 # مساري التعليمية
 
-تطبيق أندرويد تعليمي مبني بلغة Kotlin وواجهات Jetpack Compose وفق تصميم Material 3.
+مشروع أندرويد متعدد الوحدات يضم تطبيقات الطالب والإدارة ونقاط البيع، مبني بلغة Kotlin وواجهات Jetpack Compose وفق تصميم Material 3.
 
 ## المتطلبات
 
@@ -10,8 +10,10 @@
 ## بناء نسخة Debug
 
 ```bash
-./gradlew assembleDebug
+./gradlew :app-student:assembleDebug
+./gradlew :app-admin:assembleDebug
+./gradlew :app-pos:assembleDebug
 ```
 
-ينتج ملف APK في `app/build/outputs/apk/debug/app-debug.apk`. كما ينفذ GitHub Actions
-البناء تلقائيًا ويرفع الملف باسم `masary-educational-debug-apk` ضمن Artifacts.
+يرفع GitHub Actions ملفات البناء بثلاثة Artifacts مستقلة: `masary-student-debug-apk`،
+و`masary-admin-debug-apk`، و`masary-pos-debug-apk`.
