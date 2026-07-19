@@ -4,33 +4,33 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import app.masary.core.ui.MasaryTheme
+import app.masary.student.auth.data.StudentAuthFactory
+import app.masary.student.auth.domain.LoginStudent
+import app.masary.student.auth.ui.LoginScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { MasaryTheme { AppScreen() } }
+        setContent {
+            MasaryTheme {
+                LoginScreen(loginStudent = LoginStudent(StudentAuthFactory.create()))
+            }
+        }
     }
 }
 
 @Composable
 private fun AppScreen() {
-    Surface(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
-        }
-    }
+    LoginScreen(
+        loginStudent = LoginStudent { _, password -> password.isNotEmpty() },
+        modifier = Modifier.fillMaxSize(),
+    )
 }
 
 @Preview(showBackground = true, locale = "ar")
