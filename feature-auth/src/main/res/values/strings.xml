@@ -1,0 +1,11 @@
+<resources>
+    <string name="login_title">تسجيل دخول الطالب</string>
+    <string name="student_id">رقم الطالب</string>
+    <string name="password">كلمة المرور</string>
+    <string name="show_password">إظهار</string>
+    <string name="hide_password">إخفاء</string>
+    <string name="login_action">تسجيل الدخول</string>
+    <string name="student_screen_title">مرحبًا، %1$s</string>
+    <string name="student_screen_placeholder">هذه شاشة الطالب المؤقتة</string>
+    <string name="logout">تسجيل الخروج</string>
+</resources>

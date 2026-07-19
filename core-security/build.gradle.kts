@@ -15,3 +15,9 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 }
+
+dependencies {
+    implementation(project(":core-models"))
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+}
