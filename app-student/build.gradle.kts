@@ -16,8 +16,33 @@ android {
         versionName = "1.0"
     }
 
+    val releaseSigningValues = listOf(
+        System.getenv("STUDENT_KEYSTORE_PATH"),
+        System.getenv("STUDENT_KEYSTORE_PASSWORD"),
+        System.getenv("STUDENT_KEY_ALIAS"),
+        System.getenv("STUDENT_KEY_PASSWORD"),
+    )
+    val hasReleaseSigning = releaseSigningValues.all { !it.isNullOrBlank() }
+    check(hasReleaseSigning || releaseSigningValues.all { it.isNullOrBlank() }) {
+        "Incomplete student release signing configuration"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseSigningValues[0]))
+                storePassword = releaseSigningValues[1]
+                keyAlias = releaseSigningValues[2]
+                keyPassword = releaseSigningValues[3]
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

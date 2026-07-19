@@ -16,8 +16,33 @@ android {
         versionName = "1.0"
     }
 
+    val releaseSigningValues = listOf(
+        System.getenv("POS_KEYSTORE_PATH"),
+        System.getenv("POS_KEYSTORE_PASSWORD"),
+        System.getenv("POS_KEY_ALIAS"),
+        System.getenv("POS_KEY_PASSWORD"),
+    )
+    val hasReleaseSigning = releaseSigningValues.all { !it.isNullOrBlank() }
+    check(hasReleaseSigning || releaseSigningValues.all { it.isNullOrBlank() }) {
+        "Incomplete pos release signing configuration"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseSigningValues[0]))
+                storePassword = releaseSigningValues[1]
+                keyAlias = releaseSigningValues[2]
+                keyPassword = releaseSigningValues[3]
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

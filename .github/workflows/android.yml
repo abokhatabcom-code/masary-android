@@ -63,3 +63,97 @@ jobs:
           name: masary-pos-debug-apk
           path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
           if-no-files-found: error
+
+  build-signed-releases:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      STUDENT_KEYSTORE_BASE64: ${{ secrets.STUDENT_KEYSTORE_BASE64 }}
+      STUDENT_KEYSTORE_PASSWORD: ${{ secrets.STUDENT_KEYSTORE_PASSWORD }}
+      STUDENT_KEY_ALIAS: ${{ secrets.STUDENT_KEY_ALIAS }}
+      STUDENT_KEY_PASSWORD: ${{ secrets.STUDENT_KEY_PASSWORD }}
+      ADMIN_KEYSTORE_BASE64: ${{ secrets.ADMIN_KEYSTORE_BASE64 }}
+      ADMIN_KEYSTORE_PASSWORD: ${{ secrets.ADMIN_KEYSTORE_PASSWORD }}
+      ADMIN_KEY_ALIAS: ${{ secrets.ADMIN_KEY_ALIAS }}
+      ADMIN_KEY_PASSWORD: ${{ secrets.ADMIN_KEY_PASSWORD }}
+      POS_KEYSTORE_BASE64: ${{ secrets.POS_KEYSTORE_BASE64 }}
+      POS_KEYSTORE_PASSWORD: ${{ secrets.POS_KEYSTORE_PASSWORD }}
+      POS_KEY_ALIAS: ${{ secrets.POS_KEY_ALIAS }}
+      POS_KEY_PASSWORD: ${{ secrets.POS_KEY_PASSWORD }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.11.1
+
+      - name: Validate signing secrets
+        shell: bash
+        run: |
+          required=(
+            STUDENT_KEYSTORE_BASE64 STUDENT_KEYSTORE_PASSWORD STUDENT_KEY_ALIAS STUDENT_KEY_PASSWORD
+            ADMIN_KEYSTORE_BASE64 ADMIN_KEYSTORE_PASSWORD ADMIN_KEY_ALIAS ADMIN_KEY_PASSWORD
+            POS_KEYSTORE_BASE64 POS_KEYSTORE_PASSWORD POS_KEY_ALIAS POS_KEY_PASSWORD
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required GitHub Actions secret is not configured: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Prepare temporary keystores
+        shell: bash
+        run: |
+          umask 077
+          STUDENT_KEYSTORE_PATH="$RUNNER_TEMP/student-release.jks"
+          ADMIN_KEYSTORE_PATH="$RUNNER_TEMP/admin-release.jks"
+          POS_KEYSTORE_PATH="$RUNNER_TEMP/pos-release.jks"
+          export STUDENT_KEYSTORE_PATH ADMIN_KEYSTORE_PATH POS_KEYSTORE_PATH
+          printf '%s' "$STUDENT_KEYSTORE_BASE64" | base64 --decode > "$STUDENT_KEYSTORE_PATH"
+          printf '%s' "$ADMIN_KEYSTORE_BASE64" | base64 --decode > "$ADMIN_KEYSTORE_PATH"
+          printf '%s' "$POS_KEYSTORE_BASE64" | base64 --decode > "$POS_KEYSTORE_PATH"
+          {
+            echo "STUDENT_KEYSTORE_PATH=$STUDENT_KEYSTORE_PATH"
+            echo "ADMIN_KEYSTORE_PATH=$ADMIN_KEYSTORE_PATH"
+            echo "POS_KEYSTORE_PATH=$POS_KEYSTORE_PATH"
+          } >> "$GITHUB_ENV"
+
+      - name: Run unit tests
+        run: ./gradlew :app-student:testDebugUnitTest
+
+      - name: Build signed release APKs and app bundles
+        run: >-
+          ./gradlew
+          :app-student:assembleRelease :app-student:bundleRelease
+          :app-admin:assembleRelease :app-admin:bundleRelease
+          :app-pos:assembleRelease :app-pos:bundleRelease
+
+      - name: Remove temporary keystores
+        if: always()
+        run: rm -f "$RUNNER_TEMP/student-release.jks" "$RUNNER_TEMP/admin-release.jks" "$RUNNER_TEMP/pos-release.jks"
+
+      - name: Upload signed release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-signed-release-artifacts
+          path: |
+            app-student/build/outputs/apk/release/app-student-release.apk
+            app-student/build/outputs/bundle/release/app-student-release.aab
+            app-admin/build/outputs/apk/release/app-admin-release.apk
+            app-admin/build/outputs/bundle/release/app-admin-release.aab
+            app-pos/build/outputs/apk/release/app-pos-release.apk
+            app-pos/build/outputs/bundle/release/app-pos-release.aab
+          if-no-files-found: error

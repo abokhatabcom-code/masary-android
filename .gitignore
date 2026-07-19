@@ -7,3 +7,9 @@
 *.apk
 *.aab
 /gradle/wrapper/gradle-wrapper.jar
+
+# Release signing material must remain outside source control.
+*.jks
+*.keystore
+keystore.properties
+signing.properties
