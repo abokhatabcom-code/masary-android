@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [main, work]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build-debug-apk:
+  build-debug-apks:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -31,12 +31,32 @@ jobs:
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.11.1
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+      - name: Build student debug APK
+        run: ./gradlew :app-student:assembleDebug
 
-      - name: Upload debug APK
+      - name: Build admin debug APK
+        run: ./gradlew :app-admin:assembleDebug
+
+      - name: Build POS debug APK
+        run: ./gradlew :app-pos:assembleDebug
+
+      - name: Upload student debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: masary-educational-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: masary-student-debug-apk
+          path: app-student/build/outputs/apk/debug/app-student-debug.apk
+          if-no-files-found: error
+
+      - name: Upload admin debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-admin-debug-apk
+          path: app-admin/build/outputs/apk/debug/app-admin-debug.apk
+          if-no-files-found: error
+
+      - name: Upload POS debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-pos-debug-apk
+          path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
           if-no-files-found: error
