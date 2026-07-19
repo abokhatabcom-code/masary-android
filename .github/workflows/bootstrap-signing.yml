@@ -12,6 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Generate keystore and secret values
         shell: bash
         run: |
@@ -20,54 +26,59 @@ jobs:
 
           output_dir="$RUNNER_TEMP/masary-signing-bootstrap"
           keystore_path="$output_dir/masary-signing.jks"
-          secrets_path="$output_dir/github-actions-secrets.txt"
-          instructions_path="$output_dir/README.txt"
+          base64_path="$output_dir/MASARY_KEYSTORE_BASE64.txt"
+          keystore_password_path="$output_dir/MASARY_KEYSTORE_PASSWORD.txt"
+          alias_path="$output_dir/MASARY_KEY_ALIAS.txt"
+          key_password_path="$output_dir/MASARY_KEY_PASSWORD.txt"
+          instructions_path="$output_dir/README-PRIVATE.txt"
           mkdir -p "$output_dir"
 
-          keystore_password="$(openssl rand -base64 48 | tr -d '\n')"
-          key_password="$(openssl rand -base64 48 | tr -d '\n')"
+          signing_password="$(openssl rand -base64 48 | tr -d '\n')"
           key_alias="masary"
 
           keytool -genkeypair \
             -keystore "$keystore_path" \
             -storetype JKS \
-            -storepass "$keystore_password" \
+            -storepass "$signing_password" \
             -alias "$key_alias" \
-            -keypass "$key_password" \
+            -keypass "$signing_password" \
             -keyalg RSA \
             -keysize 4096 \
             -validity 10000 \
-            -dname "CN=Masary, OU=Mobile, O=Masary, L=Cairo, ST=Cairo, C=EG" \
+            -dname "CN=Masary Educational, OU=Mobile Apps, O=Masary, C=YE" \
             -noprompt >/dev/null 2>&1
 
-          {
-            printf 'MASARY_KEYSTORE_BASE64='
-            base64 --wrap=0 "$keystore_path"
-            printf '\nMASARY_KEYSTORE_PASSWORD=%s\n' "$keystore_password"
-            printf 'MASARY_KEY_ALIAS=%s\n' "$key_alias"
-            printf 'MASARY_KEY_PASSWORD=%s\n' "$key_password"
-          } > "$secrets_path"
+          base64 --wrap=0 "$keystore_path" > "$base64_path"
+          printf '%s' "$signing_password" > "$keystore_password_path"
+          printf '%s' "$key_alias" > "$alias_path"
+          printf '%s' "$signing_password" > "$key_password_path"
 
           cat > "$instructions_path" <<'EOF'
           This artifact contains the shared Masary signing keystore and the four
-          values that a repository administrator must add manually under:
-          Settings > Secrets and variables > Actions.
+          matching files whose names identify the GitHub Actions secrets that a
+          repository administrator must add manually under Settings > Secrets
+          and variables > Actions.
 
           Keep these files private and store a secure backup. Delete the workflow
           artifact after the secrets and backup have been verified. Never commit
-          the keystore or any value from github-actions-secrets.txt to Git.
+          the keystore or any value from the secret text files to Git.
           EOF
 
-          chmod 600 "$keystore_path" "$secrets_path" "$instructions_path"
+          chmod 600 "$output_dir"/*
           keytool -list \
             -keystore "$keystore_path" \
-            -storepass "$keystore_password" \
+            -storepass "$signing_password" \
             -alias "$key_alias" >/dev/null 2>&1
 
       - name: Upload private signing bootstrap artifact
         uses: actions/upload-artifact@v4
         with:
-          name: masary-signing-bootstrap
+          name: masary-signing-bootstrap-private
           path: ${{ runner.temp }}/masary-signing-bootstrap/
           if-no-files-found: error
           retention-days: 1
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/masary-signing-bootstrap"
