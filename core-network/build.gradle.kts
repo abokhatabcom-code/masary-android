@@ -17,7 +17,10 @@ android {
 }
 
 dependencies {
+    implementation(project(":core-models"))
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)
+    testImplementation(libs.junit)
+    testImplementation(libs.gson)
 }

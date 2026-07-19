@@ -3,6 +3,7 @@ package app.masary.feature.auth.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.masary.core.datastore.SessionManager
+import app.masary.core.models.auth.StudentSession
 import app.masary.feature.auth.domain.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 class LoginViewModel(
     private val repository: AuthRepository,
     private val sessionManager: SessionManager,
+    private val deviceName: String,
 ) : ViewModel() {
     private val _state = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
@@ -23,11 +25,11 @@ class LoginViewModel(
         }
     }
 
-    fun login(studentId: String, password: String) {
+    fun login(username: String, password: String) {
         if (_state.value == LoginUiState.Loading) return
-        val normalizedId = studentId.trim()
-        if (normalizedId.isEmpty()) {
-            _state.value = LoginUiState.Error("أدخل رقم الطالب")
+        val normalizedUsername = username.trim()
+        if (normalizedUsername.isEmpty()) {
+            _state.value = LoginUiState.Error("أدخل اسم المستخدم")
             return
         }
         if (password.isEmpty()) {
@@ -37,10 +39,16 @@ class LoginViewModel(
 
         _state.value = LoginUiState.Loading
         viewModelScope.launch {
-            repository.login(normalizedId, password.toCharArray())
-                .onSuccess {
-                    sessionManager.save(it)
-                    _state.value = LoginUiState.Success(it)
+            repository.login(normalizedUsername, password.toCharArray(), deviceName)
+                .onSuccess { authenticated ->
+                    runCatching { sessionManager.save(authenticated) }
+                        .onSuccess {
+                            val student = authenticated.student
+                            _state.value = LoginUiState.Success(
+                                StudentSession(student.id, student.username, student.displayName),
+                            )
+                        }
+                        .onFailure { _state.value = LoginUiState.Error("تعذر حفظ الجلسة بأمان") }
                 }
                 .onFailure {
                     _state.value = LoginUiState.Error(it.message ?: "تعذر تسجيل الدخول")
@@ -51,7 +59,7 @@ class LoginViewModel(
     fun logout() {
         if (_state.value == LoginUiState.Loading) return
         viewModelScope.launch {
-            sessionManager.clear()
+            runCatching { sessionManager.clear() }
             _state.value = LoginUiState.Idle
         }
     }

@@ -18,6 +18,7 @@ android {
 
 dependencies {
     implementation(project(":core-datastore"))
+    implementation(project(":core-models"))
     implementation(project(":core-network"))
     implementation(project(":core-ui"))
     implementation(platform(libs.androidx.compose.bom))

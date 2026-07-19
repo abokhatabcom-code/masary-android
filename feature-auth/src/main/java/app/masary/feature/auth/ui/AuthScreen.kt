@@ -29,7 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import app.masary.core.datastore.StudentSession
+import app.masary.core.models.auth.StudentSession
 import app.masary.feature.auth.R
 
 @Composable
@@ -109,7 +109,7 @@ private fun StudentScreen(session: StudentSession, onLogout: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(stringResource(R.string.student_screen_title, session.studentName), style = MaterialTheme.typography.headlineMedium)
+            Text(stringResource(R.string.student_screen_title, session.displayName), style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.student_screen_placeholder))
             Spacer(Modifier.height(24.dp))

@@ -15,6 +15,10 @@ android {
 }
 
 dependencies {
+    implementation(project(":core-models"))
+    implementation(project(":core-security"))
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.core)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

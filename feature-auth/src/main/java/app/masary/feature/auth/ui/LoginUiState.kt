@@ -1,6 +1,6 @@
 package app.masary.feature.auth.ui
 
-import app.masary.core.datastore.StudentSession
+import app.masary.core.models.auth.StudentSession
 
 sealed interface LoginUiState {
     data object Idle : LoginUiState

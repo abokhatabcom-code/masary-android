@@ -8,8 +8,8 @@ import org.junit.Test
 class FakeAuthRepositoryTest {
     @Test fun `only fixed demo account succeeds`() = runTest {
         val repository = AuthRepositoryFactory.create()
-        assertTrue(repository.login(AuthRepositoryFactory.DEMO_STUDENT_ID, AuthRepositoryFactory.DEMO_PASSWORD.toCharArray()).isSuccess)
-        assertTrue(repository.login(AuthRepositoryFactory.DEMO_STUDENT_ID, "incorrect".toCharArray()).isFailure)
-        assertTrue(repository.login("another", AuthRepositoryFactory.DEMO_PASSWORD.toCharArray()).isFailure)
+        assertTrue(repository.login(AuthRepositoryFactory.DEMO_USERNAME, AuthRepositoryFactory.DEMO_PASSWORD.toCharArray(), "test").isSuccess)
+        assertTrue(repository.login(AuthRepositoryFactory.DEMO_USERNAME, "incorrect".toCharArray(), "test").isFailure)
+        assertTrue(repository.login("another", AuthRepositoryFactory.DEMO_PASSWORD.toCharArray(), "test").isFailure)
     }
 }
