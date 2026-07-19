@@ -15,9 +15,23 @@ class DataStoreSessionManager(
     private val tokenStore: TokenStore,
 ) : SessionManager {
     override val session: Flow<StudentSession?> = dataStore.data.map { values ->
-        val id = values[STUDENT_ID] ?: return@map null
-        val username = values[STUDENT_USERNAME] ?: return@map null
-        val displayName = values[STUDENT_DISPLAY_NAME] ?: return@map null
+        val id = values[STUDENT_ID]
+        val username = values[STUDENT_USERNAME]
+        val displayName = values[STUDENT_DISPLAY_NAME]
+        val hasLocalStudent = id != null || username != null || displayName != null
+        if (!hasLocalStudent) return@map null
+
+        val tokens = runCatching { tokenStore.read() }.getOrNull()
+        val hasCompleteTokens = tokens != null &&
+            tokens.accessToken.isNotBlank() &&
+            tokens.refreshToken.isNotBlank()
+        if (id == null || username == null || displayName == null || !hasCompleteTokens) {
+            // Never restore an identity that cannot authenticate. Best-effort cleanup prevents
+            // legacy student data from repeatedly appearing as a valid session.
+            runCatching { clear() }
+            return@map null
+        }
+
         StudentSession(id, username, displayName)
     }
 
@@ -36,9 +50,15 @@ class DataStoreSessionManager(
     }
 
     override suspend fun clear() {
+        val tokenResult = runCatching { tokenStore.clear() }
         val localResult = runCatching { dataStore.edit { it.clear() } }
-        tokenStore.clear()
-        localResult.getOrThrow()
+        val failure = tokenResult.exceptionOrNull() ?: localResult.exceptionOrNull()
+        if (failure != null) {
+            localResult.exceptionOrNull()
+                ?.takeIf { it !== failure }
+                ?.let(failure::addSuppressed)
+            throw failure
+        }
     }
 
     private companion object {
