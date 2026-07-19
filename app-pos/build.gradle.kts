@@ -16,32 +16,37 @@ android {
         versionName = "1.0"
     }
 
-    val releaseSigningValues = listOf(
-        System.getenv("POS_KEYSTORE_PATH"),
-        System.getenv("POS_KEYSTORE_PASSWORD"),
-        System.getenv("POS_KEY_ALIAS"),
-        System.getenv("POS_KEY_PASSWORD"),
+    val masarySigningValues = listOf(
+        System.getenv("MASARY_KEYSTORE_PATH"),
+        System.getenv("MASARY_KEYSTORE_PASSWORD"),
+        System.getenv("MASARY_KEY_ALIAS"),
+        System.getenv("MASARY_KEY_PASSWORD"),
     )
-    val hasReleaseSigning = releaseSigningValues.all { !it.isNullOrBlank() }
-    check(hasReleaseSigning || releaseSigningValues.all { it.isNullOrBlank() }) {
-        "Incomplete pos release signing configuration"
+    val hasMasarySigning = masarySigningValues.all { !it.isNullOrBlank() }
+    check(hasMasarySigning || masarySigningValues.all { it.isNullOrBlank() }) {
+        "Incomplete Masary signing configuration"
     }
 
     signingConfigs {
-        if (hasReleaseSigning) {
-            create("release") {
-                storeFile = file(requireNotNull(releaseSigningValues[0]))
-                storePassword = releaseSigningValues[1]
-                keyAlias = releaseSigningValues[2]
-                keyPassword = releaseSigningValues[3]
+        if (hasMasarySigning) {
+            create("masary") {
+                storeFile = file(requireNotNull(masarySigningValues[0]))
+                storePassword = masarySigningValues[1]
+                keyAlias = masarySigningValues[2]
+                keyPassword = masarySigningValues[3]
             }
         }
     }
 
     buildTypes {
+        debug {
+            if (hasMasarySigning) {
+                signingConfig = signingConfigs.getByName("masary")
+            }
+        }
         release {
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
+            if (hasMasarySigning) {
+                signingConfig = signingConfigs.getByName("masary")
             }
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

@@ -18,21 +18,19 @@
 يرفع GitHub Actions ملفات البناء بثلاثة Artifacts مستقلة: `masary-student-debug-apk`،
 و`masary-admin-debug-apk`، و`masary-pos-debug-apk`.
 
-## توقيع إصدارات Release
+## توقيع نسخ Debug في GitHub Actions
 
-لا تُحفظ مفاتيح التوقيع أو كلمات المرور داخل المستودع. تُبنى الإصدارات الموقعة
-يدويًا من تبويب **Actions** عبر تشغيل سير العمل `Android CI`، وتُنشأ ملفات المفاتيح
-المؤقتة داخل `RUNNER_TEMP` ثم تُحذف عند انتهاء مهمة البناء.
+لا تُحفظ مفاتيح التوقيع أو كلمات المرور داخل المستودع. عند التشغيل اليدوي لسير
+العمل `Android CI`، يُستخدم keystore موحد لتوقيع نسخ Debug للتطبيقات الثلاثة.
+يُنشأ الملف مؤقتًا داخل `RUNNER_TEMP` ثم يُحذف دائمًا عند انتهاء مهمة البناء.
+أما البناء المحلي دون أسرار فيستمر باستخدام مفتاح Debug الافتراضي من Android.
 
-يجب على مالك المستودع إضافة الأسرار التالية في **Settings → Secrets and variables → Actions**،
-باستخدام القيم الحقيقية الخاصة بكل تطبيق:
+يجب على مالك المستودع إضافة GitHub Actions Secrets التالية فقط في
+**Settings → Secrets and variables → Actions**:
 
-| تطبيق الطالب | تطبيق الإدارة | تطبيق نقاط البيع |
-| --- | --- | --- |
-| `STUDENT_KEYSTORE_BASE64` | `ADMIN_KEYSTORE_BASE64` | `POS_KEYSTORE_BASE64` |
-| `STUDENT_KEYSTORE_PASSWORD` | `ADMIN_KEYSTORE_PASSWORD` | `POS_KEYSTORE_PASSWORD` |
-| `STUDENT_KEY_ALIAS` | `ADMIN_KEY_ALIAS` | `POS_KEY_ALIAS` |
-| `STUDENT_KEY_PASSWORD` | `ADMIN_KEY_PASSWORD` | `POS_KEY_PASSWORD` |
+- `MASARY_KEYSTORE_BASE64`: ترميز Base64 لملف keystore الموحد.
+- `MASARY_KEYSTORE_PASSWORD`: كلمة مرور ملف keystore.
+- `MASARY_KEY_ALIAS`: الاسم المستعار للمفتاح.
+- `MASARY_KEY_PASSWORD`: كلمة مرور المفتاح.
 
-يجب أن تكون قيمة كل متغير `*_KEYSTORE_BASE64` هي ترميز Base64 لملف keystore المقابل.
-لا تسجل قيم الأسرار أو تنسخها إلى ملفات متتبعة بواسطة Git.
+لا تسجل قيم الأسرار ولا تنسخها إلى ملفات متتبعة بواسطة Git.

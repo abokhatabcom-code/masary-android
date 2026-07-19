@@ -64,22 +64,14 @@ jobs:
           path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
           if-no-files-found: error
 
-  build-signed-releases:
+  build-signed-debug-apks:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
-      STUDENT_KEYSTORE_BASE64: ${{ secrets.STUDENT_KEYSTORE_BASE64 }}
-      STUDENT_KEYSTORE_PASSWORD: ${{ secrets.STUDENT_KEYSTORE_PASSWORD }}
-      STUDENT_KEY_ALIAS: ${{ secrets.STUDENT_KEY_ALIAS }}
-      STUDENT_KEY_PASSWORD: ${{ secrets.STUDENT_KEY_PASSWORD }}
-      ADMIN_KEYSTORE_BASE64: ${{ secrets.ADMIN_KEYSTORE_BASE64 }}
-      ADMIN_KEYSTORE_PASSWORD: ${{ secrets.ADMIN_KEYSTORE_PASSWORD }}
-      ADMIN_KEY_ALIAS: ${{ secrets.ADMIN_KEY_ALIAS }}
-      ADMIN_KEY_PASSWORD: ${{ secrets.ADMIN_KEY_PASSWORD }}
-      POS_KEYSTORE_BASE64: ${{ secrets.POS_KEYSTORE_BASE64 }}
-      POS_KEYSTORE_PASSWORD: ${{ secrets.POS_KEYSTORE_PASSWORD }}
-      POS_KEY_ALIAS: ${{ secrets.POS_KEY_ALIAS }}
-      POS_KEY_PASSWORD: ${{ secrets.POS_KEY_PASSWORD }}
+      MASARY_KEYSTORE_BASE64: ${{ secrets.MASARY_KEYSTORE_BASE64 }}
+      MASARY_KEYSTORE_PASSWORD: ${{ secrets.MASARY_KEYSTORE_PASSWORD }}
+      MASARY_KEY_ALIAS: ${{ secrets.MASARY_KEY_ALIAS }}
+      MASARY_KEY_PASSWORD: ${{ secrets.MASARY_KEY_PASSWORD }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -103,9 +95,10 @@ jobs:
         shell: bash
         run: |
           required=(
-            STUDENT_KEYSTORE_BASE64 STUDENT_KEYSTORE_PASSWORD STUDENT_KEY_ALIAS STUDENT_KEY_PASSWORD
-            ADMIN_KEYSTORE_BASE64 ADMIN_KEYSTORE_PASSWORD ADMIN_KEY_ALIAS ADMIN_KEY_PASSWORD
-            POS_KEYSTORE_BASE64 POS_KEYSTORE_PASSWORD POS_KEY_ALIAS POS_KEY_PASSWORD
+            MASARY_KEYSTORE_BASE64
+            MASARY_KEYSTORE_PASSWORD
+            MASARY_KEY_ALIAS
+            MASARY_KEY_PASSWORD
           )
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
@@ -114,46 +107,47 @@ jobs:
             fi
           done
 
-      - name: Prepare temporary keystores
+      - name: Prepare temporary keystore
         shell: bash
         run: |
           umask 077
-          STUDENT_KEYSTORE_PATH="$RUNNER_TEMP/student-release.jks"
-          ADMIN_KEYSTORE_PATH="$RUNNER_TEMP/admin-release.jks"
-          POS_KEYSTORE_PATH="$RUNNER_TEMP/pos-release.jks"
-          export STUDENT_KEYSTORE_PATH ADMIN_KEYSTORE_PATH POS_KEYSTORE_PATH
-          printf '%s' "$STUDENT_KEYSTORE_BASE64" | base64 --decode > "$STUDENT_KEYSTORE_PATH"
-          printf '%s' "$ADMIN_KEYSTORE_BASE64" | base64 --decode > "$ADMIN_KEYSTORE_PATH"
-          printf '%s' "$POS_KEYSTORE_BASE64" | base64 --decode > "$POS_KEYSTORE_PATH"
-          {
-            echo "STUDENT_KEYSTORE_PATH=$STUDENT_KEYSTORE_PATH"
-            echo "ADMIN_KEYSTORE_PATH=$ADMIN_KEYSTORE_PATH"
-            echo "POS_KEYSTORE_PATH=$POS_KEYSTORE_PATH"
-          } >> "$GITHUB_ENV"
+          MASARY_KEYSTORE_PATH="$RUNNER_TEMP/masary-signing.jks"
+          printf '%s' "$MASARY_KEYSTORE_BASE64" | base64 --decode > "$MASARY_KEYSTORE_PATH"
+          echo "MASARY_KEYSTORE_PATH=$MASARY_KEYSTORE_PATH" >> "$GITHUB_ENV"
 
-      - name: Run unit tests
+      - name: Run student unit tests
         run: ./gradlew :app-student:testDebugUnitTest
 
-      - name: Build signed release APKs and app bundles
-        run: >-
-          ./gradlew
-          :app-student:assembleRelease :app-student:bundleRelease
-          :app-admin:assembleRelease :app-admin:bundleRelease
-          :app-pos:assembleRelease :app-pos:bundleRelease
+      - name: Build signed student debug APK
+        run: ./gradlew :app-student:assembleDebug
 
-      - name: Remove temporary keystores
+      - name: Build signed admin debug APK
+        run: ./gradlew :app-admin:assembleDebug
+
+      - name: Build signed POS debug APK
+        run: ./gradlew :app-pos:assembleDebug
+
+      - name: Remove temporary keystore
         if: always()
-        run: rm -f "$RUNNER_TEMP/student-release.jks" "$RUNNER_TEMP/admin-release.jks" "$RUNNER_TEMP/pos-release.jks"
+        run: rm -f "$RUNNER_TEMP/masary-signing.jks"
 
-      - name: Upload signed release artifacts
+      - name: Upload signed student debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: masary-signed-release-artifacts
-          path: |
-            app-student/build/outputs/apk/release/app-student-release.apk
-            app-student/build/outputs/bundle/release/app-student-release.aab
-            app-admin/build/outputs/apk/release/app-admin-release.apk
-            app-admin/build/outputs/bundle/release/app-admin-release.aab
-            app-pos/build/outputs/apk/release/app-pos-release.apk
-            app-pos/build/outputs/bundle/release/app-pos-release.aab
+          name: masary-student-signed-debug-apk
+          path: app-student/build/outputs/apk/debug/app-student-debug.apk
+          if-no-files-found: error
+
+      - name: Upload signed admin debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-admin-signed-debug-apk
+          path: app-admin/build/outputs/apk/debug/app-admin-debug.apk
+          if-no-files-found: error
+
+      - name: Upload signed POS debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-pos-signed-debug-apk
+          path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
           if-no-files-found: error
