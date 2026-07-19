@@ -4,37 +4,26 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.datastore.preferences.preferencesDataStore
+import app.masary.core.datastore.DataStoreSessionManager
 import app.masary.core.ui.MasaryTheme
-import app.masary.student.auth.data.StudentAuthFactory
-import app.masary.student.auth.domain.LoginStudent
-import app.masary.student.auth.ui.LoginScreen
+import app.masary.feature.auth.data.AuthRepositoryFactory
+import app.masary.feature.auth.ui.AuthRoute
+
+private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "student_session")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val sessionManager = DataStoreSessionManager(sessionDataStore)
         setContent {
             MasaryTheme {
-                LoginScreen(loginStudent = LoginStudent(StudentAuthFactory.create()))
+                AuthRoute(
+                    repository = AuthRepositoryFactory.create(),
+                    sessionManager = sessionManager,
+                )
             }
         }
     }
-}
-
-@Composable
-private fun AppScreen() {
-    LoginScreen(
-        loginStudent = LoginStudent { _, password -> password.isNotEmpty() },
-        modifier = Modifier.fillMaxSize(),
-    )
-}
-
-@Preview(showBackground = true, locale = "ar")
-@Composable
-private fun AppScreenPreview() {
-    MasaryTheme { AppScreen() }
 }

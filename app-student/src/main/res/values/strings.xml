@@ -1,11 +1,3 @@
 <resources>
     <string name="app_name">مساري الطالب</string>
-    <string name="login_title">تسجيل دخول الطالب</string>
-    <string name="student_id">رقم الطالب</string>
-    <string name="student_id_required">أدخل رقم الطالب</string>
-    <string name="password">كلمة المرور</string>
-    <string name="password_required">أدخل كلمة المرور</string>
-    <string name="login_action">تسجيل الدخول</string>
-    <string name="login_rejected">تعذر تسجيل الدخول. تحقق من البيانات وحاول مجددًا</string>
-    <string name="login_success">تم تسجيل الدخول بنجاح</string>
 </resources>

@@ -4,11 +4,9 @@ plugins {
 }
 
 android {
-    namespace = "app.masary.core.network"
+    namespace = "app.masary.core.datastore"
     compileSdk = 35
-
     defaultConfig { minSdk = 26 }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -17,7 +15,6 @@ android {
 }
 
 dependencies {
-    implementation(libs.retrofit.core)
-    implementation(libs.retrofit.converter.gson)
-    implementation(libs.okhttp)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.kotlinx.coroutines.core)
 }

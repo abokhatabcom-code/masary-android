@@ -23,4 +23,6 @@ include(
     ":core-models",
     ":core-network",
     ":core-security",
+    ":core-datastore",
+    ":feature-auth",
 )
