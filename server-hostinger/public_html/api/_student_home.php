@@ -48,54 +48,80 @@ function api_student_home_subject_names(PDO $pdo, array $subjectVersionIds): arr
 
 function api_student_home_continue(PDO $pdo, int $studentId): array
 {
-    $display = function_exists('ik_dash_continue')
-        ? (array)ik_dash_continue($pdo, $studentId)
-        : ['label' => 'ابدأ من المواد', 'hint' => 'اختر مادة ثم ابدأ التعلّم', 'disabled' => false, 'disabled_hint' => ''];
-
-    $stmt = $pdo->prepare(
-        "SELECT la.subject_version_id, la.unit_id, la.mode, la.updated_at, "
-        . "s.name AS subject_name, u.title AS unit_title, ss.hearts "
-        . "FROM student_last_activity la "
-        . "JOIN subject_versions sv ON sv.id=la.subject_version_id "
-        . "JOIN subjects s ON s.id=sv.subject_id "
-        . "LEFT JOIN units u ON u.id=la.unit_id "
-        . "LEFT JOIN student_subject_state ss ON ss.student_id=la.student_id AND ss.subject_version_id=la.subject_version_id "
-        . "WHERE la.student_id=? LIMIT 1"
-    );
-    $stmt->execute([$studentId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-
-    if (!$row) {
-        return [
-            'available' => false,
-            'subject_version_id' => null,
-            'subject_name' => '',
-            'unit_id' => null,
-            'unit_title' => '',
-            'mode' => 'learn',
-            'label' => (string)($display['label'] ?? 'ابدأ من المواد'),
-            'hint' => (string)($display['hint'] ?? 'اختر مادة ثم ابدأ التعلّم'),
-            'disabled' => false,
-            'disabled_reason' => '',
-            'hearts' => null,
-            'updated_at' => '',
-        ];
-    }
-
-    return [
-        'available' => true,
-        'subject_version_id' => (int)$row['subject_version_id'],
-        'subject_name' => trim((string)($row['subject_name'] ?? '')),
-        'unit_id' => ((int)($row['unit_id'] ?? 0)) > 0 ? (int)$row['unit_id'] : null,
-        'unit_title' => trim((string)($row['unit_title'] ?? '')),
-        'mode' => (string)($row['mode'] ?? 'learn'),
-        'label' => (string)($display['label'] ?? 'تابع المادة'),
-        'hint' => (string)($display['hint'] ?? ''),
-        'disabled' => !empty($display['disabled']),
-        'disabled_reason' => (string)($display['disabled_hint'] ?? ''),
-        'hearts' => $row['hearts'] !== null ? max(0, (int)$row['hearts']) : null,
-        'updated_at' => (string)($row['updated_at'] ?? ''),
+    $empty = [
+        'available' => false,
+        'subject_version_id' => null,
+        'subject_name' => '',
+        'unit_id' => null,
+        'unit_title' => '',
+        'mode' => 'learn',
+        'label' => 'ابدأ من المواد',
+        'hint' => 'اختر مادة ثم ابدأ التعلّم',
+        'disabled' => false,
+        'disabled_reason' => '',
+        'hearts' => null,
+        'updated_at' => '',
     ];
+
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT la.subject_version_id, la.unit_id, la.mode, la.updated_at, "
+            . "s.name AS subject_name, u.title AS unit_title, ss.hearts "
+            . "FROM student_last_activity la "
+            . "JOIN subject_versions sv ON sv.id=la.subject_version_id "
+            . "JOIN subjects s ON s.id=sv.subject_id "
+            . "LEFT JOIN units u ON u.id=la.unit_id "
+            . "LEFT JOIN student_subject_state ss ON ss.student_id=la.student_id AND ss.subject_version_id=la.subject_version_id "
+            . "WHERE la.student_id=? LIMIT 1"
+        );
+        $stmt->execute([$studentId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$row) {
+            return $empty;
+        }
+
+        $subjectVersionId = (int)($row['subject_version_id'] ?? 0);
+        if ($subjectVersionId <= 0) {
+            return $empty;
+        }
+
+        $unitId = (int)($row['unit_id'] ?? 0);
+        $mode = (string)($row['mode'] ?? 'learn');
+        $subjectName = trim((string)($row['subject_name'] ?? ''));
+        $unitTitle = trim((string)($row['unit_title'] ?? ''));
+        $hearts = $row['hearts'] !== null ? max(0, (int)$row['hearts']) : 3;
+        $label = 'تابع المادة';
+        $hint = $subjectName !== '' ? ('آخر مادة: ' . $subjectName) : 'آخر مادة';
+        $disabled = false;
+        $disabledReason = '';
+
+        if ($unitId > 0) {
+            $hint = trim(($subjectName !== '' ? ($subjectName . ' — ') : '') . $unitTitle);
+            $label = $mode === 'review' ? 'تابع المراجعة' : 'تابع التعلّم';
+            if ($mode === 'review' && $hearts <= 0) {
+                $label = 'اشحن القلوب';
+                $disabled = true;
+                $disabledReason = 'لا توجد قلوب للمراجعة اليوم — اشحن القلوب من صفحة المادة';
+            }
+        }
+
+        return [
+            'available' => true,
+            'subject_version_id' => $subjectVersionId,
+            'subject_name' => $subjectName,
+            'unit_id' => $unitId > 0 ? $unitId : null,
+            'unit_title' => $unitTitle,
+            'mode' => $mode,
+            'label' => $label,
+            'hint' => $hint,
+            'disabled' => $disabled,
+            'disabled_reason' => $disabledReason,
+            'hearts' => $hearts,
+            'updated_at' => (string)($row['updated_at'] ?? ''),
+        ];
+    } catch (Throwable) {
+        return $empty;
+    }
 }
 
 function api_student_home_smart_guide(PDO $pdo, int $studentId): array
