@@ -1,0 +1,121 @@
+package app.masary.feature.home.data
+
+import app.masary.core.datastore.SessionManager
+import app.masary.core.models.auth.AuthenticatedStudent
+import app.masary.core.models.auth.AuthTokens
+import app.masary.core.models.auth.StudentSession
+import app.masary.core.network.auth.StudentAuthApi
+import app.masary.core.network.auth.StudentLoginRequestDto
+import app.masary.core.network.auth.StudentLoginResponseDto
+import app.masary.core.network.auth.StudentLogoutDataDto
+import app.masary.core.network.auth.StudentLogoutRequestDto
+import app.masary.core.network.auth.StudentLogoutResponseDto
+import app.masary.core.network.auth.StudentMeResponseDto
+import app.masary.core.network.auth.StudentRefreshDataDto
+import app.masary.core.network.auth.StudentRefreshRequestDto
+import app.masary.core.network.auth.StudentRefreshResponseDto
+import app.masary.core.network.home.HomeSmartGuideDto
+import app.masary.core.network.home.HomeSmartGuideStepDto
+import app.masary.core.network.home.StudentHomeApi
+import app.masary.core.network.home.StudentHomeDataDto
+import app.masary.core.network.home.StudentHomeResponseDto
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class NetworkHomeRepositoryTest {
+    @Test
+    fun `refreshes an expired token and preserves guide order`() = runTest {
+        val sessionManager = FakeSessionManager(
+            AuthTokens(
+                accessToken = "expired-access",
+                refreshToken = "refresh-1",
+                expiresInSeconds = 1,
+                accessTokenExpiresAtEpochSeconds = 1,
+            ),
+        )
+        val authApi = FakeAuthApi()
+        val homeApi = FakeHomeApi()
+        val repository = NetworkHomeRepository(
+            homeApi = homeApi,
+            authApi = authApi,
+            sessionManager = sessionManager,
+            nowEpochSeconds = { 1000L },
+        )
+
+        val result = repository.loadHome()
+
+        assertTrue(result.isSuccess)
+        assertEquals("new-access", sessionManager.tokens?.accessToken)
+        assertEquals("Bearer new-access", homeApi.lastAuthorization)
+        assertEquals(listOf(1, 2), result.getOrThrow().smartGuide.steps.map { it.sortOrder })
+    }
+}
+
+private class FakeSessionManager(
+    var tokens: AuthTokens?,
+) : SessionManager {
+    override val session: Flow<StudentSession?> = flowOf(null)
+
+    override suspend fun save(authenticatedStudent: AuthenticatedStudent) = Unit
+
+    override suspend fun readTokens(): AuthTokens? = tokens
+
+    override suspend fun updateTokens(tokens: AuthTokens) {
+        this.tokens = tokens
+    }
+
+    override suspend fun clear() {
+        tokens = null
+    }
+}
+
+private class FakeAuthApi : StudentAuthApi {
+    override suspend fun login(request: StudentLoginRequestDto): StudentLoginResponseDto =
+        error("Not used")
+
+    override suspend fun refresh(request: StudentRefreshRequestDto): StudentRefreshResponseDto =
+        StudentRefreshResponseDto(
+            success = true,
+            data = StudentRefreshDataDto(
+                accessToken = "new-access",
+                refreshToken = "refresh-2",
+                expiresIn = 900,
+            ),
+        )
+
+    override suspend fun logout(
+        authorization: String,
+        request: StudentLogoutRequestDto,
+    ): StudentLogoutResponseDto = StudentLogoutResponseDto(
+        success = true,
+        data = StudentLogoutDataDto(loggedOut = true),
+    )
+
+    override suspend fun me(authorization: String): StudentMeResponseDto = error("Not used")
+}
+
+private class FakeHomeApi : StudentHomeApi {
+    var lastAuthorization: String = ""
+
+    override suspend fun home(authorization: String): StudentHomeResponseDto {
+        lastAuthorization = authorization
+        return StudentHomeResponseDto(
+            success = true,
+            data = StudentHomeDataDto(
+                smartGuide = HomeSmartGuideDto(
+                    enabled = true,
+                    status = "ready",
+                    totalSteps = 2,
+                    steps = listOf(
+                        HomeSmartGuideStepDto(id = 20, sortOrder = 2, title = "الثانية"),
+                        HomeSmartGuideStepDto(id = 10, sortOrder = 1, title = "الأولى"),
+                    ),
+                ),
+            ),
+        )
+    }
+}
