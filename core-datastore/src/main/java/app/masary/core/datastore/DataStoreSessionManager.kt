@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.masary.core.models.auth.AuthenticatedStudent
+import app.masary.core.models.auth.AuthTokens
 import app.masary.core.models.auth.StudentSession
 import app.masary.core.security.TokenStore
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,12 @@ class DataStoreSessionManager(
             tokenStore.clear()
             throw error
         }
+    }
+
+    override suspend fun readTokens(): AuthTokens? = tokenStore.read()
+
+    override suspend fun updateTokens(tokens: AuthTokens) {
+        tokenStore.save(tokens)
     }
 
     override suspend fun clear() {
