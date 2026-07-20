@@ -7,15 +7,26 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.masary.core.datastore.SessionManager
+import app.masary.core.models.auth.StudentSession
 import app.masary.feature.auth.domain.AuthRepository
 
 @Composable
-fun AuthRoute(repository: AuthRepository, sessionManager: SessionManager, deviceName: String) {
+fun AuthRoute(
+    repository: AuthRepository,
+    sessionManager: SessionManager,
+    deviceName: String,
+    authenticatedContent: (@Composable (StudentSession, () -> Unit) -> Unit)? = null,
+) {
     val viewModel: LoginViewModel = viewModel(
         factory = LoginViewModelFactory(repository, sessionManager, deviceName),
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
-    AuthScreen(state, viewModel::login, viewModel::logout)
+    AuthenticatedContentHost(
+        state = state,
+        onLogin = viewModel::login,
+        onLogout = viewModel::logout,
+        authenticatedContent = authenticatedContent,
+    )
 }
 
 private class LoginViewModelFactory(

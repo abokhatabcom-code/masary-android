@@ -11,6 +11,7 @@ import app.masary.core.security.TokenStoreFactory
 import app.masary.core.ui.MasaryTheme
 import app.masary.feature.auth.data.AuthRepositoryFactory
 import app.masary.feature.auth.ui.AuthRoute
+import app.masary.feature.home.ui.StudentHomeRoute
 
 private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "student_session")
 
@@ -26,6 +27,12 @@ class MainActivity : ComponentActivity() {
                     repository = AuthRepositoryFactory.create(),
                     sessionManager = sessionManager,
                     deviceName = Build.MODEL.ifBlank { "Android" },
+                    authenticatedContent = { session, onLogout ->
+                        StudentHomeRoute(
+                            session = session,
+                            onLogout = onLogout,
+                        )
+                    },
                 )
             }
         }

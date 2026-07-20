@@ -25,4 +25,5 @@ include(
     ":core-security",
     ":core-datastore",
     ":feature-auth",
+    ":feature-home",
 )
