@@ -1,11 +1,16 @@
 <resources>
-    <string name="login_title">تسجيل دخول الطالب</string>
-    <string name="student_id">رقم الطالب</string>
+    <string name="login_title">مرحبًا بك في مساري</string>
+    <string name="login_subtitle">رحلتك التعليمية تبدأ من هنا</string>
+    <string name="login_badge">منصة مساري التعليمية</string>
+    <string name="student_id">رقم الطالب أو اسم المستخدم</string>
+    <string name="student_id_hint">أدخل بيانات حسابك في المنصة</string>
     <string name="password">كلمة المرور</string>
     <string name="show_password">إظهار</string>
     <string name="hide_password">إخفاء</string>
-    <string name="login_action">تسجيل الدخول</string>
+    <string name="login_action">الدخول إلى مساري</string>
+    <string name="login_secure_note">اتصال آمن ومشفّر بحسابك في منصة مساري</string>
+    <string name="restoring_session">جارٍ تجهيز رحلتك التعليمية…</string>
     <string name="student_screen_title">مرحبًا، %1$s</string>
-    <string name="student_screen_placeholder">هذه شاشة الطالب المؤقتة</string>
+    <string name="student_screen_placeholder">تم الاتصال بحسابك بنجاح. سنبني الصفحة الرئيسية الاحترافية في المرحلة التالية.</string>
     <string name="logout">تسجيل الخروج</string>
 </resources>
