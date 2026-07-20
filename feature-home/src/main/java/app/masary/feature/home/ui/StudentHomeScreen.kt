@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,6 +50,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -79,7 +83,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.masary.core.models.auth.StudentSession
+import app.masary.core.ui.MasaryBrandLockup
+import app.masary.core.ui.MasaryBrandMark
 import app.masary.core.ui.MasaryColors
+import app.masary.core.ui.MasaryOrbitDecoration
 import app.masary.feature.home.R
 import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.domain.HomeSmartGuide
@@ -126,6 +133,7 @@ fun StudentHomeRoute(
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            containerColor = MasaryColors.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
                 StudentBottomBar(
@@ -138,15 +146,7 @@ fun StudentHomeRoute(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                                MaterialTheme.colorScheme.background,
-                                MaterialTheme.colorScheme.background,
-                            ),
-                        ),
-                    ),
+                    .background(MasaryColors.background),
             ) {
                 when (destination) {
                     StudentDestination.Home -> HomeStateContent(
@@ -156,14 +156,14 @@ fun StudentHomeRoute(
                         onNotifications = {
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    "سيتم ربط صفحة إشعارات أندرويد الأصلية في مرحلتها الخاصة.",
+                                    "سيتم ربط إشعارات أندرويد الأصلية في مرحلتها المستقلة.",
                                 )
                             }
                         },
                         onGuideStep = {
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    "سيتم فتح هذه الخطوة داخل صفحة المادة الأصلية عند ربطها في المرحلة التالية.",
+                                    "سيتم فتح الخطوة داخل صفحة المادة الأصلية في المرحلة التالية.",
                                 )
                             }
                         },
@@ -234,16 +234,22 @@ private fun LoadingHome() {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(MasaryColors.brandNavyDeep)
             .statusBarsPadding(),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
+            MasaryBrandMark(size = 84.dp)
+            Spacer(Modifier.height(22.dp))
+            CircularProgressIndicator(
+                color = MasaryColors.brandGoldBright,
+                trackColor = Color.White.copy(alpha = 0.15f),
+            )
             Spacer(Modifier.height(14.dp))
             Text(
                 text = stringResource(R.string.home_loading),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White.copy(alpha = 0.9f),
             )
         }
     }
@@ -254,6 +260,7 @@ private fun HomeError(message: String, onRetry: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(MasaryColors.background)
             .statusBarsPadding()
             .padding(24.dp),
         contentAlignment = Alignment.Center,
@@ -261,34 +268,38 @@ private fun HomeError(message: String, onRetry: () -> Unit) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Refresh,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp),
-                )
-                Spacer(Modifier.height(16.dp))
+                MasaryBrandMark(size = 70.dp)
+                Spacer(Modifier.height(18.dp))
                 Text(
                     text = stringResource(R.string.home_load_error),
                     style = MaterialTheme.typography.titleLarge,
+                    color = MasaryColors.brandNavy,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MasaryColors.muted,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(20.dp))
-                Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.home_retry))
+                Button(
+                    onClick = onRetry,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MasaryColors.brandGoldBright,
+                        contentColor = MasaryColors.brandNavyDeep,
+                    ),
+                ) {
+                    Text(stringResource(R.string.home_retry), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -308,17 +319,13 @@ private fun HomeContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 18.dp,
-            end = 18.dp,
-            top = 12.dp,
-            bottom = 28.dp,
-        ),
+        contentPadding = PaddingValues(bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            StudentHeader(
+            BrandHomeHeader(
                 displayName = data.student.displayName.ifBlank { session.displayName },
+                gems = data.summary.gems,
                 unreadCount = data.notifications.unreadCount,
                 subscriptionActive = data.subscription.active,
                 isRefreshing = isRefreshing,
@@ -327,107 +334,170 @@ private fun HomeContent(
             )
         }
         if (!errorMessage.isNullOrBlank()) {
-            item { ErrorBanner(errorMessage, onRefresh) }
+            item {
+                Box(Modifier.padding(horizontal = 18.dp)) {
+                    ErrorBanner(errorMessage, onRefresh)
+                }
+            }
         }
         item {
-            SmartGuideCard(
-                guide = data.smartGuide,
-                onGuideStep = onGuideStep,
-            )
+            Box(Modifier.padding(horizontal = 18.dp)) {
+                LevelHeroCard(data)
+            }
         }
         item {
-            SectionTitle(
-                title = stringResource(R.string.home_overview),
-                icon = Icons.Outlined.AutoAwesome,
-            )
+            Box(Modifier.padding(horizontal = 18.dp)) {
+                QuickMetrics(data)
+            }
         }
-        item { OverviewCards(data) }
-        item { TodayActivityCard(data) }
-        item { ContinueJourneyCard(data, onBrowseSubjects) }
-        item { StreakStatusCard(data) }
+        item {
+            Box(Modifier.padding(horizontal = 18.dp)) {
+                SmartGuideCard(
+                    guide = data.smartGuide,
+                    onGuideStep = onGuideStep,
+                )
+            }
+        }
+        item {
+            Box(Modifier.padding(horizontal = 18.dp)) {
+                ContinueJourneyCard(data, onBrowseSubjects)
+            }
+        }
+        item {
+            Box(Modifier.padding(horizontal = 18.dp)) {
+                StreakStatusCard(data)
+            }
+        }
     }
 }
 
 @Composable
-private fun StudentHeader(
+private fun BrandHomeHeader(
     displayName: String,
+    gems: Int,
     unreadCount: Int,
     subscriptionActive: Boolean,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     onNotifications: () -> Unit,
 ) {
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(MasaryColors.brandNavyDeep, MasaryColors.brandNavy),
+                ),
+            )
             .statusBarsPadding()
-            .padding(top = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 24.dp),
     ) {
-        StudentAvatar(displayName)
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.home_greeting, shortDisplayName(displayName)),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = stringResource(R.string.home_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-            )
-            Spacer(Modifier.height(6.dp))
-            Surface(
-                shape = CircleShape,
-                color = if (subscriptionActive) {
-                    MasaryColors.success.copy(alpha = 0.14f)
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                },
-            ) {
-                Text(
-                    text = stringResource(
-                        if (subscriptionActive) R.string.home_subscription_active else R.string.home_subscription_inactive,
-                    ),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (subscriptionActive) MasaryColors.success else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        IconButton(onClick = onRefresh, enabled = !isRefreshing) {
-            if (isRefreshing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Outlined.Refresh,
-                    contentDescription = stringResource(R.string.home_refresh),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-        BadgedBox(
-            badge = {
-                if (unreadCount > 0) {
-                    Badge {
-                        Text(if (unreadCount > 99) "99+" else unreadCount.toString())
+        MasaryOrbitDecoration(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(118.dp),
+        )
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MasaryBrandLockup(logoSize = 46.dp, inverse = true)
+                Spacer(Modifier.weight(1f))
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.12f),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Diamond,
+                            contentDescription = null,
+                            tint = MasaryColors.brandGoldBright,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = gems.toString(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
-            },
-        ) {
-            IconButton(onClick = onNotifications) {
-                Icon(
-                    imageVector = Icons.Outlined.NotificationsNone,
-                    contentDescription = stringResource(R.string.home_notifications),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+                Spacer(Modifier.width(8.dp))
+                BadgedBox(
+                    badge = {
+                        if (unreadCount > 0) {
+                            Badge(containerColor = MasaryColors.error) {
+                                Text(if (unreadCount > 99) "99+" else unreadCount.toString())
+                            }
+                        }
+                    },
+                ) {
+                    Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.12f)) {
+                        IconButton(onClick = onNotifications) {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsNone,
+                                contentDescription = stringResource(R.string.home_notifications),
+                                tint = Color.White,
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(22.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StudentAvatar(displayName)
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.home_greeting, shortDisplayName(displayName)),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = stringResource(R.string.home_subtitle),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.72f),
+                    )
+                    Spacer(Modifier.height(7.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = if (subscriptionActive) {
+                            MasaryColors.success.copy(alpha = 0.18f)
+                        } else {
+                            Color.White.copy(alpha = 0.10f)
+                        },
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (subscriptionActive) R.string.home_subscription_active else R.string.home_subscription_inactive,
+                            ),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (subscriptionActive) Color(0xFF8EF0BC) else Color.White.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+                IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+                    if (isRefreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = MasaryColors.brandGoldBright,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.Refresh,
+                            contentDescription = stringResource(R.string.home_refresh),
+                            tint = MasaryColors.brandGoldBright,
+                        )
+                    }
+                }
             }
         }
     }
@@ -437,20 +507,16 @@ private fun StudentHeader(
 private fun StudentAvatar(displayName: String) {
     Box(
         modifier = Modifier
-            .size(54.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .background(
-                Brush.linearGradient(
-                    listOf(MasaryColors.brandPurple, MasaryColors.brandPurpleDark),
-                ),
-            ),
+            .size(58.dp)
+            .clip(CircleShape)
+            .background(MasaryColors.brandGoldBright),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = displayName.trim().firstOrNull()?.toString() ?: "م",
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+            fontWeight = FontWeight.ExtraBold,
+            color = MasaryColors.brandNavyDeep,
         )
     }
 }
@@ -460,7 +526,7 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.errorContainer,
+        color = Color(0xFFFFE8E5),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -470,11 +536,188 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
                 text = message,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
+                color = Color(0xFF8B241C),
             )
             TextButton(onClick = onRetry) {
-                Text(stringResource(R.string.home_retry))
+                Text(stringResource(R.string.home_retry), color = MasaryColors.brandNavy)
             }
+        }
+    }
+}
+
+@Composable
+private fun LevelHeroCard(data: StudentHomeData) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MasaryColors.brandNavy),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(MasaryColors.brandNavyDeep, MasaryColors.brandNavy, Color(0xFF123776)),
+                    ),
+                )
+                .padding(20.dp),
+        ) {
+            MasaryOrbitDecoration(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(width = 150.dp, height = 85.dp),
+            )
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.home_your_points),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White.copy(alpha = 0.72f),
+                        )
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = data.summary.globalXp.toString(),
+                                style = MaterialTheme.typography.displayMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.home_points_label),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.72f),
+                                modifier = Modifier.padding(bottom = 7.dp),
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = MasaryColors.brandGoldBright,
+                        shadowElevation = 4.dp,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.EmojiEvents,
+                            contentDescription = null,
+                            tint = MasaryColors.brandNavyDeep,
+                            modifier = Modifier.padding(16.dp).size(30.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.home_level_value, data.summary.level),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MasaryColors.brandGoldBright,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "${data.summary.levelPercent}%",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { data.summary.levelPercent.coerceIn(0, 100) / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(CircleShape),
+                    color = MasaryColors.brandGoldBright,
+                    trackColor = Color.White.copy(alpha = 0.16f),
+                )
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    text = stringResource(R.string.home_next_level, data.summary.levelNextXp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.65f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickMetrics(data: StudentHomeData) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        BrandedMetric(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Outlined.Diamond,
+            value = data.summary.gems.toString(),
+            label = stringResource(R.string.home_gems),
+            accent = MasaryColors.brandGoldBright,
+        )
+        BrandedMetric(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Outlined.LocalFireDepartment,
+            value = data.streak.currentDays.toString(),
+            label = stringResource(R.string.home_streak),
+            accent = MasaryColors.warning,
+        )
+        BrandedMetric(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Outlined.Timer,
+            value = data.today.minutes.toString(),
+            label = stringResource(R.string.home_minutes),
+            accent = MasaryColors.info,
+        )
+        BrandedMetric(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Outlined.TaskAlt,
+            value = data.today.attempts.toString(),
+            label = stringResource(R.string.home_attempts),
+            accent = MasaryColors.success,
+        )
+    }
+}
+
+@Composable
+private fun BrandedMetric(
+    modifier: Modifier,
+    icon: ImageVector,
+    value: String,
+    label: String,
+    accent: Color,
+) {
+    Card(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 13.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Surface(shape = CircleShape, color = accent.copy(alpha = 0.13f)) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.padding(7.dp).size(20.dp),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                color = MasaryColors.brandNavy,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MasaryColors.muted,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -487,93 +730,117 @@ private fun SmartGuideCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MasaryColors.brandNavy),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp),
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.14f),
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.AutoAwesome,
-                        contentDescription = null,
-                        tint = MasaryColors.brandGold,
-                        modifier = Modifier.padding(10.dp),
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.home_smart_guide),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MasaryColors.brandGold,
-                    )
-                    Text(
-                        text = guide.headline.ifBlank { stringResource(R.string.home_smart_guide) },
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White,
-                    )
-                }
-                if (guide.totalSteps > 0) {
-                    Text(
-                        text = "${guide.completionPercent}%",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                    )
-                }
-            }
-
-            if (guide.introText.isNotBlank()) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = guide.introText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.84f),
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MasaryColors.iceSurface)
+                    .padding(18.dp),
+            ) {
+                MasaryOrbitDecoration(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(width = 150.dp, height = 74.dp),
                 )
-            }
-
-            if (guide.totalSteps > 0) {
-                Spacer(Modifier.height(14.dp))
-                LinearProgressIndicator(
-                    progress = { guide.completionPercent / 100f },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MasaryColors.brandGold,
-                    trackColor = Color.White.copy(alpha = 0.14f),
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = stringResource(
-                        R.string.home_guide_progress,
-                        guide.completedSteps,
-                        guide.totalSteps,
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.76f),
-                )
-            }
-
-            if (guide.steps.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                val nextStep = guide.nextPendingStep
-                guide.steps.forEachIndexed { index, step ->
-                    GuideStepRow(
-                        step = step,
-                        isNext = step.id == nextStep?.id,
-                        onClick = { onGuideStep(step) },
-                    )
-                    if (index < guide.steps.lastIndex) {
-                        Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(shape = CircleShape, color = MasaryColors.brandGoldBright) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoAwesome,
+                            contentDescription = null,
+                            tint = MasaryColors.brandNavyDeep,
+                            modifier = Modifier.padding(10.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.home_smart_guide),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MasaryColors.brandGold,
+                        )
+                        Text(
+                            text = guide.headline.ifBlank { stringResource(R.string.home_smart_guide) },
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MasaryColors.brandNavy,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (guide.totalSteps > 0) {
+                        Surface(shape = CircleShape, color = MasaryColors.brandNavy) {
+                            Text(
+                                text = "${guide.completionPercent}%",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White,
+                            )
+                        }
                     }
                 }
-            } else if (guide.boostNote.isNotBlank()) {
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    text = guide.boostNote,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.82f),
-                )
+            }
+
+            Column(modifier = Modifier.padding(18.dp)) {
+                if (guide.introText.isNotBlank()) {
+                    Text(
+                        text = guide.introText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MasaryColors.muted,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+
+                if (guide.totalSteps > 0) {
+                    LinearProgressIndicator(
+                        progress = { guide.completionPercent.coerceIn(0, 100) / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(7.dp)
+                            .clip(CircleShape),
+                        color = MasaryColors.brandGoldBright,
+                        trackColor = MasaryColors.border,
+                    )
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.home_guide_progress,
+                            guide.completedSteps,
+                            guide.totalSteps,
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MasaryColors.muted,
+                    )
+                }
+
+                if (guide.steps.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    val nextStep = guide.nextPendingStep
+                    guide.steps.forEachIndexed { index, step ->
+                        GuideStepRow(
+                            step = step,
+                            isNext = step.id == nextStep?.id,
+                            onClick = { onGuideStep(step) },
+                        )
+                        if (index < guide.steps.lastIndex) Spacer(Modifier.height(10.dp))
+                    }
+                } else {
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MasaryColors.warmSurface,
+                    ) {
+                        Text(
+                            text = guide.boostNote.ifBlank { stringResource(R.string.home_guide_waiting) },
+                            modifier = Modifier.padding(14.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MasaryColors.brandNavy,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
             }
         }
     }
@@ -586,32 +853,50 @@ private fun GuideStepRow(
     onClick: () -> Unit,
 ) {
     val completed = step.progressState == "completed"
+    val container = when {
+        completed -> MasaryColors.success.copy(alpha = 0.09f)
+        isNext -> MasaryColors.warmSurface
+        else -> MasaryColors.background
+    }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = Color.White.copy(alpha = if (isNext) 0.14f else 0.09f),
+        color = container,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            when {
+                completed -> MasaryColors.success.copy(alpha = 0.28f)
+                isNext -> MasaryColors.brandGold.copy(alpha = 0.45f)
+                else -> MasaryColors.border
+            },
+        ),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                Icon(
-                    imageVector = if (completed) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                    contentDescription = null,
-                    tint = if (completed) MasaryColors.success else MasaryColors.brandGold,
-                    modifier = Modifier.size(24.dp),
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = if (completed) MasaryColors.success.copy(alpha = 0.14f) else MasaryColors.brandGoldBright.copy(alpha = 0.2f),
+                ) {
+                    Icon(
+                        imageVector = if (completed) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                        contentDescription = null,
+                        tint = if (completed) MasaryColors.success else MasaryColors.brandGold,
+                        modifier = Modifier.padding(7.dp).size(20.dp),
+                    )
+                }
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = step.title.ifBlank { step.ctaLabel },
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
+                        color = MasaryColors.brandNavy,
                     )
                     val detail = step.subtitle.ifBlank { step.subjectName }
                     if (detail.isNotBlank()) {
                         Text(
                             text = detail,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.78f),
+                            color = MasaryColors.muted,
                         )
                     }
                 }
@@ -619,7 +904,7 @@ private fun GuideStepRow(
                     text = stringResource(
                         if (completed) R.string.home_guide_completed else R.string.home_guide_pending,
                     ),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = if (completed) MasaryColors.success else MasaryColors.brandGold,
                 )
             }
@@ -629,11 +914,11 @@ private fun GuideStepRow(
                 Text(
                     text = step.reasonText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = MasaryColors.muted,
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(11.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (step.estimatedMinutes > 0) {
                     GuideChip(
@@ -641,7 +926,7 @@ private fun GuideStepRow(
                         text = stringResource(R.string.home_guide_minutes, step.estimatedMinutes),
                     )
                 }
-                if (step.estimatedMinutes > 0 && step.rewardGems > 0) Spacer(Modifier.width(8.dp))
+                if (step.estimatedMinutes > 0 && step.rewardGems > 0) Spacer(Modifier.width(7.dp))
                 if (step.rewardGems > 0) {
                     GuideChip(
                         icon = Icons.Outlined.Diamond,
@@ -650,8 +935,15 @@ private fun GuideStepRow(
                 }
                 Spacer(Modifier.weight(1f))
                 if (isNext && !completed) {
-                    Button(onClick = onClick) {
-                        Text(step.ctaLabel.ifBlank { "ابدأ الآن" })
+                    Button(
+                        onClick = onClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MasaryColors.brandGoldBright,
+                            contentColor = MasaryColors.brandNavyDeep,
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 9.dp),
+                    ) {
+                        Text(step.ctaLabel.ifBlank { "ابدأ الآن" }, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -661,10 +953,7 @@ private fun GuideStepRow(
 
 @Composable
 private fun GuideChip(icon: ImageVector, text: String) {
-    Surface(
-        shape = CircleShape,
-        color = Color.White.copy(alpha = 0.12f),
-    ) {
+    Surface(shape = CircleShape, color = MasaryColors.iceSurface) {
         Row(
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -672,188 +961,16 @@ private fun GuideChip(icon: ImageVector, text: String) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.84f),
+                tint = MasaryColors.brandNavy,
                 modifier = Modifier.size(15.dp),
             )
             Spacer(Modifier.width(5.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.84f),
+                color = MasaryColors.brandNavy,
             )
         }
-    }
-}
-
-@Composable
-private fun SectionTitle(title: String, icon: ImageVector) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-    }
-}
-
-@Composable
-private fun OverviewCards(data: StudentHomeData) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            MetricCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.home_gems),
-                value = data.summary.gems.toString(),
-                caption = stringResource(R.string.home_points, data.summary.globalXp),
-                icon = Icons.Outlined.Diamond,
-                iconTint = MasaryColors.brandGold,
-            )
-            MetricCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.home_streak),
-                value = data.streak.currentDays.toString(),
-                caption = stringResource(R.string.home_days, data.streak.currentDays),
-                icon = Icons.Outlined.LocalFireDepartment,
-                iconTint = MaterialTheme.colorScheme.primary,
-            )
-        }
-        LevelCard(data)
-    }
-}
-
-@Composable
-private fun MetricCard(
-    modifier: Modifier,
-    title: String,
-    value: String,
-    caption: String,
-    icon: ImageVector,
-    iconTint: Color,
-) {
-    Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(24.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun LevelCard(data: StudentHomeData) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.School,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.home_level_value, data.summary.level),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = "${data.summary.levelPercent}%",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(
-                progress = { data.summary.levelPercent / 100f },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = stringResource(R.string.home_points, data.summary.globalXp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun TodayActivityCard(data: StudentHomeData) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            SectionTitle(
-                title = stringResource(R.string.home_today_activity),
-                icon = Icons.Outlined.TaskAlt,
-            )
-            Spacer(Modifier.height(14.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                TodayMetric(data.today.minutes.toString(), stringResource(R.string.home_minutes))
-                TodayMetric(data.today.attempts.toString(), stringResource(R.string.home_attempts))
-                TodayMetric(data.today.xp.toString(), stringResource(R.string.home_xp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun TodayMetric(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -866,48 +983,66 @@ private fun ContinueJourneyCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            SectionTitle(
+        Column(modifier = Modifier.padding(18.dp)) {
+            SectionHeader(
                 title = stringResource(R.string.home_continue),
                 icon = Icons.Outlined.School,
             )
             Spacer(Modifier.height(14.dp))
             Text(
-                text = item.label,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                text = if (item.available) item.subjectName else item.label,
+                style = MaterialTheme.typography.titleLarge,
+                color = MasaryColors.brandNavy,
             )
-            Spacer(Modifier.height(4.dp))
+            val detail = when {
+                item.available && item.unitTitle.isNotBlank() -> item.unitTitle
+                item.hint.isNotBlank() -> item.hint
+                else -> stringResource(R.string.home_no_last_activity)
+            }
+            Spacer(Modifier.height(5.dp))
             Text(
-                text = item.hint.ifBlank { stringResource(R.string.home_no_last_activity) },
+                text = detail,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MasaryColors.muted,
             )
             if (item.hearts != null) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
+                Surface(shape = CircleShape, color = MasaryColors.warmSurface) {
+                    Text(
+                        text = stringResource(R.string.home_hearts, item.hearts),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MasaryColors.brandNavy,
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onBrowseSubjects,
+                enabled = !item.disabled,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MasaryColors.brandGoldBright,
+                    contentColor = MasaryColors.brandNavyDeep,
+                ),
+            ) {
                 Text(
-                    text = stringResource(R.string.home_hearts, item.hearts),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
+                    text = if (item.available) item.label.ifBlank { stringResource(R.string.home_continue) } else stringResource(R.string.home_browse_subjects),
+                    fontWeight = FontWeight.Bold,
                 )
             }
-            if (item.disabledReason.isNotBlank()) {
+            if (item.disabled && item.disabledReason.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = item.disabledReason,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = MasaryColors.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            }
-            Spacer(Modifier.height(16.dp))
-            FilledTonalButton(
-                onClick = onBrowseSubjects,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.home_browse_subjects))
             }
         }
     }
@@ -915,66 +1050,98 @@ private fun ContinueJourneyCard(
 
 @Composable
 private fun StreakStatusCard(data: StudentHomeData) {
+    val streak = data.streak
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MasaryColors.brandNavy),
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            SectionTitle(
-                title = stringResource(R.string.home_streak_status),
-                icon = Icons.Outlined.LocalFireDepartment,
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = data.streak.message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = CircleShape, color = MasaryColors.brandGoldBright.copy(alpha = 0.18f)) {
+                    Icon(
+                        imageVector = Icons.Outlined.LocalFireDepartment,
+                        contentDescription = null,
+                        tint = MasaryColors.brandGoldBright,
+                        modifier = Modifier.padding(9.dp),
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.home_streak_status),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                    )
+                    Text(
+                        text = streak.message.ifBlank { stringResource(R.string.home_streak_best, streak.bestDays) },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.7f),
+                    )
+                }
                 Text(
-                    text = stringResource(R.string.home_streak_best, data.streak.bestDays),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource(
-                        R.string.home_streak_shields,
-                        data.streak.protectionCount,
-                        data.streak.protectionMax,
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = streak.currentDays.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MasaryColors.brandGoldBright,
                 )
             }
-            if (data.streak.goal.days > 0) {
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DarkInfoChip(stringResource(R.string.home_streak_best, streak.bestDays))
+                DarkInfoChip(stringResource(R.string.home_streak_shields, streak.protectionCount, streak.protectionMax))
+            }
+            if (streak.goal.days > 0) {
                 Spacer(Modifier.height(14.dp))
-                Text(
-                    text = stringResource(R.string.home_streak_goal, data.streak.goal.days),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator(
-                    progress = { data.streak.goal.progressPercent / 100f },
-                    modifier = Modifier.fillMaxWidth(),
+                    progress = { streak.goal.progressPercent.coerceIn(0, 100) / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp)
+                        .clip(CircleShape),
+                    color = MasaryColors.brandGoldBright,
+                    trackColor = Color.White.copy(alpha = 0.15f),
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(7.dp))
                 Text(
-                    text = stringResource(
-                        R.string.home_streak_goal_remaining,
-                        data.streak.goal.remainingDays,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(R.string.home_streak_goal_remaining, streak.goal.remainingDays),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.72f),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DarkInfoChip(text: String) {
+    Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.10f)) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.82f),
+        )
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, icon: ImageVector) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Surface(shape = CircleShape, color = MasaryColors.iceSurface) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MasaryColors.brandNavy,
+                modifier = Modifier.padding(8.dp).size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(9.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MasaryColors.brandNavy,
+        )
     }
 }
 
@@ -983,40 +1150,44 @@ private fun ComingSoonSection(destination: StudentDestination) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(MasaryColors.background)
             .statusBarsPadding()
-            .padding(24.dp),
+            .padding(22.dp),
         contentAlignment = Alignment.Center,
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         ) {
             Column(
-                modifier = Modifier.padding(28.dp),
+                modifier = Modifier.padding(26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                MasaryBrandMark(size = 70.dp)
+                Spacer(Modifier.height(18.dp))
                 Icon(
                     imageVector = destination.icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp),
+                    tint = MasaryColors.brandGold,
+                    modifier = Modifier.size(42.dp),
                 )
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     text = stringResource(
                         R.string.coming_soon_title,
                         stringResource(destination.labelRes),
                     ),
                     style = MaterialTheme.typography.headlineMedium,
+                    color = MasaryColors.brandNavy,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.coming_soon_body),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MasaryColors.muted,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -1030,80 +1201,143 @@ private fun ProfileSection(
     data: StudentHomeData?,
     onLogout: () -> Unit,
 ) {
-    Box(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .padding(20.dp),
-        contentAlignment = Alignment.Center,
+            .background(MasaryColors.background),
+        contentPadding = PaddingValues(bottom = 28.dp),
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                StudentAvatar(data?.student?.displayName?.ifBlank { session.displayName } ?: session.displayName)
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = data?.student?.displayName?.ifBlank { session.displayName } ?: session.displayName,
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = stringResource(R.string.profile_username, session.username),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (data != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.profile_total_points, data.summary.globalXp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(
-                            if (data.subscription.active) R.string.home_subscription_active else R.string.home_subscription_inactive,
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(MasaryColors.brandNavyDeep, MasaryColors.brandNavy),
                         ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (data.subscription.active) MasaryColors.success else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (data.subscription.endsAt.isNotBlank()) {
-                        Text(
-                            text = stringResource(R.string.home_subscription_until, data.subscription.endsAt),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                Spacer(Modifier.height(18.dp))
-                Surface(
+                    .statusBarsPadding()
+                    .padding(24.dp),
+            ) {
+                MasaryOrbitDecoration(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(130.dp),
+                )
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    MasaryBrandMark(size = 66.dp)
+                    Spacer(Modifier.height(14.dp))
+                    StudentAvatar(data?.student?.displayName ?: session.displayName)
+                    Spacer(Modifier.height(12.dp))
                     Text(
-                        text = stringResource(R.string.profile_session_secure),
-                        modifier = Modifier.padding(14.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        text = data?.student?.displayName?.ifBlank { session.displayName } ?: session.displayName,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
                         textAlign = TextAlign.Center,
                     )
-                }
-                Spacer(Modifier.height(22.dp))
-                OutlinedButton(
-                    onClick = onLogout,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.logout))
+                    Text(
+                        text = stringResource(R.string.profile_username, session.username),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f),
+                    )
+                    if (data != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Surface(shape = CircleShape, color = MasaryColors.brandGoldBright) {
+                            Text(
+                                text = stringResource(R.string.home_level_value, data.summary.level),
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MasaryColors.brandNavyDeep,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
                 }
             }
+        }
+        item {
+            Column(modifier = Modifier.padding(18.dp)) {
+                if (data != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        ProfileMetric(Modifier.weight(1f), data.summary.globalXp.toString(), stringResource(R.string.home_points_label))
+                        ProfileMetric(Modifier.weight(1f), data.summary.gems.toString(), stringResource(R.string.home_gems))
+                        ProfileMetric(Modifier.weight(1f), data.streak.currentDays.toString(), stringResource(R.string.home_days, data.streak.currentDays))
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Text(
+                            text = stringResource(R.string.profile_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MasaryColors.brandNavy,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.profile_session_secure),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MasaryColors.muted,
+                        )
+                        if (data != null) {
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider(color = MasaryColors.border)
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.profile_total_points, data.summary.globalXp),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MasaryColors.brandNavy,
+                            )
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        OutlinedButton(
+                            onClick = onLogout,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MasaryColors.brandNavy,
+                            ),
+                        ) {
+                            Text(stringResource(R.string.logout), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileMetric(modifier: Modifier, value: String, label: String) {
+    Card(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                color = MasaryColors.brandNavy,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MasaryColors.muted,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -1115,8 +1349,8 @@ private fun StudentBottomBar(
 ) {
     NavigationBar(
         modifier = Modifier.navigationBarsPadding(),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
+        containerColor = MasaryColors.brandNavyDeep,
+        tonalElevation = 0.dp,
     ) {
         StudentDestination.entries.forEach { destination ->
             NavigationBarItem(
@@ -1129,6 +1363,13 @@ private fun StudentBottomBar(
                     )
                 },
                 label = { Text(stringResource(destination.labelRes)) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MasaryColors.brandNavyDeep,
+                    selectedTextColor = MasaryColors.brandGoldBright,
+                    indicatorColor = MasaryColors.brandGoldBright,
+                    unselectedIconColor = Color.White.copy(alpha = 0.68f),
+                    unselectedTextColor = Color.White.copy(alpha = 0.68f),
+                ),
             )
         }
     }
