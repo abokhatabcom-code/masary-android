@@ -63,7 +63,6 @@ class LoginViewModel(
         viewModelScope.launch {
             try {
                 sessionManager.readTokens()?.let { tokens ->
-                    // Revocation is best-effort; local credentials are always removed below.
                     repository.logout(tokens)
                 }
             } finally {
@@ -88,19 +87,17 @@ class LoginViewModel(
             return
         }
 
-        if (!tokens.accessTokenNeedsRefresh()) {
-            _state.value = LoginUiState.Success(existing)
-            return
-        }
-
-        repository.refresh(tokens.refreshToken)
-            .onSuccess { refreshed ->
-                runCatching { sessionManager.updateTokens(refreshed) }
-                    .onSuccess { _state.value = LoginUiState.Success(existing) }
-                    .onFailure {
-                        runCatching { sessionManager.clear() }
-                        _state.value = LoginUiState.Idle
-                    }
+        repository.validateSession(tokens)
+            .onSuccess { validatedTokens ->
+                if (validatedTokens != tokens) {
+                    runCatching { sessionManager.updateTokens(validatedTokens) }
+                        .onFailure {
+                            runCatching { sessionManager.clear() }
+                            _state.value = LoginUiState.Idle
+                            return@onSuccess
+                        }
+                }
+                _state.value = LoginUiState.Success(existing)
             }
             .onFailure { error ->
                 val rejected = (error as? AuthFailureException)?.kind == AuthFailureKind.SESSION_REJECTED
@@ -108,8 +105,7 @@ class LoginViewModel(
                     runCatching { sessionManager.clear() }
                     _state.value = LoginUiState.Idle
                 } else {
-                    // Keep the local identity available during a temporary outage. The next
-                    // authenticated request can retry refresh when connectivity returns.
+                    // A temporary network outage must not erase an otherwise valid local identity.
                     _state.value = LoginUiState.Success(existing)
                 }
             }
