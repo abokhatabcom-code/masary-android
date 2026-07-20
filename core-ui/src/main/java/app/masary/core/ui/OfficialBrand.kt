@@ -42,7 +42,7 @@ fun MasaryBrandMark(
         val corner = w * 0.22f
 
         drawRoundRect(
-            color = MasaryColors.brandNavy,
+            color = MasaryColors.logoNavy,
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(corner, corner),
         )
         drawRoundRect(
@@ -113,7 +113,7 @@ fun MasaryWordmark(
     inverse: Boolean = false,
     centered: Boolean = false,
 ) {
-    val titleColor = if (inverse) Color.White else MasaryColors.brandNavy
+    val titleColor = if (inverse) Color.White else MasaryColors.logoNavy
     val alignment = if (centered) Alignment.CenterHorizontally else Alignment.Start
     val textAlign = if (centered) TextAlign.Center else TextAlign.Start
 
@@ -156,7 +156,7 @@ fun MasaryOrbitDecoration(
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
-        val navy = MasaryColors.brandNavy
+        val navy = MasaryColors.logoNavy
         val line = Path().apply {
             moveTo(0f, h * 0.72f)
             cubicTo(w * 0.28f, h * 0.05f, w * 0.52f, h * 0.98f, w, h * 0.28f)
