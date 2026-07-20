@@ -21,6 +21,7 @@ dependencies {
     implementation(project(":core-models"))
     implementation(project(":core-network"))
     implementation(project(":core-ui"))
+    implementation(libs.retrofit.core)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)

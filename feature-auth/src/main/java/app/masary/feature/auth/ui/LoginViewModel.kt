@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.masary.core.datastore.SessionManager
 import app.masary.core.models.auth.StudentSession
+import app.masary.feature.auth.domain.AuthFailureException
+import app.masary.feature.auth.domain.AuthFailureKind
 import app.masary.feature.auth.domain.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,17 +18,16 @@ class LoginViewModel(
     private val sessionManager: SessionManager,
     private val deviceName: String,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
+    private val _state = MutableStateFlow<LoginUiState>(LoginUiState.Restoring)
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
+    private var logoutInProgress = false
 
     init {
-        viewModelScope.launch {
-            sessionManager.session.first()?.let { _state.value = LoginUiState.Success(it) }
-        }
+        viewModelScope.launch { restoreSession() }
     }
 
     fun login(username: String, password: String) {
-        if (_state.value == LoginUiState.Loading) return
+        if (_state.value == LoginUiState.Loading || _state.value == LoginUiState.Restoring) return
         val normalizedUsername = username.trim()
         if (normalizedUsername.isEmpty()) {
             _state.value = LoginUiState.Error("أدخل اسم المستخدم")
@@ -57,10 +58,56 @@ class LoginViewModel(
     }
 
     fun logout() {
-        if (_state.value == LoginUiState.Loading) return
+        if (logoutInProgress) return
+        logoutInProgress = true
         viewModelScope.launch {
+            try {
+                sessionManager.readTokens()?.let { tokens ->
+                    repository.logout(tokens)
+                }
+            } finally {
+                runCatching { sessionManager.clear() }
+                _state.value = LoginUiState.Idle
+                logoutInProgress = false
+            }
+        }
+    }
+
+    private suspend fun restoreSession() {
+        val existing = sessionManager.session.first()
+        if (existing == null) {
+            _state.value = LoginUiState.Idle
+            return
+        }
+
+        val tokens = runCatching { sessionManager.readTokens() }.getOrNull()
+        if (tokens == null) {
             runCatching { sessionManager.clear() }
             _state.value = LoginUiState.Idle
+            return
         }
+
+        repository.validateSession(tokens)
+            .onSuccess { validatedTokens ->
+                if (validatedTokens != tokens) {
+                    runCatching { sessionManager.updateTokens(validatedTokens) }
+                        .onFailure {
+                            runCatching { sessionManager.clear() }
+                            _state.value = LoginUiState.Idle
+                            return@onSuccess
+                        }
+                }
+                _state.value = LoginUiState.Success(existing)
+            }
+            .onFailure { error ->
+                val rejected = (error as? AuthFailureException)?.kind == AuthFailureKind.SESSION_REJECTED
+                if (rejected) {
+                    runCatching { sessionManager.clear() }
+                    _state.value = LoginUiState.Idle
+                } else {
+                    // A temporary network outage must not erase an otherwise valid local identity.
+                    _state.value = LoginUiState.Success(existing)
+                }
+            }
     }
 }

@@ -1,19 +1,20 @@
 package app.masary.core.security
 
 import app.masary.core.models.auth.AuthTokens
-import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class InMemoryTokenStoreTest {
-    @Test fun `tokens can be saved and completely cleared in debug store`() = runTest {
-        val store = InMemoryTokenStore()
-        val tokens = AuthTokens("access", "refresh", 3600)
+class AuthTokensTest {
+    @Test fun `access token refresh window is enforced`() {
+        val tokens = AuthTokens(
+            accessToken = "access",
+            refreshToken = "refresh",
+            expiresInSeconds = 900,
+            accessTokenExpiresAtEpochSeconds = 1_000,
+        )
 
-        store.save(tokens)
-        assertEquals(tokens, store.read())
-        store.clear()
-        assertNull(store.read())
+        assertFalse(tokens.accessTokenNeedsRefresh(nowEpochSeconds = 900, refreshBeforeSeconds = 60))
+        assertTrue(tokens.accessTokenNeedsRefresh(nowEpochSeconds = 940, refreshBeforeSeconds = 60))
     }
 }
