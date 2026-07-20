@@ -1,6 +1,7 @@
 package app.masary.feature.auth.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,8 +36,18 @@ import app.masary.feature.auth.R
 @Composable
 fun AuthScreen(state: LoginUiState, onLogin: (String, String) -> Unit, onLogout: () -> Unit) {
     when (state) {
+        LoginUiState.Restoring -> RestoringSessionScreen()
         is LoginUiState.Success -> StudentScreen(state.session, onLogout)
         else -> LoginScreen(state, onLogin)
+    }
+}
+
+@Composable
+private fun RestoringSessionScreen() {
+    Surface(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
     }
 }
 
