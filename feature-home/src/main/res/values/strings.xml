@@ -1,0 +1,33 @@
+<resources>
+    <string name="home_greeting">أهلًا، %1$s</string>
+    <string name="home_subtitle">خطوتك التالية واضحة وبسيطة</string>
+    <string name="home_notifications">الإشعارات</string>
+    <string name="home_today_decision">قرار اليوم</string>
+    <string name="home_today_decision_title">ابدأ جلسة تركيز قصيرة</string>
+    <string name="home_today_decision_body">سيتم ربط الموجّه الدراسي هنا ليقترح لك الخطوة الأنسب حسب مستواك.</string>
+    <string name="home_today_decision_action">تجهيز الموجّه</string>
+    <string name="home_overview">نظرة سريعة</string>
+    <string name="home_gems">الجواهر</string>
+    <string name="home_streak">سلسلة الإنجاز</string>
+    <string name="home_progress">تقدم اليوم</string>
+    <string name="home_pending_sync">بانتظار ربط البيانات</string>
+    <string name="home_continue">تابع رحلتك</string>
+    <string name="home_continue_title">اختر مادتك الأولى</string>
+    <string name="home_continue_body">ستظهر هنا آخر مادة ودرس وصلت إليهما بعد ربط بيانات المواد.</string>
+    <string name="home_browse_subjects">استعراض المواد</string>
+    <string name="home_plan">خطة اليوم</string>
+    <string name="home_plan_start">ابدأ درسًا</string>
+    <string name="home_plan_review">راجع أخطاءك</string>
+    <string name="home_plan_goal">أكمل هدفك اليومي</string>
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_subjects">المواد</string>
+    <string name="nav_ranking">الترتيب</string>
+    <string name="nav_profile">حسابي</string>
+    <string name="coming_soon_title">%1$s قيد التجهيز</string>
+    <string name="coming_soon_body">نبني هذا القسم بنفس مستوى الصفحة الرئيسية، وسيتم ربطه ببيانات المنصة الحقيقية في مرحلته الخاصة.</string>
+    <string name="profile_title">حساب الطالب</string>
+    <string name="profile_username">اسم المستخدم: %1$s</string>
+    <string name="profile_session_secure">الجلسة مشفرة ومحفوظة بأمان على هذا الجهاز.</string>
+    <string name="logout">تسجيل الخروج</string>
+    <string name="feature_not_connected">سيتم ربط هذه الوظيفة ببيانات المنصة في المرحلة التالية.</string>
+</resources>
