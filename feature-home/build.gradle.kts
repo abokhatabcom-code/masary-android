@@ -21,6 +21,8 @@ android {
 dependencies {
     implementation(project(":core-models"))
     implementation(project(":core-ui"))
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.android)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
