@@ -22,5 +22,8 @@ fun interface AuthRepository {
     suspend fun refresh(refreshToken: String): Result<AuthTokens> =
         Result.failure(AuthFailureException(AuthFailureKind.SESSION_REJECTED, "انتهت جلسة الدخول"))
 
+    suspend fun validateSession(tokens: AuthTokens): Result<AuthTokens> =
+        if (tokens.accessTokenNeedsRefresh()) refresh(tokens.refreshToken) else Result.success(tokens)
+
     suspend fun logout(tokens: AuthTokens): Result<Unit> = Result.success(Unit)
 }
