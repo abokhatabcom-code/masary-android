@@ -11,6 +11,7 @@ import app.masary.core.security.TokenStoreFactory
 import app.masary.core.ui.MasaryTheme
 import app.masary.feature.auth.data.AuthRepositoryFactory
 import app.masary.feature.auth.ui.AuthRoute
+import app.masary.feature.home.data.HomeRepositoryFactory
 import app.masary.feature.home.ui.StudentHomeRoute
 
 private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "student_session")
@@ -21,6 +22,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val tokenStore = TokenStoreFactory.create(applicationContext)
         val sessionManager = DataStoreSessionManager(sessionDataStore, tokenStore)
+        val homeRepository = HomeRepositoryFactory.create(sessionManager)
         setContent {
             MasaryTheme {
                 AuthRoute(
@@ -30,6 +32,7 @@ class MainActivity : ComponentActivity() {
                     authenticatedContent = { session, onLogout ->
                         StudentHomeRoute(
                             session = session,
+                            repository = homeRepository,
                             onLogout = onLogout,
                         )
                     },
