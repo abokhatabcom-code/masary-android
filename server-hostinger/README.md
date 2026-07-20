@@ -1,6 +1,6 @@
-# Masary Hostinger API — Phase 1
+# Masary Hostinger API
 
-حزمة API أصلية لتطبيقات مساري، تبدأ بمصادقة تطبيق الطالب دون WebView أو جلسات متصفح.
+حزمة API أصلية لتطبيقات مساري، تبدأ بمصادقة تطبيق الطالب وتعرض بيانات صفحته الرئيسية دون WebView أو جلسات متصفح.
 
 ## الاعتماد على المنصة الحالية
 
@@ -15,6 +15,8 @@ public_html/api/
 ```text
 public_html/admin/_db.php
 public_html/includes/security_cleanup.php
+public_html/includes/student_dashboard_optimization.php
+public_html/includes/student_study_guide.php
 ```
 
 ولا تحتوي أي بيانات اتصال بقاعدة البيانات أو كلمات مرور داخل Git.
@@ -22,9 +24,10 @@ public_html/includes/security_cleanup.php
 ## المتطلبات
 
 - PHP 8.1 أو أحدث.
-- Apache مع `mod_rewrite` (متوفر عادةً على Hostinger).
+- Apache مع `mod_rewrite`.
 - HTTPS مفعل على `masary.app`.
 - قاعدة منصة مساري الحالية وجدول `app_users`.
+- ملفات الموجّه الدراسي الحالية في `public_html/includes`.
 - صلاحية كتابة للمجلد الخاص خارج `public_html`:
 
 ```text
@@ -47,7 +50,29 @@ POST /api/v1/auth/student/login
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET  /api/v1/me
+GET  /api/v1/student/home
 ```
+
+## الصفحة الرئيسية للطالب
+
+المسار:
+
+```text
+GET /api/v1/student/home
+Authorization: Bearer ACCESS_TOKEN
+```
+
+يعيد طلبًا واحدًا مجمّعًا يحتوي على:
+
+- الجواهر والنقاط والمستوى.
+- سلسلة الإنجاز والهدف والحمايات.
+- نشاط اليوم الحقيقي.
+- حالة الاشتراك.
+- عدد الإشعارات غير المقروءة.
+- آخر مادة ووحدة وصل إليهما الطالب.
+- الموجّه الدراسي الحالي وخطواته مرتبة كما أنشأها النظام القديم.
+
+هذا المسار **قراءة فقط**، ولا ينشئ خطة يومية ولا يعيد توليد الموجّه عند فتح الصفحة. التوليد المجدول للموجّه يبقى مستقلًا، ولا يتم تعديل Push V2 الخاص بالمتصفحات.
 
 ## اختبار الصحة
 
@@ -63,7 +88,7 @@ curl -sS https://masary.app/api/v1/auth/student/login \
   -d '{"username":"STUDENT_USERNAME","password":"STUDENT_PASSWORD","device_name":"Android test"}'
 ```
 
-لا تضع كلمة مرور حقيقية في سجل عام أو GitHub Issue.
+لا تضع كلمة مرور أو Access Token حقيقيًا في سجل عام أو GitHub Issue.
 
 ## الأمان
 
@@ -73,24 +98,39 @@ curl -sS https://masary.app/api/v1/auth/student/login \
 - Refresh Token لمدة 30 يومًا مع rotation وكشف إعادة الاستخدام.
 - حد أقصى 5 جلسات نشطة لكل طالب.
 - Rate limiting حسب IP واسم المستخدم.
+- الصفحة الرئيسية لا تستقبل `student_id` من التطبيق؛ هوية الطالب تأتي من الرمز فقط.
 - لا CORS مفتوح.
 - لا تعديل على Push V2 أو PWA.
+
+## الأداء والضغط العالي
+
+- طلب واحد مجمّع للصفحة الرئيسية بدل عدة طلبات.
+- كل الاستعلامات مقيّدة بالطالب المسجّل.
+- لا توجد عملية توليد للموجّه أثناء فتح الصفحة.
+- تعتمد القراءة على الفهارس الحالية مثل الطالب/التاريخ والإشعارات غير المقروءة.
+- لا توجد حلقات تمر على الطلاب داخل طلب الصفحة الرئيسية.
 
 ## النشر الآمن
 
 1. خذ نسخة احتياطية من المشروع وقاعدة البيانات.
-2. ارفع مجلد `api` فقط إلى `public_html/api`.
-3. تأكد أن ملف `public_html/api/.htaccess` رُفع ولم يتغير اسمه.
-4. افتح `/api/v1/health` وتأكد من `success: true`.
-5. جرّب تسجيل الدخول بحساب طالب تجريبي فقط.
-6. لا تحذف ملفات المنصة الحالية ولا تستبدل `admin/_db.php`.
+2. ارفع مجلد `api` فقط إلى `public_html/api` واستبدل ملفات API القديمة بالجديدة.
+3. لا تستبدل `public_html` كاملًا.
+4. تأكد أن ملف `public_html/api/.htaccess` رُفع ولم يتغير اسمه.
+5. افتح `/api/v1/health` وتأكد من `success: true`.
+6. جرّب تسجيل الدخول بحساب طالب اختباري.
+7. اختبر `/api/v1/student/home` باستخدام Access Token للحساب الاختباري.
+8. لا تحذف ملفات المنصة الحالية ولا تستبدل `admin/_db.php` أو ملفات الموجّه.
 
 ## التوافق مع Android
 
-استجابة تسجيل الدخول متوافقة مع `StudentLoginResponseDto` الحالي في تطبيق الطالب:
+تطبيق الطالب يستخدم:
 
 ```text
 POST /api/v1/auth/student/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET  /api/v1/me
+GET  /api/v1/student/home
 ```
 
-المرحلة التالية تربط نسخة Android release بعنوان `https://masary.app/` وتضيف refresh/logout إلى `core-network` و`core-security`.
+تظل خوارزمية اختيار مواد وخطوات الموجّه على الخادم، بينما يعرض تطبيق Android النتائج فقط.
