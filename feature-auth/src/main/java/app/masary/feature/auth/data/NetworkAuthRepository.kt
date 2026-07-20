@@ -54,9 +54,34 @@ class NetworkAuthRepository(
         tokens(data.accessToken, data.refreshToken, data.expiresIn)
     }.recoverCatching { throw mapFailure(it, AuthFailureKind.SESSION_REJECTED) }
 
+    override suspend fun validateSession(tokens: AuthTokens): Result<AuthTokens> {
+        if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
+            return refresh(tokens.refreshToken)
+        }
+
+        return try {
+            val response = api.me("Bearer ${tokens.accessToken}")
+            if (!response.success || response.data == null) {
+                Result.failure(
+                    AuthFailureException(
+                        AuthFailureKind.SESSION_REJECTED,
+                        response.error?.message ?: "انتهت جلسة الدخول. سجّل الدخول من جديد.",
+                    ),
+                )
+            } else {
+                Result.success(tokens)
+            }
+        } catch (error: HttpException) {
+            if (error.code() == 401) refresh(tokens.refreshToken)
+            else Result.failure(mapFailure(error, AuthFailureKind.SESSION_REJECTED))
+        } catch (error: Throwable) {
+            Result.failure(mapFailure(error, AuthFailureKind.SESSION_REJECTED))
+        }
+    }
+
     override suspend fun logout(tokens: AuthTokens): Result<Unit> = runCatching {
         var activeTokens = tokens
-        if (activeTokens.accessTokenNeedsRefresh()) {
+        if (activeTokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
             refresh(activeTokens.refreshToken).getOrNull()?.let { activeTokens = it }
         }
 
@@ -65,7 +90,6 @@ class NetworkAuthRepository(
             api.logout("Bearer ${activeTokens.accessToken}", request)
         } catch (error: HttpException) {
             if (error.code() != 401) throw error
-            // The server also supports revocation by refresh token when the access token expired.
             api.logout("", request)
         }
         if (!response.success) {
