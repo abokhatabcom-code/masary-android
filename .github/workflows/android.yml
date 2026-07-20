@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 jobs:
   build-debug-apks:
@@ -34,26 +32,7 @@ jobs:
         run: gradle wrapper --gradle-version 8.11.1
 
       - name: Run student unit tests
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          set +e
-          ./gradlew :app-student:testDebugUnitTest --console=plain > "$RUNNER_TEMP/student-tests.log" 2>&1
-          status=$?
-          if [[ $status -ne 0 && "${{ github.event_name }}" == "pull_request" ]]; then
-            {
-              echo "### Android CI diagnostic"
-              echo
-              echo '```text'
-              tail -n 100 "$RUNNER_TEMP/student-tests.log"
-              echo '```'
-            } > "$RUNNER_TEMP/student-tests-comment.md"
-            gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/student-tests-comment.md"
-          fi
-          cat "$RUNNER_TEMP/student-tests.log"
-          exit $status
+        run: ./gradlew :app-student:testDebugUnitTest
 
       - name: Build student debug APK
         run: ./gradlew :app-student:assembleDebug
