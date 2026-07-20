@@ -13,6 +13,7 @@ DirectoryIndex index.php
   RewriteRule ^v1/auth/student/login/?$ v1/auth/student/login.php [L,QSA]
   RewriteRule ^v1/auth/refresh/?$ v1/auth/refresh.php [L,QSA]
   RewriteRule ^v1/auth/logout/?$ v1/auth/logout.php [L,QSA]
+  RewriteRule ^v1/student/home/?$ v1/student/home.php [L,QSA]
   RewriteRule ^v1/me/?$ v1/me.php [L,QSA]
 </IfModule>
 

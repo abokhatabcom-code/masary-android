@@ -1,10 +1,11 @@
 package app.masary.core.network
 
 import app.masary.core.network.auth.StudentAuthApi
+import app.masary.core.network.home.StudentHomeApi
 import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl
-import okhttp3.OkHttpClient
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -17,12 +18,22 @@ object MasaryNetwork {
     ): StudentAuthApi = studentAuthApi(baseUrl.toHttpUrl(), client)
 
     fun studentAuthApi(baseUrl: HttpUrl, client: OkHttpClient = defaultClient()): StudentAuthApi =
+        retrofit(baseUrl, client).create(StudentAuthApi::class.java)
+
+    fun studentHomeApi(
+        baseUrl: String = PRODUCTION_BASE_URL,
+        client: OkHttpClient = defaultClient(),
+    ): StudentHomeApi = studentHomeApi(baseUrl.toHttpUrl(), client)
+
+    fun studentHomeApi(baseUrl: HttpUrl, client: OkHttpClient = defaultClient()): StudentHomeApi =
+        retrofit(baseUrl, client).create(StudentHomeApi::class.java)
+
+    private fun retrofit(baseUrl: HttpUrl, client: OkHttpClient): Retrofit =
         Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(StudentAuthApi::class.java)
 
     private fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
