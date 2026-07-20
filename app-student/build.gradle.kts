@@ -64,6 +64,7 @@ android {
 dependencies {
     implementation(project(":core-ui"))
     implementation(project(":feature-auth"))
+    implementation(project(":feature-home"))
     implementation(project(":core-datastore"))
     implementation(project(":core-security"))
     implementation(libs.androidx.core.ktx)
@@ -79,6 +80,7 @@ dependencies {
 tasks.matching { it.name == "testDebugUnitTest" }.configureEach {
     dependsOn(
         ":feature-auth:testDebugUnitTest",
+        ":feature-home:testDebugUnitTest",
         ":core-network:testDebugUnitTest",
         ":core-datastore:testDebugUnitTest",
         ":core-security:testDebugUnitTest",
