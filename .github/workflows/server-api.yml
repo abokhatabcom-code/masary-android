@@ -1,0 +1,64 @@
+name: Hostinger API
+
+on:
+  pull_request:
+    paths:
+      - "server-hostinger/**"
+      - ".github/workflows/server-api.yml"
+  push:
+    branches: [main]
+    paths:
+      - "server-hostinger/**"
+      - ".github/workflows/server-api.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-hostinger-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+
+      - name: Validate PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find server-hostinger -type f -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Reject committed private material
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find server-hostinger -type f \( \
+              -name '*.env' -o -name '*.jks' -o -name '*.keystore' \
+              -o -name 'token_pepper.key' -o -name '*credentials*' \
+            \) -print -quit | grep -q .; then
+            echo 'Private material must not be committed.' >&2
+            exit 1
+          fi
+
+      - name: Build Hostinger upload package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cd server-hostinger
+          zip -r ../dist/masary-hostinger-api.zip public_html database README.md
+
+      - name: Upload Hostinger API artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-hostinger-api
+          path: dist/masary-hostinger-api.zip
+          if-no-files-found: error
+          retention-days: 14
