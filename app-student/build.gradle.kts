@@ -62,6 +62,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core-models"))
     implementation(project(":core-ui"))
     implementation(project(":feature-auth"))
     implementation(project(":feature-home"))
