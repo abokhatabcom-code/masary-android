@@ -72,7 +72,6 @@ jobs:
       MASARY_KEYSTORE_PASSWORD: ${{ secrets.MASARY_KEYSTORE_PASSWORD }}
       MASARY_KEY_ALIAS: ${{ secrets.MASARY_KEY_ALIAS }}
       MASARY_KEY_PASSWORD: ${{ secrets.MASARY_KEY_PASSWORD }}
-      MASARY_KEYSTORE_PATH: ${{ runner.temp }}/masary-signing.jks
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -83,6 +82,10 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: gradle
+
+      - name: Initialize signing runtime
+        shell: bash
+        run: echo "MASARY_KEYSTORE_PATH=$RUNNER_TEMP/masary-signing.jks" >> "$GITHUB_ENV"
 
       - name: Validate signing secrets
         shell: bash
@@ -157,4 +160,4 @@ jobs:
 
       - name: Remove temporary keystore
         if: always()
-        run: rm -f "$MASARY_KEYSTORE_PATH"
+        run: rm -f "${MASARY_KEYSTORE_PATH:-${RUNNER_TEMP}/masary-signing.jks}"
