@@ -12,123 +12,165 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val MasaryPurple = Color(0xFF6B4BB8)
-private val MasaryPurpleDark = Color(0xFF4E328F)
-private val MasaryPurpleSoft = Color(0xFFECE5FF)
-private val MasaryGold = Color(0xFFFFC857)
-private val MasaryNavy = Color(0xFF17223B)
-private val MasaryInk = Color(0xFF201A2B)
-private val MasaryMuted = Color(0xFF6F6878)
-private val MasarySurface = Color(0xFFFFF9FF)
-private val MasarySurfaceAlt = Color(0xFFF5F0F8)
-private val MasarySuccess = Color(0xFF197A55)
-private val MasaryError = Color(0xFFB3261E)
+private val MasaryNavy = Color(0xFF061A45)
+private val MasaryNavyDeep = Color(0xFF041432)
+private val MasaryNavySoft = Color(0xFF14213D)
+private val MasaryGold = Color(0xFFDAA545)
+private val MasaryGoldBright = Color(0xFFF2C14E)
+private val MasaryWhite = Color(0xFFFFFFFF)
+private val MasaryBackground = Color(0xFFF6F8FC)
+private val MasaryWarm = Color(0xFFFFF9EC)
+private val MasaryIce = Color(0xFFEAF2FF)
+private val MasaryMuted = Color(0xFF6F7A90)
+private val MasaryBorder = Color(0xFFE4E9F1)
+private val MasarySuccess = Color(0xFF2ECC71)
+private val MasaryWarning = Color(0xFFF39C12)
+private val MasaryError = Color(0xFFE74C3C)
+private val MasaryInfo = Color(0xFF3498DB)
 
 private val MasaryLightColors = lightColorScheme(
-    primary = MasaryPurple,
-    onPrimary = Color.White,
-    primaryContainer = MasaryPurpleSoft,
-    onPrimaryContainer = MasaryPurpleDark,
+    primary = MasaryNavy,
+    onPrimary = MasaryWhite,
+    primaryContainer = MasaryIce,
+    onPrimaryContainer = MasaryNavyDeep,
     secondary = MasaryGold,
-    onSecondary = Color(0xFF3B2A00),
-    secondaryContainer = Color(0xFFFFE7AD),
-    onSecondaryContainer = Color(0xFF2D2000),
-    tertiary = MasaryNavy,
-    onTertiary = Color.White,
-    background = MasarySurface,
-    onBackground = MasaryInk,
-    surface = Color.White,
-    onSurface = MasaryInk,
-    surfaceVariant = MasarySurfaceAlt,
+    onSecondary = MasaryNavyDeep,
+    secondaryContainer = MasaryWarm,
+    onSecondaryContainer = MasaryNavyDeep,
+    tertiary = MasaryNavySoft,
+    onTertiary = MasaryWhite,
+    background = MasaryBackground,
+    onBackground = MasaryNavyDeep,
+    surface = MasaryWhite,
+    onSurface = MasaryNavyDeep,
+    surfaceVariant = Color(0xFFF0F3F8),
     onSurfaceVariant = MasaryMuted,
-    outline = Color(0xFF827887),
-    outlineVariant = Color(0xFFD5CAD8),
+    outline = Color(0xFFB0B7C3),
+    outlineVariant = MasaryBorder,
     error = MasaryError,
-    onError = Color.White,
+    onError = MasaryWhite,
+    errorContainer = Color(0xFFFFE7E4),
+    onErrorContainer = Color(0xFF7A1B14),
 )
 
 private val MasaryDarkColors = darkColorScheme(
-    primary = Color(0xFFD0BCFF),
-    onPrimary = Color(0xFF38206E),
-    primaryContainer = Color(0xFF51358B),
-    onPrimaryContainer = Color(0xFFEADDFF),
-    secondary = Color(0xFFFFD980),
-    onSecondary = Color(0xFF402D00),
-    secondaryContainer = Color(0xFF5C4200),
-    onSecondaryContainer = Color(0xFFFFDEA1),
-    tertiary = Color(0xFFBFC8E8),
-    onTertiary = Color(0xFF29314B),
-    background = Color(0xFF151218),
-    onBackground = Color(0xFFEAE1EC),
-    surface = Color(0xFF1D1A20),
-    onSurface = Color(0xFFEAE1EC),
-    surfaceVariant = Color(0xFF49454E),
-    onSurfaceVariant = Color(0xFFCCC3CF),
-    outline = Color(0xFF968E99),
-    outlineVariant = Color(0xFF49454E),
+    primary = MasaryGoldBright,
+    onPrimary = MasaryNavyDeep,
+    primaryContainer = Color(0xFF10285B),
+    onPrimaryContainer = MasaryWhite,
+    secondary = MasaryGold,
+    onSecondary = MasaryNavyDeep,
+    secondaryContainer = Color(0xFF493718),
+    onSecondaryContainer = Color(0xFFFFE8B0),
+    tertiary = Color(0xFFB9C8E6),
+    onTertiary = MasaryNavyDeep,
+    background = MasaryNavyDeep,
+    onBackground = Color(0xFFF3F6FC),
+    surface = Color(0xFF0B214A),
+    onSurface = Color(0xFFF7F9FC),
+    surfaceVariant = Color(0xFF17305E),
+    onSurfaceVariant = Color(0xFFC6CEE0),
+    outline = Color(0xFF8A96AE),
+    outlineVariant = Color(0xFF31476E),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
+    errorContainer = Color(0xFF7A271F),
+    onErrorContainer = Color(0xFFFFDAD5),
 )
 
 private val MasaryTypography = Typography(
     displayLarge = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize = 44.sp,
-        lineHeight = 54.sp,
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 42.sp,
+        lineHeight = 52.sp,
     ),
     displayMedium = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 46.sp,
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 34.sp,
+        lineHeight = 44.sp,
     ),
     headlineLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Bold,
-        fontSize = 30.sp,
-        lineHeight = 40.sp,
+        fontSize = 29.sp,
+        lineHeight = 39.sp,
     ),
     headlineMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Bold,
-        fontSize = 26.sp,
-        lineHeight = 36.sp,
+        fontSize = 25.sp,
+        lineHeight = 35.sp,
     ),
     titleLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        lineHeight = 30.sp,
+        fontSize = 21.sp,
+        lineHeight = 29.sp,
     ),
     titleMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
         fontSize = 17.sp,
         lineHeight = 25.sp,
     ),
+    titleSmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+    ),
     bodyLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
         fontSize = 17.sp,
         lineHeight = 28.sp,
     ),
     bodyMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
         fontSize = 15.sp,
         lineHeight = 24.sp,
     ),
+    bodySmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 20.sp,
+    ),
     labelLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
         fontSize = 15.sp,
         lineHeight = 22.sp,
     ),
+    labelMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
+        fontSize = 13.sp,
+        lineHeight = 19.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
+    ),
 )
 
 private val MasaryShapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp),
-    small = RoundedCornerShape(14.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(28.dp),
-    extraLarge = RoundedCornerShape(36.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(30.dp),
 )
 
 @Immutable
@@ -141,15 +183,38 @@ data class MasarySpacing(
     val xxLarge: Dp = 48.dp,
 )
 
+@Immutable
+data class MasaryElevation(
+    val flat: Dp = 0.dp,
+    val subtle: Dp = 2.dp,
+    val card: Dp = 5.dp,
+    val floating: Dp = 10.dp,
+)
+
 val LocalMasarySpacing = staticCompositionLocalOf { MasarySpacing() }
+val LocalMasaryElevation = staticCompositionLocalOf { MasaryElevation() }
 
 object MasaryColors {
-    val brandPurple = MasaryPurple
-    val brandPurpleDark = MasaryPurpleDark
-    val brandPurpleSoft = MasaryPurpleSoft
-    val brandGold = MasaryGold
     val brandNavy = MasaryNavy
+    val brandNavyDeep = MasaryNavyDeep
+    val brandNavySoft = MasaryNavySoft
+    val brandGold = MasaryGold
+    val brandGoldBright = MasaryGoldBright
+    val white = MasaryWhite
+    val background = MasaryBackground
+    val warmSurface = MasaryWarm
+    val iceSurface = MasaryIce
+    val muted = MasaryMuted
+    val border = MasaryBorder
     val success = MasarySuccess
+    val warning = MasaryWarning
+    val error = MasaryError
+    val info = MasaryInfo
+
+    // Temporary compatibility aliases for modules that have not yet moved to the official palette.
+    val brandPurple = MasaryNavy
+    val brandPurpleDark = MasaryNavyDeep
+    val brandPurpleSoft = MasaryIce
 }
 
 @Composable

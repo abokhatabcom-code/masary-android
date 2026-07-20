@@ -1,12 +1,15 @@
 <resources>
-    <string name="home_greeting">أهلًا، %1$s</string>
-    <string name="home_subtitle">موجّهك الدراسي وبياناتك الحقيقية في مكان واحد</string>
+    <string name="home_greeting">مرحبًا %1$s 👋</string>
+    <string name="home_subtitle">واصل طريقك الواضح نحو التميز</string>
     <string name="home_notifications">الإشعارات</string>
     <string name="home_refresh">تحديث الصفحة</string>
     <string name="home_loading">نجهّز صفحتك الرئيسية…</string>
     <string name="home_load_error">تعذر تحميل بيانات الصفحة الرئيسية</string>
     <string name="home_retry">إعادة المحاولة</string>
     <string name="home_overview">نظرة سريعة</string>
+    <string name="home_your_points">نقاطك</string>
+    <string name="home_points_label">نقطة</string>
+    <string name="home_next_level">الهدف التالي عند %1$d نقطة</string>
     <string name="home_gems">الجواهر</string>
     <string name="home_streak">سلسلة الإنجاز</string>
     <string name="home_level">المستوى</string>
@@ -27,8 +30,9 @@
     <string name="home_guide_reward">+%1$d جوهرة</string>
     <string name="home_guide_completed">اكتملت</string>
     <string name="home_guide_pending">الخطوة التالية</string>
+    <string name="home_guide_waiting">سيظهر اقتراح الموجّه الدراسي هنا فور تجهيزه من النظام.</string>
     <string name="home_guide_action_unavailable">سيتم فتح هذه الخطوة داخل صفحة المادة الأصلية عند ربطها في المرحلة التالية.</string>
-    <string name="home_streak_status">حالة سلسلة الإنجاز</string>
+    <string name="home_streak_status">سلسلة الإنجاز</string>
     <string name="home_streak_best">أفضل سلسلة: %1$d يوم</string>
     <string name="home_streak_shields">الدروع: %1$d من %2$d</string>
     <string name="home_streak_goal">هدفك: %1$d يوم</string>
@@ -41,7 +45,7 @@
     <string name="nav_ranking">الترتيب</string>
     <string name="nav_profile">حسابي</string>
     <string name="coming_soon_title">%1$s قيد التجهيز</string>
-    <string name="coming_soon_body">نبني هذا القسم بنفس مستوى الصفحة الرئيسية، وسيُربط ببيانات المنصة الحقيقية في مرحلته الخاصة.</string>
+    <string name="coming_soon_body">نبني هذا القسم بنفس الهوية الرسمية، وسيُربط ببيانات المنصة الحقيقية في مرحلته الخاصة.</string>
     <string name="profile_title">حساب الطالب</string>
     <string name="profile_username">اسم المستخدم: %1$s</string>
     <string name="profile_session_secure">الجلسة مشفرة ومحفوظة بأمان على هذا الجهاز.</string>
