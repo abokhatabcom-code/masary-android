@@ -40,6 +40,7 @@ class LoginViewModelTest {
             assertEquals("test-device", device)
             Result.success(authenticated)
         }, sessions)
+        advanceUntilIdle()
 
         viewModel.login("student", "valid")
         assertEquals(LoginUiState.Loading, viewModel.state.value)
@@ -53,6 +54,7 @@ class LoginViewModelTest {
     @Test fun `failed login exposes error and does not create session`() = runTest(dispatcher) {
         val sessions = FakeSessionManager()
         val viewModel = viewModel(AuthRepository { _, _, _ -> Result.failure(Exception("مرفوض")) }, sessions)
+        advanceUntilIdle()
 
         viewModel.login("student", "wrong")
         advanceUntilIdle()
@@ -76,6 +78,7 @@ class LoginViewModelTest {
     @Test fun `second click is ignored while loading`() = runTest(dispatcher) {
         var calls = 0
         val viewModel = viewModel(AuthRepository { _, _, _ -> calls++; Result.success(authenticated) }, FakeSessionManager())
+        advanceUntilIdle()
 
         viewModel.login("student", "valid")
         viewModel.login("student", "valid")
@@ -84,9 +87,10 @@ class LoginViewModelTest {
         assertEquals(1, calls)
     }
 
-    @Test fun `existing session is restored and logout clears session and tokens`() = runTest(dispatcher) {
+    @Test fun `existing valid session is restored and logout clears session and tokens`() = runTest(dispatcher) {
         val existing = StudentSession("42", "student", "سارة")
-        val sessions = FakeSessionManager(existing)
+        val tokens = AuthTokens("access", "refresh", 3600)
+        val sessions = FakeSessionManager(existing, tokens)
         val viewModel = viewModel(AuthRepository { _, _, _ -> error("unused") }, sessions)
         advanceUntilIdle()
         assertEquals(LoginUiState.Success(existing), viewModel.state.value)
@@ -98,20 +102,58 @@ class LoginViewModelTest {
         assertEquals(true, sessions.cleared)
     }
 
+    @Test fun `expired access token is refreshed during restoration`() = runTest(dispatcher) {
+        val existing = StudentSession("42", "student", "سارة")
+        val expired = AuthTokens("expired", "refresh", 1, 1)
+        val refreshed = AuthTokens("new-access", "new-refresh", 900, Long.MAX_VALUE)
+        val sessions = FakeSessionManager(existing, expired)
+        val repository = object : AuthRepository {
+            override suspend fun login(
+                username: String,
+                password: CharArray,
+                deviceName: String,
+            ): Result<AuthenticatedStudent> = error("unused")
+
+            override suspend fun refresh(refreshToken: String): Result<AuthTokens> = Result.success(refreshed)
+        }
+
+        val viewModel = viewModel(repository, sessions)
+        advanceUntilIdle()
+
+        assertEquals(LoginUiState.Success(existing), viewModel.state.value)
+        assertEquals(refreshed, sessions.tokens)
+    }
+
     private fun viewModel(repository: AuthRepository, sessions: FakeSessionManager) =
         LoginViewModel(repository, sessions, "test-device")
 }
 
-private class FakeSessionManager(initial: StudentSession? = null) : SessionManager {
+private class FakeSessionManager(
+    initial: StudentSession? = null,
+    initialTokens: AuthTokens? = null,
+) : SessionManager {
     private val mutableSession = MutableStateFlow(initial)
     override val session = mutableSession
     var saved: AuthenticatedStudent? = null
+    var tokens: AuthTokens? = initialTokens
     var cleared = false
 
     override suspend fun save(authenticatedStudent: AuthenticatedStudent) {
         saved = authenticatedStudent
+        tokens = authenticatedStudent.tokens
         val student = authenticatedStudent.student
         mutableSession.value = StudentSession(student.id, student.username, student.displayName)
     }
-    override suspend fun clear() { cleared = true; mutableSession.value = null }
+
+    override suspend fun readTokens(): AuthTokens? = tokens
+
+    override suspend fun updateTokens(tokens: AuthTokens) {
+        this.tokens = tokens
+    }
+
+    override suspend fun clear() {
+        cleared = true
+        tokens = null
+        mutableSession.value = null
+    }
 }
