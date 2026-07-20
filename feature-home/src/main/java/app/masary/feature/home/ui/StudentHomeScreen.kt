@@ -1,6 +1,7 @@
 package app.masary.feature.home.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,7 +42,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -211,10 +210,11 @@ private fun HomeStateContent(
         )
 
         is HomeUiState.Error -> {
-            if (state.previousData != null) {
+            val previousData = state.previousData
+            if (previousData != null) {
                 HomeContent(
                     session = session,
-                    data = state.previousData,
+                    data = previousData,
                     isRefreshing = false,
                     errorMessage = state.message,
                     onRefresh = onRefresh,
@@ -260,7 +260,6 @@ private fun HomeError(message: String, onRetry: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MasaryColors.background)
             .statusBarsPadding()
             .padding(24.dp),
         contentAlignment = Alignment.Center,
@@ -352,10 +351,7 @@ private fun HomeContent(
         }
         item {
             Box(Modifier.padding(horizontal = 18.dp)) {
-                SmartGuideCard(
-                    guide = data.smartGuide,
-                    onGuideStep = onGuideStep,
-                )
+                SmartGuideCard(data.smartGuide, onGuideStep)
             }
         }
         item {
@@ -403,49 +399,9 @@ private fun BrandHomeHeader(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MasaryBrandLockup(logoSize = 46.dp, inverse = true)
                 Spacer(Modifier.weight(1f))
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.12f),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Diamond,
-                            contentDescription = null,
-                            tint = MasaryColors.brandGoldBright,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = gems.toString(),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
+                GemPill(gems)
                 Spacer(Modifier.width(8.dp))
-                BadgedBox(
-                    badge = {
-                        if (unreadCount > 0) {
-                            Badge(containerColor = MasaryColors.error) {
-                                Text(if (unreadCount > 99) "99+" else unreadCount.toString())
-                            }
-                        }
-                    },
-                ) {
-                    Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.12f)) {
-                        IconButton(onClick = onNotifications) {
-                            Icon(
-                                imageVector = Icons.Outlined.NotificationsNone,
-                                contentDescription = stringResource(R.string.home_notifications),
-                                tint = Color.White,
-                            )
-                        }
-                    }
-                }
+                NotificationButton(unreadCount, onNotifications)
             }
             Spacer(Modifier.height(22.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -465,23 +421,7 @@ private fun BrandHomeHeader(
                         color = Color.White.copy(alpha = 0.72f),
                     )
                     Spacer(Modifier.height(7.dp))
-                    Surface(
-                        shape = CircleShape,
-                        color = if (subscriptionActive) {
-                            MasaryColors.success.copy(alpha = 0.18f)
-                        } else {
-                            Color.White.copy(alpha = 0.10f)
-                        },
-                    ) {
-                        Text(
-                            text = stringResource(
-                                if (subscriptionActive) R.string.home_subscription_active else R.string.home_subscription_inactive,
-                            ),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (subscriptionActive) Color(0xFF8EF0BC) else Color.White.copy(alpha = 0.7f),
-                        )
-                    }
+                    SubscriptionPill(subscriptionActive)
                 }
                 IconButton(onClick = onRefresh, enabled = !isRefreshing) {
                     if (isRefreshing) {
@@ -500,6 +440,70 @@ private fun BrandHomeHeader(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GemPill(gems: Int) {
+    Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.12f)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Diamond,
+                contentDescription = null,
+                tint = MasaryColors.brandGoldBright,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = gems.toString(),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun NotificationButton(unreadCount: Int, onNotifications: () -> Unit) {
+    BadgedBox(
+        badge = {
+            if (unreadCount > 0) {
+                Badge(containerColor = MasaryColors.error) {
+                    Text(if (unreadCount > 99) "99+" else unreadCount.toString())
+                }
+            }
+        },
+    ) {
+        Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.12f)) {
+            IconButton(onClick = onNotifications) {
+                Icon(
+                    imageVector = Icons.Outlined.NotificationsNone,
+                    contentDescription = stringResource(R.string.home_notifications),
+                    tint = Color.White,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionPill(active: Boolean) {
+    Surface(
+        shape = CircleShape,
+        color = if (active) MasaryColors.success.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.10f),
+    ) {
+        Text(
+            text = stringResource(
+                if (active) R.string.home_subscription_active else R.string.home_subscription_inactive,
+            ),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (active) Color(0xFF8EF0BC) else Color.White.copy(alpha = 0.7f),
+        )
     }
 }
 
@@ -592,11 +596,7 @@ private fun LevelHeroCard(data: StudentHomeData) {
                             )
                         }
                     }
-                    Surface(
-                        shape = CircleShape,
-                        color = MasaryColors.brandGoldBright,
-                        shadowElevation = 4.dp,
-                    ) {
+                    Surface(shape = CircleShape, color = MasaryColors.brandGoldBright) {
                         Icon(
                             imageVector = Icons.Outlined.EmojiEvents,
                             contentDescription = null,
@@ -622,10 +622,7 @@ private fun LevelHeroCard(data: StudentHomeData) {
                 Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator(
                     progress = { data.summary.levelPercent.coerceIn(0, 100) / 100f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(CircleShape),
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
                     color = MasaryColors.brandGoldBright,
                     trackColor = Color.White.copy(alpha = 0.16f),
                 )
@@ -692,7 +689,7 @@ private fun BrandedMetric(
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 13.dp),
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 13.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Surface(shape = CircleShape, color = accent.copy(alpha = 0.13f)) {
@@ -791,14 +788,10 @@ private fun SmartGuideCard(
                     )
                     Spacer(Modifier.height(12.dp))
                 }
-
                 if (guide.totalSteps > 0) {
                     LinearProgressIndicator(
                         progress = { guide.completionPercent.coerceIn(0, 100) / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(7.dp)
-                            .clip(CircleShape),
+                        modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
                         color = MasaryColors.brandGoldBright,
                         trackColor = MasaryColors.border,
                     )
@@ -813,7 +806,6 @@ private fun SmartGuideCard(
                         color = MasaryColors.muted,
                     )
                 }
-
                 if (guide.steps.isNotEmpty()) {
                     Spacer(Modifier.height(14.dp))
                     val nextStep = guide.nextPendingStep
@@ -862,7 +854,7 @@ private fun GuideStepRow(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         color = container,
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             when {
                 completed -> MasaryColors.success.copy(alpha = 0.28f)
@@ -875,7 +867,11 @@ private fun GuideStepRow(
             Row(verticalAlignment = Alignment.Top) {
                 Surface(
                     shape = CircleShape,
-                    color = if (completed) MasaryColors.success.copy(alpha = 0.14f) else MasaryColors.brandGoldBright.copy(alpha = 0.2f),
+                    color = if (completed) {
+                        MasaryColors.success.copy(alpha = 0.14f)
+                    } else {
+                        MasaryColors.brandGoldBright.copy(alpha = 0.2f)
+                    },
                 ) {
                     Icon(
                         imageVector = if (completed) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
@@ -908,7 +904,6 @@ private fun GuideStepRow(
                     color = if (completed) MasaryColors.success else MasaryColors.brandGold,
                 )
             }
-
             if (step.reasonText.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -917,7 +912,6 @@ private fun GuideStepRow(
                     color = MasaryColors.muted,
                 )
             }
-
             Spacer(Modifier.height(11.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (step.estimatedMinutes > 0) {
@@ -1030,7 +1024,11 @@ private fun ContinueJourneyCard(
                 ),
             ) {
                 Text(
-                    text = if (item.available) item.label.ifBlank { stringResource(R.string.home_continue) } else stringResource(R.string.home_browse_subjects),
+                    text = if (item.available) {
+                        item.label.ifBlank { stringResource(R.string.home_continue) }
+                    } else {
+                        stringResource(R.string.home_browse_subjects)
+                    },
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -1074,7 +1072,9 @@ private fun StreakStatusCard(data: StudentHomeData) {
                         color = Color.White,
                     )
                     Text(
-                        text = streak.message.ifBlank { stringResource(R.string.home_streak_best, streak.bestDays) },
+                        text = streak.message.ifBlank {
+                            stringResource(R.string.home_streak_best, streak.bestDays)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.7f),
                     )
@@ -1089,22 +1089,28 @@ private fun StreakStatusCard(data: StudentHomeData) {
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DarkInfoChip(stringResource(R.string.home_streak_best, streak.bestDays))
-                DarkInfoChip(stringResource(R.string.home_streak_shields, streak.protectionCount, streak.protectionMax))
+                DarkInfoChip(
+                    stringResource(
+                        R.string.home_streak_shields,
+                        streak.protectionCount,
+                        streak.protectionMax,
+                    ),
+                )
             }
             if (streak.goal.days > 0) {
                 Spacer(Modifier.height(14.dp))
                 LinearProgressIndicator(
                     progress = { streak.goal.progressPercent.coerceIn(0, 100) / 100f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(7.dp)
-                        .clip(CircleShape),
+                    modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
                     color = MasaryColors.brandGoldBright,
                     trackColor = Color.White.copy(alpha = 0.15f),
                 )
                 Spacer(Modifier.height(7.dp))
                 Text(
-                    text = stringResource(R.string.home_streak_goal_remaining, streak.goal.remainingDays),
+                    text = stringResource(
+                        R.string.home_streak_goal_remaining,
+                        streak.goal.remainingDays,
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.72f),
                 )
@@ -1150,7 +1156,6 @@ private fun ComingSoonSection(destination: StudentDestination) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MasaryColors.background)
             .statusBarsPadding()
             .padding(22.dp),
         contentAlignment = Alignment.Center,
@@ -1202,9 +1207,7 @@ private fun ProfileSection(
     onLogout: () -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MasaryColors.background),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 28.dp),
     ) {
         item {
@@ -1235,7 +1238,8 @@ private fun ProfileSection(
                     StudentAvatar(data?.student?.displayName ?: session.displayName)
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = data?.student?.displayName?.ifBlank { session.displayName } ?: session.displayName,
+                        text = data?.student?.displayName?.ifBlank { session.displayName }
+                            ?: session.displayName,
                         style = MaterialTheme.typography.headlineMedium,
                         color = Color.White,
                         textAlign = TextAlign.Center,
@@ -1264,9 +1268,21 @@ private fun ProfileSection(
             Column(modifier = Modifier.padding(18.dp)) {
                 if (data != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        ProfileMetric(Modifier.weight(1f), data.summary.globalXp.toString(), stringResource(R.string.home_points_label))
-                        ProfileMetric(Modifier.weight(1f), data.summary.gems.toString(), stringResource(R.string.home_gems))
-                        ProfileMetric(Modifier.weight(1f), data.streak.currentDays.toString(), stringResource(R.string.home_days, data.streak.currentDays))
+                        ProfileMetric(
+                            Modifier.weight(1f),
+                            data.summary.globalXp.toString(),
+                            stringResource(R.string.home_points_label),
+                        )
+                        ProfileMetric(
+                            Modifier.weight(1f),
+                            data.summary.gems.toString(),
+                            stringResource(R.string.home_gems),
+                        )
+                        ProfileMetric(
+                            Modifier.weight(1f),
+                            data.streak.currentDays.toString(),
+                            stringResource(R.string.home_streak),
+                        )
                     }
                     Spacer(Modifier.height(16.dp))
                 }
@@ -1293,7 +1309,10 @@ private fun ProfileSection(
                             HorizontalDivider(color = MasaryColors.border)
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                text = stringResource(R.string.profile_total_points, data.summary.globalXp),
+                                text = stringResource(
+                                    R.string.profile_total_points,
+                                    data.summary.globalXp,
+                                ),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MasaryColors.brandNavy,
                             )
