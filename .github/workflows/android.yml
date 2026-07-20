@@ -83,14 +83,6 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.11.1"
-
-      - name: Generate Gradle wrapper
-        run: gradle wrapper --gradle-version 8.11.1
-
       - name: Validate signing secrets
         shell: bash
         run: |
@@ -115,6 +107,22 @@ jobs:
           printf '%s' "$MASARY_KEYSTORE_BASE64" | base64 --decode > "$MASARY_KEYSTORE_PATH"
           echo "MASARY_KEYSTORE_PATH=$MASARY_KEYSTORE_PATH" >> "$GITHUB_ENV"
 
+      - name: Verify temporary keystore
+        shell: bash
+        run: |
+          keytool -list \
+            -keystore "$MASARY_KEYSTORE_PATH" \
+            -storepass "$MASARY_KEYSTORE_PASSWORD" \
+            -alias "$MASARY_KEY_ALIAS" >/dev/null
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.11.1
+
       - name: Run student unit tests
         run: ./gradlew :app-student:testDebugUnitTest
 
@@ -126,10 +134,6 @@ jobs:
 
       - name: Build signed POS debug APK
         run: ./gradlew :app-pos:assembleDebug
-
-      - name: Remove temporary keystore
-        if: always()
-        run: rm -f "$RUNNER_TEMP/masary-signing.jks"
 
       - name: Upload signed student debug APK
         uses: actions/upload-artifact@v4
@@ -151,3 +155,7 @@ jobs:
           name: masary-pos-signed-debug-apk
           path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
           if-no-files-found: error
+
+      - name: Remove temporary keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/masary-signing.jks"
