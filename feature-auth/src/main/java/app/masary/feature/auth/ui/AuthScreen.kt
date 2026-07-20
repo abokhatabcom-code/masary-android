@@ -27,6 +27,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,7 +39,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -52,11 +52,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import app.masary.core.models.auth.StudentSession
+import app.masary.core.ui.MasaryBrandMark
 import app.masary.core.ui.MasaryColors
+import app.masary.core.ui.MasaryOrbitDecoration
+import app.masary.core.ui.MasaryWordmark
 import app.masary.feature.auth.R
 
 @Composable
-fun AuthScreen(state: LoginUiState, onLogin: (String, String) -> Unit, onLogout: () -> Unit) {
+fun AuthScreen(
+    state: LoginUiState,
+    onLogin: (String, String) -> Unit,
+    onLogout: () -> Unit,
+) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         when (state) {
             LoginUiState.Restoring -> RestoringSessionScreen()
@@ -67,43 +74,85 @@ fun AuthScreen(state: LoginUiState, onLogin: (String, String) -> Unit, onLogout:
 }
 
 @Composable
+private fun BrandBackground(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MasaryColors.brandNavyDeep,
+                        MasaryColors.brandNavy,
+                        Color(0xFF0A2B61),
+                    ),
+                ),
+            ),
+    ) {
+        MasaryOrbitDecoration(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(210.dp),
+            color = MasaryColors.brandGoldBright,
+        )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 72.dp, start = 24.dp)
+                .size(9.dp),
+            shape = CircleShape,
+            color = MasaryColors.brandGoldBright,
+        ) {}
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 90.dp, end = 26.dp)
+                .size(7.dp),
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.45f),
+        ) {}
+        content()
+    }
+}
+
+@Composable
 private fun RestoringSessionScreen() {
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box(
+    BrandBackground {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.background,
-                        ),
-                    ),
-                )
                 .statusBarsPadding()
-                .navigationBarsPadding(),
-            contentAlignment = Alignment.Center,
+                .navigationBarsPadding()
+                .padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                MasaryMark()
-                Spacer(Modifier.height(24.dp))
-                CircularProgressIndicator(
-                    modifier = Modifier.size(32.dp),
-                    strokeWidth = 3.dp,
-                )
-                Spacer(Modifier.height(18.dp))
-                Text(
-                    text = stringResource(R.string.restoring_session),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-            }
+            MasaryBrandMark(size = 92.dp)
+            Spacer(Modifier.height(18.dp))
+            MasaryWordmark(inverse = true, centered = true)
+            Spacer(Modifier.height(30.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(34.dp),
+                color = MasaryColors.brandGoldBright,
+                trackColor = Color.White.copy(alpha = 0.16f),
+                strokeWidth = 3.dp,
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.restoring_session),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White.copy(alpha = 0.9f),
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
 
 @Composable
-private fun LoginScreen(state: LoginUiState, onLogin: (String, String) -> Unit) {
+private fun LoginScreen(
+    state: LoginUiState,
+    onLogin: (String, String) -> Unit,
+) {
     var studentId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -117,167 +166,170 @@ private fun LoginScreen(state: LoginUiState, onLogin: (String, String) -> Unit) 
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box(
+    BrandBackground {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.background,
-                            MaterialTheme.colorScheme.background,
-                        ),
-                    ),
-                ),
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            DecorativeBackground()
-
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 28.dp),
+                modifier = Modifier.widthIn(max = 520.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
             ) {
-                Column(
-                    modifier = Modifier.widthIn(max = 520.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                MasaryBrandMark(size = 90.dp)
+                Spacer(Modifier.height(14.dp))
+                MasaryWordmark(inverse = true, centered = true)
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text = stringResource(R.string.login_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.login_subtitle),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.75f),
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(24.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
                 ) {
-                    MasaryMark()
-                    Spacer(Modifier.height(18.dp))
-                    Surface(
-                        shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = stringResource(R.string.login_badge),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            text = stringResource(R.string.login_card_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MasaryColors.brandNavy,
                         )
-                    }
-                    Spacer(Modifier.height(18.dp))
-                    Text(
-                        text = stringResource(R.string.login_title),
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(R.string.login_subtitle),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(28.dp))
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.login_card_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MasaryColors.muted,
+                        )
+                        Spacer(Modifier.height(18.dp))
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.large,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            OutlinedTextField(
-                                value = studentId,
-                                onValueChange = { studentId = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !loading,
-                                label = { Text(stringResource(R.string.student_id)) },
-                                supportingText = { Text(stringResource(R.string.student_id_hint)) },
-                                singleLine = true,
-                                shape = MaterialTheme.shapes.medium,
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            OutlinedTextField(
-                                value = password,
-                                onValueChange = { password = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !loading,
-                                label = { Text(stringResource(R.string.password)) },
-                                singleLine = true,
-                                shape = MaterialTheme.shapes.medium,
-                                visualTransformation = if (passwordVisible) {
-                                    VisualTransformation.None
-                                } else {
-                                    PasswordVisualTransformation()
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Password,
-                                    imeAction = ImeAction.Done,
-                                ),
-                                keyboardActions = KeyboardActions(onDone = { submit() }),
-                                trailingIcon = {
-                                    TextButton(
-                                        onClick = { passwordVisible = !passwordVisible },
-                                        enabled = !loading,
-                                    ) {
-                                        Text(
-                                            text = stringResource(
-                                                if (passwordVisible) R.string.hide_password else R.string.show_password,
-                                            ),
-                                        )
-                                    }
-                                },
-                            )
-
-                            if (state is LoginUiState.Error) {
-                                Spacer(Modifier.height(14.dp))
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = MaterialTheme.shapes.medium,
-                                    color = MaterialTheme.colorScheme.errorContainer,
+                        OutlinedTextField(
+                            value = studentId,
+                            onValueChange = { studentId = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !loading,
+                            label = { Text(stringResource(R.string.student_id)) },
+                            placeholder = { Text(stringResource(R.string.student_id_hint)) },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.medium,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            colors = brandTextFieldColors(),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !loading,
+                            label = { Text(stringResource(R.string.password)) },
+                            placeholder = { Text(stringResource(R.string.password_hint)) },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.medium,
+                            visualTransformation = if (passwordVisible) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { submit() }),
+                            trailingIcon = {
+                                TextButton(
+                                    onClick = { passwordVisible = !passwordVisible },
+                                    enabled = !loading,
                                 ) {
                                     Text(
-                                        text = state.message,
-                                        modifier = Modifier.padding(14.dp),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        text = stringResource(
+                                            if (passwordVisible) R.string.hide_password else R.string.show_password,
+                                        ),
+                                        color = MasaryColors.brandNavy,
                                     )
                                 }
-                            }
+                            },
+                            colors = brandTextFieldColors(),
+                        )
 
-                            Spacer(Modifier.height(20.dp))
-                            Button(
-                                onClick = { submit() },
-                                enabled = canSubmit,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp),
-                                shape = MaterialTheme.shapes.medium,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MasaryColors.brandPurple,
-                                    contentColor = Color.White,
-                                ),
+                        if (state is LoginUiState.Error) {
+                            Spacer(Modifier.height(14.dp))
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.small,
+                                color = Color(0xFFFFE8E5),
                             ) {
-                                if (loading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(23.dp),
-                                        strokeWidth = 2.5.dp,
-                                        color = Color.White,
-                                    )
-                                } else {
-                                    Text(
-                                        text = stringResource(R.string.login_action),
-                                        style = MaterialTheme.typography.titleMedium,
-                                    )
-                                }
+                                Text(
+                                    text = state.message,
+                                    modifier = Modifier.padding(13.dp),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF8B241C),
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(20.dp))
+                        Button(
+                            onClick = { submit() },
+                            enabled = canSubmit,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MasaryColors.brandGoldBright,
+                                contentColor = MasaryColors.brandNavyDeep,
+                                disabledContainerColor = MasaryColors.border,
+                                disabledContentColor = MasaryColors.muted,
+                            ),
+                        ) {
+                            if (loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(23.dp),
+                                    strokeWidth = 2.5.dp,
+                                    color = MasaryColors.brandNavy,
+                                )
+                            } else {
+                                Text(
+                                    text = stringResource(R.string.login_action),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
                             }
                         }
                     }
+                }
 
-                    Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(18.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        modifier = Modifier.size(8.dp),
+                        shape = CircleShape,
+                        color = MasaryColors.success,
+                    ) {}
+                    Spacer(Modifier.size(8.dp))
                     Text(
                         text = stringResource(R.string.login_secure_note),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color.White.copy(alpha = 0.78f),
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -287,63 +339,27 @@ private fun LoginScreen(state: LoginUiState, onLogin: (String, String) -> Unit) 
 }
 
 @Composable
-private fun DecorativeBackground() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 48.dp)
-                .size(170.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 40.dp)
-                .size(130.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)),
-        )
-    }
-}
+private fun brandTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = MasaryColors.brandGold,
+    unfocusedBorderColor = MasaryColors.border,
+    focusedLabelColor = MasaryColors.brandNavy,
+    unfocusedLabelColor = MasaryColors.muted,
+    focusedTextColor = MasaryColors.brandNavyDeep,
+    unfocusedTextColor = MasaryColors.brandNavyDeep,
+    cursorColor = MasaryColors.brandNavy,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+)
 
 @Composable
-private fun MasaryMark() {
-    Box(
-        modifier = Modifier
-            .size(78.dp)
-            .clip(MaterialTheme.shapes.large)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(MasaryColors.brandPurple, MasaryColors.brandPurpleDark),
-                ),
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "م",
-            color = Color.White,
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-        )
-    }
-}
-
-@Composable
-private fun StudentScreen(session: StudentSession, onLogout: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+private fun StudentScreen(
+    session: StudentSession,
+    onLogout: () -> Unit,
+) {
+    BrandBackground {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.background,
-                        ),
-                    ),
-                )
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(24.dp),
@@ -352,32 +368,36 @@ private fun StudentScreen(session: StudentSession, onLogout: () -> Unit) {
             Card(
                 modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    MasaryMark()
-                    Spacer(Modifier.height(20.dp))
+                    MasaryBrandMark(size = 76.dp)
+                    Spacer(Modifier.height(18.dp))
                     Text(
                         text = stringResource(R.string.student_screen_title, session.displayName),
                         style = MaterialTheme.typography.headlineMedium,
+                        color = MasaryColors.brandNavy,
                         textAlign = TextAlign.Center,
                     )
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.student_screen_placeholder),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MasaryColors.muted,
                         textAlign = TextAlign.Center,
                     )
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(22.dp))
                     Button(
                         onClick = onLogout,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MasaryColors.brandNavy,
+                            contentColor = Color.White,
+                        ),
                     ) {
                         Text(stringResource(R.string.logout))
                     }
