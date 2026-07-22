@@ -7,14 +7,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.datastore.preferences.preferencesDataStore
 import app.masary.core.datastore.DataStoreSessionManager
+import app.masary.core.datastore.DataStoreOnboardingStore
 import app.masary.core.security.TokenStoreFactory
 import app.masary.core.ui.MasaryTheme
 import app.masary.feature.auth.data.AuthRepositoryFactory
-import app.masary.feature.auth.ui.AuthRoute
 import app.masary.feature.home.data.HomeRepositoryFactory
-import app.masary.feature.home.ui.StudentHomeRoute
 
 private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "student_session")
+private val ComponentActivity.onboardingDataStore by preferencesDataStore(name = "student_onboarding")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,20 +22,17 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val tokenStore = TokenStoreFactory.create(applicationContext)
         val sessionManager = DataStoreSessionManager(sessionDataStore, tokenStore)
+        val onboardingStore = DataStoreOnboardingStore(onboardingDataStore)
+        val authRepository = AuthRepositoryFactory.create(BuildConfig.MASARY_API_BASE_URL)
         val homeRepository = HomeRepositoryFactory.create(sessionManager, BuildConfig.MASARY_API_BASE_URL)
         setContent {
             MasaryTheme {
-                AuthRoute(
-                    repository = AuthRepositoryFactory.create(BuildConfig.MASARY_API_BASE_URL),
+                MasaryStudentApp(
+                    onboardingStore = onboardingStore,
                     sessionManager = sessionManager,
+                    authRepository = authRepository,
+                    homeRepository = homeRepository,
                     deviceName = Build.MODEL.ifBlank { "Android" },
-                    authenticatedContent = { session, onLogout ->
-                        StudentHomeRoute(
-                            session = session,
-                            repository = homeRepository,
-                            onLogout = onLogout,
-                        )
-                    },
                 )
             }
         }

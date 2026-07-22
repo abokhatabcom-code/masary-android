@@ -1,6 +1,7 @@
 package app.masary.feature.auth.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -15,12 +16,16 @@ fun AuthRoute(
     repository: AuthRepository,
     sessionManager: SessionManager,
     deviceName: String,
+    onAuthenticated: (StudentSession) -> Unit = {},
     authenticatedContent: (@Composable (StudentSession, () -> Unit) -> Unit)? = null,
 ) {
     val viewModel: LoginViewModel = viewModel(
         factory = LoginViewModelFactory(repository, sessionManager, deviceName),
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(state) {
+        (state as? LoginUiState.Success)?.session?.let(onAuthenticated)
+    }
     AuthenticatedContentHost(
         state = state,
         onLogin = viewModel::login,
