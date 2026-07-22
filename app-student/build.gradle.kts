@@ -16,6 +16,18 @@ android {
         versionName = "1.0"
     }
 
+    val environmentUrls = mapOf(
+        "development" to "https://dev.masary.app/",
+        "staging" to "https://staging.masary.app/",
+        "production" to "https://masary.app/",
+    )
+    val requestedEnvironment = providers.gradleProperty("masaryEnvironment").orNull
+    if (requestedEnvironment != null) {
+        require(requestedEnvironment in environmentUrls) {
+            "masaryEnvironment must be one of: ${environmentUrls.keys.joinToString()}"
+        }
+    }
+
     val masarySigningValues = listOf(
         System.getenv("MASARY_KEYSTORE_PATH"),
         System.getenv("MASARY_KEYSTORE_PASSWORD"),
@@ -40,11 +52,20 @@ android {
 
     buildTypes {
         debug {
+            val environment = requestedEnvironment ?: "development"
+            buildConfigField("String", "MASARY_ENVIRONMENT", "\"$environment\"")
+            buildConfigField("String", "MASARY_API_BASE_URL", "\"${environmentUrls.getValue(environment)}\"")
             if (hasMasarySigning) {
                 signingConfig = signingConfigs.getByName("masary")
             }
         }
         release {
+            val environment = requestedEnvironment ?: "production"
+            require(environment != "development") {
+                "Release builds cannot target the development API"
+            }
+            buildConfigField("String", "MASARY_ENVIRONMENT", "\"$environment\"")
+            buildConfigField("String", "MASARY_API_BASE_URL", "\"${environmentUrls.getValue(environment)}\"")
             if (hasMasarySigning) {
                 signingConfig = signingConfigs.getByName("masary")
             }
@@ -58,7 +79,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 }
 
 dependencies {

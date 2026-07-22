@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "data": {
+    "logged_out": true
+  },
+  "error": null,
+  "request_id": "contract-logout"
+}

@@ -7,7 +7,7 @@ import app.masary.feature.home.domain.HomeRepository
 object HomeRepositoryFactory {
     fun create(
         sessionManager: SessionManager,
-        baseUrl: String = MasaryNetwork.PRODUCTION_BASE_URL,
+        baseUrl: String,
     ): HomeRepository = NetworkHomeRepository(
         homeApi = MasaryNetwork.studentHomeApi(baseUrl),
         authApi = MasaryNetwork.studentAuthApi(baseUrl),

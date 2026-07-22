@@ -32,6 +32,9 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
+      - name: Validate API contract
+        run: python3 scripts/validate-api-contract.py
+
       - name: Run unit tests and Android lint
         run: ./gradlew --no-daemon test lint
 
@@ -131,6 +134,9 @@ jobs:
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
+
+      - name: Validate API contract
+        run: python3 scripts/validate-api-contract.py
 
       - name: Run unit tests and Android lint
         run: ./gradlew --no-daemon test lint

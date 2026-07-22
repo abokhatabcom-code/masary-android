@@ -10,10 +10,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object MasaryNetwork {
-    const val PRODUCTION_BASE_URL = "https://masary.app/"
-
     fun studentAuthApi(
-        baseUrl: String = PRODUCTION_BASE_URL,
+        baseUrl: String,
         client: OkHttpClient = defaultClient(),
     ): StudentAuthApi = studentAuthApi(baseUrl.toHttpUrl(), client)
 
@@ -21,7 +19,7 @@ object MasaryNetwork {
         retrofit(baseUrl, client).create(StudentAuthApi::class.java)
 
     fun studentHomeApi(
-        baseUrl: String = PRODUCTION_BASE_URL,
+        baseUrl: String,
         client: OkHttpClient = defaultClient(),
     ): StudentHomeApi = studentHomeApi(baseUrl.toHttpUrl(), client)
 

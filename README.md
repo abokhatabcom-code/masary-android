@@ -25,7 +25,19 @@ java -version
 
 ```bash
 ./gradlew --no-daemon test lint
+python3 scripts/validate-api-contract.py
 ```
+
+## بيئات API والعقد
+
+تتصل نسخة Debug افتراضيًا ببيئة التطوير، بينما تتصل نسخة Release افتراضيًا
+بالإنتاج. يمكن بناء نسخة موجهة إلى staging باستخدام
+`-PmasaryEnvironment=staging`. يرفض البناء أي اسم بيئة غير معتمد، ويرفض توجيه
+Release إلى development، كي لا يعتمد اختيار الخادم على قيمة تشغيلية مبهمة.
+
+يوجد عقد OpenAPI 3.1 وأمثلة الاستجابات وتعليمات التحديث في
+[`api-contract/README.md`](api-contract/README.md). فحوصات العقد محلية بالكامل؛ لا
+تتصل بالإنتاج ولا تطبق ملف SQL أو تنشر حزمة Hostinger.
 
 ## بناء نسخة Debug
 
