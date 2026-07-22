@@ -1,0 +1,30 @@
+<?php
+// مرجع غير تنفيذي مستخرج من ajax/lookup.php القديم.
+
+// المدن العامة المفعلة، مع قاعدة إلزام المدرسة وربط المنهج.
+SELECT id, name,
+       COALESCE(requires_school, 1) AS requires_school,
+       COALESCE(curriculum_version_id, 0) AS curriculum_version_id
+FROM cities
+WHERE is_active = 1
+ORDER BY name ASC;
+
+// المدارس العامة المفعلة التابعة لمدينة واحدة.
+SELECT id, name
+FROM schools
+WHERE is_active = 1
+  AND COALESCE(student_visibility, 'public') = 'public'
+  AND city_id = :city_id
+ORDER BY directorate ASC, name ASC;
+
+// الصفوف العامة المفعلة.
+SELECT id, name
+FROM grades
+WHERE is_active = 1
+  AND COALESCE(student_visibility, 'public') = 'public'
+ORDER BY sort_order ASC, name ASC;
+
+// حل المنهج الفعلي لا يعرض اختيارًا منفصلًا في التسجيل:
+// school.curriculum_version_id (إن كان مفعّلًا)
+// ثم city.curriculum_version_id (إن كان مفعّلًا)
+// ثم curriculum_versions.name = 'منهج عدن' كافتراضي للبيانات القديمة.
