@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
         val sessionManager = DataStoreSessionManager(sessionDataStore, tokenStore)
         val onboardingStore = DataStoreOnboardingStore(onboardingDataStore)
         val authRepository = AuthRepositoryFactory.create(BuildConfig.MASARY_API_BASE_URL)
+        val registrationRepository = AuthRepositoryFactory.createRegistration(BuildConfig.MASARY_API_BASE_URL)
         val homeRepository = HomeRepositoryFactory.create(sessionManager, BuildConfig.MASARY_API_BASE_URL)
         setContent {
             MasaryTheme {
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
                     onboardingStore = onboardingStore,
                     sessionManager = sessionManager,
                     authRepository = authRepository,
+                    registrationRepository = registrationRepository,
                     homeRepository = homeRepository,
                     deviceName = Build.MODEL.ifBlank { "Android" },
                 )

@@ -39,6 +39,7 @@ import app.masary.core.datastore.SessionManager
 import app.masary.core.ui.MasaryBrandLockup
 import app.masary.core.ui.MasaryColors
 import app.masary.feature.auth.domain.AuthRepository
+import app.masary.feature.auth.domain.RegistrationRepository
 import app.masary.feature.auth.ui.AuthRoute
 import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.ui.StudentHomeRoute
@@ -56,6 +57,7 @@ fun MasaryStudentApp(
     onboardingStore: OnboardingStore,
     sessionManager: SessionManager,
     authRepository: AuthRepository,
+    registrationRepository: RegistrationRepository,
     homeRepository: HomeRepository,
     deviceName: String,
 ) {
@@ -83,6 +85,7 @@ fun MasaryStudentApp(
         composable(AppRoute.Authentication.route) {
             AuthRoute(
                 repository = authRepository,
+                registrationRepository = registrationRepository,
                 sessionManager = sessionManager,
                 deviceName = deviceName,
                 onAuthenticated = startupViewModel::authenticated,

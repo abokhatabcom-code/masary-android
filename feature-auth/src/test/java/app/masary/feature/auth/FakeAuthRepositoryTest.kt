@@ -1,7 +1,7 @@
 package app.masary.feature.auth
 
 import app.masary.core.models.auth.AuthTokens
-import app.masary.core.network.auth.StudentAuthApi
+import app.masary.core.network.auth.*
 import app.masary.core.network.auth.StudentDto
 import app.masary.core.network.auth.StudentLoginDataDto
 import app.masary.core.network.auth.StudentLoginRequestDto
@@ -61,6 +61,11 @@ class NetworkAuthRepositoryTest {
 }
 
 private class RecordingStudentAuthApi : StudentAuthApi {
+    override suspend fun cities() = CitiesResponseDto(true, CitiesDataDto(emptyList()))
+    override suspend fun grades() = GradesResponseDto(true, GradesDataDto(emptyList()))
+    override suspend fun schools(cityId: Long) = SchoolsResponseDto(true, SchoolsDataDto(emptyList()))
+    override suspend fun register(idempotencyKey: String, request: StudentRegistrationRequestDto) = StudentLoginResponseDto(false)
+
     var loginRequest: StudentLoginRequestDto? = null
     var refreshRequest: StudentRefreshRequestDto? = null
     var logoutRequest: StudentLogoutRequestDto? = null

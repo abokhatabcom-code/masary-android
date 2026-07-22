@@ -5,6 +5,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 data class StudentLoginRequestDto(
     val username: String,
@@ -80,6 +81,11 @@ data class StudentDto(
 data class StudentLoginErrorDto(val code: String, val message: String)
 
 interface StudentAuthApi {
+    @GET("/api/v1/registration/cities") suspend fun cities(): CitiesResponseDto
+    @GET("/api/v1/registration/grades") suspend fun grades(): GradesResponseDto
+    @GET("/api/v1/registration/schools") suspend fun schools(@Query("city_id") cityId: Long): SchoolsResponseDto
+    @POST("/api/v1/auth/student/register") suspend fun register(@Header("Idempotency-Key") idempotencyKey: String, @Body request: StudentRegistrationRequestDto): StudentLoginResponseDto
+
     @POST("/api/v1/auth/student/login")
     suspend fun login(@Body request: StudentLoginRequestDto): StudentLoginResponseDto
 
@@ -95,3 +101,20 @@ interface StudentAuthApi {
     @GET("/api/v1/me")
     suspend fun me(@Header("Authorization") authorization: String): StudentMeResponseDto
 }
+
+data class AcademicOptionDto(val id: Long, val name: String)
+data class CityDto(val id: Long, val name: String, @SerializedName("requires_school") val requiresSchool: Boolean)
+data class CitiesDataDto(val cities: List<CityDto>)
+data class GradesDataDto(val grades: List<AcademicOptionDto>)
+data class SchoolsDataDto(val schools: List<AcademicOptionDto>)
+data class CitiesResponseDto(val success: Boolean, val data: CitiesDataDto? = null, val error: StudentLoginErrorDto? = null)
+data class GradesResponseDto(val success: Boolean, val data: GradesDataDto? = null, val error: StudentLoginErrorDto? = null)
+data class SchoolsResponseDto(val success: Boolean, val data: SchoolsDataDto? = null, val error: StudentLoginErrorDto? = null)
+data class StudentRegistrationRequestDto(
+    @SerializedName("full_name") val fullName: String, val username: String, val phone: String?, val email: String?,
+    val password: String, @SerializedName("password_confirmation") val passwordConfirmation: String,
+    val gender: String, @SerializedName("student_personality") val studentPersonality: String?,
+    @SerializedName("city_id") val cityId: Long, @SerializedName("school_id") val schoolId: Long?,
+    @SerializedName("grade_id") val gradeId: Long, @SerializedName("privacy_accept") val privacyAccept: Boolean,
+    @SerializedName("device_name") val deviceName: String,
+) { override fun toString() = "StudentRegistrationRequestDto(username=$username, password=[REDACTED])" }

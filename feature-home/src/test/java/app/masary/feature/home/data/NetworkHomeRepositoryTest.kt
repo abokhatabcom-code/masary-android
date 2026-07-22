@@ -4,7 +4,7 @@ import app.masary.core.datastore.SessionManager
 import app.masary.core.models.auth.AuthenticatedStudent
 import app.masary.core.models.auth.AuthTokens
 import app.masary.core.models.auth.StudentSession
-import app.masary.core.network.auth.StudentAuthApi
+import app.masary.core.network.auth.*
 import app.masary.core.network.auth.StudentLoginRequestDto
 import app.masary.core.network.auth.StudentLoginResponseDto
 import app.masary.core.network.auth.StudentLogoutDataDto
@@ -74,6 +74,11 @@ private class FakeSessionManager(
 }
 
 private class FakeAuthApi : StudentAuthApi {
+    override suspend fun cities() = CitiesResponseDto(true, CitiesDataDto(emptyList()))
+    override suspend fun grades() = GradesResponseDto(true, GradesDataDto(emptyList()))
+    override suspend fun schools(cityId: Long) = SchoolsResponseDto(true, SchoolsDataDto(emptyList()))
+    override suspend fun register(idempotencyKey: String, request: StudentRegistrationRequestDto) = error("Not used")
+
     override suspend fun login(request: StudentLoginRequestDto): StudentLoginResponseDto =
         error("Not used")
 
