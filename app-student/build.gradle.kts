@@ -52,7 +52,7 @@ android {
     fun firebaseValue(environment: String, key: String): String =
         providers.gradleProperty("masaryFirebase${environment.replaceFirstChar(Char::uppercase)}$key").orNull?.trim().orEmpty()
     val firebase = environmentUrls.keys.associateWith { environment ->
-        listOf("ProjectId", "ApplicationId", "ApiKey").associateWith { firebaseValue(environment, it) }
+        listOf("ProjectId", "ApplicationId", "ApiKey", "GcmSenderId").associateWith { firebaseValue(environment, it) }
     }
     firebase.forEach { (environment, values) ->
         check(values.values.all(String::isBlank) || values.values.none(String::isBlank)) {

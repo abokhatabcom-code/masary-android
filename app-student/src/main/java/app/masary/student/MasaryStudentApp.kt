@@ -45,6 +45,7 @@ import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.ui.StudentHomeRoute
 import app.masary.feature.notifications.NotificationPermissionState
 import app.masary.feature.notifications.NotificationSyncCoordinator
+import app.masary.feature.notifications.NotificationDestinationPolicy
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
@@ -65,6 +66,8 @@ fun MasaryStudentApp(
     homeRepository: HomeRepository,
     deviceName: String,
     notificationPermissionState: NotificationPermissionState = NotificationPermissionState.NotRequired,
+    notificationDestination: String? = null,
+    onNotificationDestinationConsumed: () -> Unit = {},
     onNotificationsPermission: () -> Unit = {},
     onOpenNotificationSettings: () -> Unit = {},
 ) {
@@ -113,10 +116,15 @@ fun MasaryStudentApp(
                     repository = homeRepository,
                     onLogout = {
                         scope.launch {
-                            sessionManager.readTokens()?.accessToken?.let { NotificationSyncCoordinator.scheduleUnregister(navController.context, it) }
-                            startupViewModel.logout()
+                            sessionManager.readTokens()?.let { NotificationSyncCoordinator.scheduleUnregister(navController.context, it.accessToken, it.refreshToken) }
+                            startupViewModel.logoutLocally()
                         }
                     },
+                    externalDestination = notificationDestination?.let {
+                        val testActive = navController.context.getSharedPreferences("notification_runtime_v1", 0).getBoolean("educational_test_active", false)
+                        NotificationDestinationPolicy.resolve(it, true, testActive)
+                    },
+                    onExternalDestinationConsumed = onNotificationDestinationConsumed,
                     permissionState = notificationPermissionState,
                     onNotificationsPermission = onNotificationsPermission,
                     onOpenNotificationSettings = onOpenNotificationSettings,

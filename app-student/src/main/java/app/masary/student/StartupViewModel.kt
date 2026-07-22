@@ -72,6 +72,15 @@ class StartupViewModel(
         }
     }
 
+    /** Clears the UI/session immediately; deferred notification worker completes server unregister + logout. */
+    fun logoutLocally() {
+        _state.value = StartupState.Preparing
+        viewModelScope.launch {
+            runCatching { sessionManager.clear() }
+            _state.value = StartupState.NeedsAuthentication
+        }
+    }
+
     private fun prepare() {
         if (_state.value == StartupState.Preparing && preparationStarted) return
         _state.value = StartupState.Preparing

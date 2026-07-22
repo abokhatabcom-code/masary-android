@@ -110,6 +110,8 @@ fun StudentHomeRoute(
     session: StudentSession,
     repository: HomeRepository,
     onLogout: () -> Unit,
+    externalDestination: String? = null,
+    onExternalDestinationConsumed: () -> Unit = {},
     permissionState: NotificationPermissionState = NotificationPermissionState.NotRequired,
     onNotificationsPermission: () -> Unit = {},
     onOpenNotificationSettings: () -> Unit = {},
@@ -122,6 +124,12 @@ fun StudentHomeRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showPermissionExplanation by rememberSaveable { mutableStateOf(permissionState == NotificationPermissionState.NotRequested) }
+    LaunchedEffect(externalDestination) {
+        externalDestination?.let { requested ->
+            destination = StudentDestination.entries.firstOrNull { it.name.equals(requested, ignoreCase = true) } ?: StudentDestination.Home
+            onExternalDestinationConsumed()
+        }
+    }
 
     if (showPermissionExplanation) {
         AlertDialog(
@@ -170,7 +178,9 @@ fun StudentHomeRoute(
                         onRefresh = homeViewModel::refresh,
                         onNotifications = {
                             when (permissionState) {
-                                NotificationPermissionState.NotRequested -> showPermissionExplanation = true
+                                NotificationPermissionState.NotRequested,
+                                NotificationPermissionState.Denied,
+                                -> showPermissionExplanation = true
                                 NotificationPermissionState.PermanentlyDenied -> onOpenNotificationSettings()
                                 else -> Unit
                             }

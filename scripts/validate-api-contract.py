@@ -104,7 +104,9 @@ require("dev.masary.app" not in CONTRACT_TEXT and "staging.masary.app" not in CO
 require("/api/android/v1" in CONTRACT["info"].get("description", ""),
         "the contract must state that the Android-specific path is not implemented")
 
-fixtures = sorted((ROOT / "api-contract/fixtures").glob("*.json"))
+request_fixture = ROOT / "api-contract/fixtures/push-token-request.json"
+validate_schema(json.loads(request_fixture.read_text()), {"$ref": "#/components/schemas/AndroidPushTokenRequest"}, request_fixture.name)
+fixtures = sorted(item for item in (ROOT / "api-contract/fixtures").glob("*.json") if item != request_fixture)
 require({item.name for item in fixtures} == set(FIXTURE_SCHEMAS), "fixture set changed unexpectedly")
 for fixture in fixtures:
     payload = json.loads(fixture.read_text())

@@ -20,6 +20,8 @@ dependencies {
     implementation(project(":core-security"))
     implementation(project(":core-models"))
     implementation(libs.okhttp)
+    implementation(libs.gson)
+    implementation(libs.retrofit.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.firebase.messaging)
     implementation(libs.androidx.work.runtime)

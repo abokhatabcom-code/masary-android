@@ -19,10 +19,21 @@ function api_android_installation_payload(array $payload,bool $tokenRequired): a
     return ['installation_id'=>$installation,'token'=>$token,'app_version'=>substr(trim((string)($payload['app_version']??'')),0,40),'app_build'=>(int)($payload['app_build']??0),'platform'=>$platform,'locale'=>substr(trim((string)($payload['locale']??'')),0,35),'timezone'=>substr(trim((string)($payload['timezone']??'')),0,64),'permission_status'=>$status];
 }
 function api_upsert_android_installation(PDO $pdo,int $userId,array $payload): void {
-    $v=api_android_installation_payload($payload,true); $now=api_mysql_datetime(time()); $hash=hash('sha256',$v['token']); $encrypted=api_encrypt_fcm_token($v['token']);
-    $pdo->prepare('UPDATE api_android_push_installations SET encrypted_fcm_token=NULL,token_hash=NULL,disabled_at=?,updated_at=? WHERE token_hash=? AND installation_id<>?')->execute([$now,$now,$hash,$v['installation_id']]);
-    $sql='INSERT INTO api_android_push_installations (installation_id,user_id,encrypted_fcm_token,token_hash,app_version,app_build,platform,locale,timezone,permission_status,last_seen_at,created_at,updated_at,disabled_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),encrypted_fcm_token=VALUES(encrypted_fcm_token),token_hash=VALUES(token_hash),app_version=VALUES(app_version),app_build=VALUES(app_build),platform=VALUES(platform),locale=VALUES(locale),timezone=VALUES(timezone),permission_status=VALUES(permission_status),last_seen_at=VALUES(last_seen_at),updated_at=VALUES(updated_at),disabled_at=NULL';
-    $pdo->prepare($sql)->execute([$v['installation_id'],$userId,$encrypted,$hash,$v['app_version'],$v['app_build'],$v['platform'],$v['locale'],$v['timezone'],$v['permission_status'],$now,$now,$now]);
+    $hasToken=trim((string)($payload['fcm_token']??''))!==''; $v=api_android_installation_payload($payload,$hasToken); $now=api_mysql_datetime(time());
+    $pdo->beginTransaction();
+    try {
+        if(!$hasToken) {
+            $stmt=$pdo->prepare('UPDATE api_android_push_installations SET app_version=?,app_build=?,locale=?,timezone=?,permission_status=?,last_seen_at=?,updated_at=? WHERE installation_id=? AND user_id=? AND disabled_at IS NULL');
+            $stmt->execute([$v['app_version'],$v['app_build'],$v['locale'],$v['timezone'],$v['permission_status'],$now,$now,$v['installation_id'],$userId]);
+            if($stmt->rowCount()===0) api_error('fcm_token_required','رمز الإشعارات مطلوب للتسجيل الأول.',422);
+        } else {
+            $hash=hash('sha256',$v['token']); $encrypted=api_encrypt_fcm_token($v['token']);
+            $pdo->prepare('UPDATE api_android_push_installations SET encrypted_fcm_token=NULL,token_hash=NULL,disabled_at=?,updated_at=? WHERE token_hash=? AND installation_id<>?')->execute([$now,$now,$hash,$v['installation_id']]);
+            $sql='INSERT INTO api_android_push_installations (installation_id,user_id,encrypted_fcm_token,token_hash,app_version,app_build,platform,locale,timezone,permission_status,last_seen_at,created_at,updated_at,disabled_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),encrypted_fcm_token=VALUES(encrypted_fcm_token),token_hash=VALUES(token_hash),app_version=VALUES(app_version),app_build=VALUES(app_build),platform=VALUES(platform),locale=VALUES(locale),timezone=VALUES(timezone),permission_status=VALUES(permission_status),last_seen_at=VALUES(last_seen_at),updated_at=VALUES(updated_at),disabled_at=NULL';
+            $pdo->prepare($sql)->execute([$v['installation_id'],$userId,$encrypted,$hash,$v['app_version'],$v['app_build'],$v['platform'],$v['locale'],$v['timezone'],$v['permission_status'],$now,$now,$now]);
+        }
+        $pdo->commit();
+    } catch(Throwable $error) { if($pdo->inTransaction()) $pdo->rollBack(); throw $error; }
 }
 function api_disable_android_installation(PDO $pdo,int $userId,array $payload): void {
     $v=api_android_installation_payload($payload,false); $now=api_mysql_datetime(time());

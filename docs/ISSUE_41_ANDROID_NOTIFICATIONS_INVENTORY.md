@@ -11,7 +11,7 @@
 
 لا يستخدم المشروع `google-services.json` ولا service account. تُحقن القيم العامة المطلوبة لتهيئة عميل Firebase من Gradle properties لكل بيئة:
 
-- `masaryFirebaseDevelopmentProjectId`, `masaryFirebaseDevelopmentApplicationId`, `masaryFirebaseDevelopmentApiKey`
+- `masaryFirebaseDevelopmentProjectId`, `masaryFirebaseDevelopmentApplicationId`, `masaryFirebaseDevelopmentApiKey`, `masaryFirebaseDevelopmentGcmSenderId`
 - النظائر `Staging` و`Production`.
 
 يجب تخزينها في CI variables المحمية، وليس ملفات Git. يجب أن تكون المجموعة كاملة أو غائبة. Debug محصور في development/staging ويرفض production. عند غياب المجموعة يعيد `FirebaseInitializer` حالة disabled ولا يبدأ FCM ولا يتعطل التطبيق. مفاتيح خادم FCM وservice accounts ليست ضمن تطبيق Android إطلاقًا.
