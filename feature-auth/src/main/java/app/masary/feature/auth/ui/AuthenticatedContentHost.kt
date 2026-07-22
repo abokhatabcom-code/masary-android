@@ -12,6 +12,8 @@ internal fun AuthenticatedContentHost(
 ) {
     if (state is LoginUiState.Success && authenticatedContent != null) {
         authenticatedContent(state.session, onLogout)
+    } else if (state is LoginUiState.Success) {
+        AuthScreen(LoginUiState.Restoring, onLogin, onLogout)
     } else {
         AuthScreen(state, onLogin, onLogout)
     }
