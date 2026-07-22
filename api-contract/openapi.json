@@ -561,6 +561,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Idempotency key conflict or username conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "requestBody": {
