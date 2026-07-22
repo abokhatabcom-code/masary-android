@@ -8,19 +8,34 @@
 
 | القيمة | عنوان API | الاستخدام |
 |---|---|---|
-| `development` | `https://dev.masary.app/` | Debug افتراضيًا |
-| `staging` | `https://staging.masary.app/` | التحقق قبل الإصدار |
+| `development` | قيمة محقونة؛ وإلا `https://development.masary.invalid/` | Debug افتراضيًا |
+| `staging` | قيمة محقونة؛ وإلا `https://staging.masary.invalid/` | التحقق قبل الإصدار |
 | `production` | `https://masary.app/` | Release افتراضيًا |
 
-يمكن اختيار بيئة غير الافتراضية وقت البناء فقط:
+لا يفترض المشروع وجود نطاق تطوير أو staging ولا يحجز نطاقًا فرعيًا لـ
+`masary.app`. تُحقن العناوين الحقيقية عبر Gradle properties أو متغيرات بيئة CI:
 
 ```bash
-./gradlew :app-student:assembleDebug -PmasaryEnvironment=staging
-./gradlew :app-student:assembleRelease -PmasaryEnvironment=staging
+./gradlew :app-student:assembleDebug \
+  -PmasaryDevelopmentBaseUrl=https://YOUR-DEVELOPMENT-HOST.example/
+./gradlew :app-student:assembleDebug -PmasaryEnvironment=staging \
+  -PmasaryStagingBaseUrl=https://YOUR-STAGING-HOST.example/
 ```
 
-يرفض Gradle القيم غير المعروفة، كما يرفض توجيه Release إلى development. لا يحتوي
-المستودع أسرارًا، ولا تنفذ فحوصات العقد اتصالات شبكية أو عمليات على قاعدة بيانات.
+يقابل الخاصيتين متغيرا GitHub Actions
+`MASARY_DEVELOPMENT_BASE_URL` و`MASARY_STAGING_BASE_URL`. عند غياب القيمة يستخدم
+البناء نطاق `.invalid` المحجوز للاختبارات، فيفشل الاتصال بأمان. يجب أن يبدأ كل عنوان
+بـ `https://` وينتهي بـ `/`. يرفض Gradle القيم والروابط غير الصالحة، ويرفض أي Debug
+موجّه إلى production. لا يحتوي المستودع أسرارًا، ولا تنفذ فحوصات العقد اتصالات
+شبكية أو عمليات على قاعدة بيانات.
+
+## توافق مسارات API
+
+العقد الحالي يصف المسارات المنشورة في المصدر تحت `/api/v1` فقط. المسار
+`/api/android/v1` **غير موجود حاليًا**، ولا يضيف هذا التغيير endpoint أو rewrite
+وهميًا له. إذا تقرر إدخاله لاحقًا، تكون خطة التوافق: إبقاء `/api/v1` دون كسر خلال
+فترة انتقال معلنة، إضافة معالجات واختبارات عقد حقيقية للمسار الجديد، ترحيل Android
+بعد تحقق staging، ثم إهمال القديم بإصدار مستقل ومقاييس استخدام وخطة rollback.
 
 ## التحقق المحلي
 

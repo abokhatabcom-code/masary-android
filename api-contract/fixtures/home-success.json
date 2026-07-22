@@ -16,12 +16,89 @@
       "level_percent": 40,
       "level_next_xp": 300
     },
-    "streak": {},
-    "today": {},
-    "subscription": {},
-    "notifications": {},
-    "continue_learning": {},
-    "smart_guide": {}
+    "streak": {
+      "current_days": 3,
+      "best_days": 8,
+      "protection_count": 1,
+      "protection_max": 2,
+      "next_milestone": 7,
+      "checkpoint_days": 3,
+      "status": "active",
+      "message": "استمر",
+      "goal": {
+        "days": 7,
+        "status": "active",
+        "is_completed": false,
+        "remaining_days": 4,
+        "progress_percent": 42,
+        "gems": 5,
+        "shields": 1,
+        "label": "أسبوع"
+      }
+    },
+    "today": {
+      "xp": 20,
+      "seconds": 600,
+      "minutes": 10,
+      "attempts": 2
+    },
+    "subscription": {
+      "active": true,
+      "status": "نشط",
+      "ends_at": "2026-08-22T12:00:00+00:00"
+    },
+    "notifications": {
+      "unread_count": 1
+    },
+    "continue_learning": {
+      "available": true,
+      "subject_version_id": 10,
+      "subject_name": "الرياضيات",
+      "unit_id": 20,
+      "unit_title": "الجبر",
+      "mode": "learn",
+      "label": "تابع",
+      "hint": "أكمل الوحدة",
+      "disabled": false,
+      "disabled_reason": "",
+      "hearts": 3,
+      "updated_at": "2026-07-22T12:00:00+00:00"
+    },
+    "smart_guide": {
+      "enabled": true,
+      "status": "active",
+      "guide_id": 1,
+      "guide_date": "2026-07-22",
+      "headline": "خطتك",
+      "intro_text": "ابدأ",
+      "boost_note": "",
+      "profile_key": "balanced",
+      "completion_percent": 0,
+      "completed_steps": 0,
+      "total_steps": 1,
+      "is_complete": false,
+      "updated_at": "2026-07-22T12:00:00+00:00",
+      "steps": [
+        {
+          "id": 1,
+          "sort_order": 1,
+          "subject_version_id": 10,
+          "subject_name": "الرياضيات",
+          "unit_id": 20,
+          "part": 1,
+          "action_key": "learn",
+          "action_group": "primary",
+          "title": "درس الجبر",
+          "subtitle": "الوحدة الأولى",
+          "reason_text": "وفق الخطة",
+          "cta_label": "ابدأ الآن",
+          "estimated_minutes": 10,
+          "reward_gems": 2,
+          "progress_state": "pending",
+          "completed_at": ""
+        }
+      ]
+    }
   },
   "error": null,
   "request_id": "contract-home"

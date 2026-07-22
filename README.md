@@ -30,10 +30,12 @@ python3 scripts/validate-api-contract.py
 
 ## بيئات API والعقد
 
-تتصل نسخة Debug افتراضيًا ببيئة التطوير، بينما تتصل نسخة Release افتراضيًا
-بالإنتاج. يمكن بناء نسخة موجهة إلى staging باستخدام
-`-PmasaryEnvironment=staging`. يرفض البناء أي اسم بيئة غير معتمد، ويرفض توجيه
-Release إلى development، كي لا يعتمد اختيار الخادم على قيمة تشغيلية مبهمة.
+تستخدم نسخة Debug عنوان development المحقون عبر
+`-PmasaryDevelopmentBaseUrl=...` أو متغير GitHub
+`MASARY_DEVELOPMENT_BASE_URL`، بينما تتصل نسخة Release افتراضيًا بالإنتاج. وبالمثل
+يُحقن staging عبر `-PmasaryStagingBaseUrl=...` أو
+`MASARY_STAGING_BASE_URL`. عند غياب عنوان غير إنتاجي يستخدم البناء نطاق `.invalid`
+آمنًا. يرفض البناء HTTP، والعنوان الذي لا ينتهي بـ `/`، وأي Debug موجّه إلى الإنتاج.
 
 يوجد عقد OpenAPI 3.1 وأمثلة الاستجابات وتعليمات التحديث في
 [`api-contract/README.md`](api-contract/README.md). فحوصات العقد محلية بالكامل؛ لا

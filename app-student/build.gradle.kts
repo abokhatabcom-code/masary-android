@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,12 +18,32 @@ android {
         versionName = "1.0"
     }
 
+    fun injectedUrl(property: String, variable: String, fallback: String): String =
+        providers.gradleProperty(property).orNull?.takeIf(String::isNotBlank)
+            ?: providers.environmentVariable(variable).orNull?.takeIf(String::isNotBlank)
+            ?: fallback
+
+    val productionUrl = "https://masary.app/"
     val environmentUrls = mapOf(
-        "development" to "https://dev.masary.app/",
-        "staging" to "https://staging.masary.app/",
-        "production" to "https://masary.app/",
+        "development" to injectedUrl(
+            "masaryDevelopmentBaseUrl",
+            "MASARY_DEVELOPMENT_BASE_URL",
+            "https://development.masary.invalid/",
+        ),
+        "staging" to injectedUrl(
+            "masaryStagingBaseUrl",
+            "MASARY_STAGING_BASE_URL",
+            "https://staging.masary.invalid/",
+        ),
+        "production" to productionUrl,
     )
-    val requestedEnvironment = providers.gradleProperty("masaryEnvironment").orNull
+    environmentUrls.forEach { (environment, baseUrl) ->
+        val uri = URI(baseUrl)
+        require(uri.scheme == "https" && !uri.host.isNullOrBlank() && baseUrl.endsWith("/")) {
+            "$environment API Base URL must use HTTPS and end with /"
+        }
+    }
+    val requestedEnvironment = providers.gradleProperty("masaryEnvironment").orNull?.takeIf(String::isNotBlank)
     if (requestedEnvironment != null) {
         require(requestedEnvironment in environmentUrls) {
             "masaryEnvironment must be one of: ${environmentUrls.keys.joinToString()}"
@@ -53,8 +75,15 @@ android {
     buildTypes {
         debug {
             val environment = requestedEnvironment ?: "development"
+            val environmentUrl = environmentUrls.getValue(environment)
+            require(
+                environment != "production" &&
+                    URI(environmentUrl).host != URI(productionUrl).host
+            ) {
+                "Debug builds cannot target the production API"
+            }
             buildConfigField("String", "MASARY_ENVIRONMENT", "\"$environment\"")
-            buildConfigField("String", "MASARY_API_BASE_URL", "\"${environmentUrls.getValue(environment)}\"")
+            buildConfigField("String", "MASARY_API_BASE_URL", "\"$environmentUrl\"")
             if (hasMasarySigning) {
                 signingConfig = signingConfigs.getByName("masary")
             }

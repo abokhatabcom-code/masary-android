@@ -3,19 +3,19 @@
   "info": {
     "title": "Masary Android API",
     "version": "1.0.0",
-    "description": "العقد المرجعي بين تطبيق Android وواجهة PHP. لا يصف Push V2 أو PWA."
+    "description": "العقد المرجعي الحالي بين تطبيق Android وواجهة PHP لمسارات /api/v1 الموجودة. لا ينشئ مسارات /api/android/v1 ولا يصف Push V2 أو PWA."
   },
   "servers": [
     {
-      "url": "https://dev.masary.app",
-      "description": "Development"
+      "url": "https://development.masary.invalid/",
+      "description": "Development placeholder only; inject the real URL at build time"
     },
     {
-      "url": "https://staging.masary.app",
-      "description": "Staging"
+      "url": "https://staging.masary.invalid/",
+      "description": "Staging placeholder only; inject the real URL at build time"
     },
     {
-      "url": "https://masary.app",
+      "url": "https://masary.app/",
       "description": "Production"
     }
   ],
@@ -84,7 +84,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             }
@@ -150,7 +150,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
+                  "$ref": "#/components/schemas/RefreshResponse"
                 }
               }
             }
@@ -484,29 +484,6 @@
       "LogoutRequest": {
         "$ref": "#/components/schemas/RefreshRequest"
       },
-      "AuthData": {
-        "type": "object",
-        "required": [
-          "access_token",
-          "refresh_token",
-          "expires_in",
-          "student"
-        ],
-        "properties": {
-          "access_token": {
-            "type": "string"
-          },
-          "refresh_token": {
-            "type": "string"
-          },
-          "expires_in": {
-            "type": "integer"
-          },
-          "student": {
-            "$ref": "#/components/schemas/Student"
-          }
-        }
-      },
       "LogoutData": {
         "type": "object",
         "required": [
@@ -614,36 +591,6 @@
           },
           "data": {
             "$ref": "#/components/schemas/HealthData"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "AuthResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/AuthData"
           },
           "error": {
             "anyOf": [
@@ -1196,6 +1143,111 @@
             "items": {
               "$ref": "#/components/schemas/HomeSmartGuideStep"
             }
+          }
+        }
+      },
+      "LoginData": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in",
+          "student"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer"
+          },
+          "student": {
+            "$ref": "#/components/schemas/Student"
+          }
+        }
+      },
+      "RefreshData": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer"
+          },
+          "student": {
+            "$ref": "#/components/schemas/Student"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/LoginData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RefreshResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/RefreshData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
           }
         }
       }

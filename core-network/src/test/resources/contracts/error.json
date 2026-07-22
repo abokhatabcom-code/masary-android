@@ -1,9 +1,0 @@
-{
-  "success": false,
-  "data": null,
-  "error": {
-    "code": "validation_error",
-    "message": "بيانات غير صالحة"
-  },
-  "request_id": "contract-error"
-}

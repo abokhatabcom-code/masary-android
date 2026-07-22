@@ -10,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class ApiContractFixtureTest {
@@ -52,9 +53,20 @@ class ApiContractFixtureTest {
         }
     }
 
+    @Test
+    fun `base URL requires HTTPS and a trailing slash`() {
+        assertEquals("https://example.invalid/", MasaryNetwork.validateBaseUrl("https://example.invalid/").toString())
+        assertThrows(IllegalArgumentException::class.java) {
+            MasaryNetwork.validateBaseUrl("http://example.invalid/")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MasaryNetwork.validateBaseUrl("https://example.invalid")
+        }
+    }
+
     private fun <T> parse(name: String, type: Class<T>): T = gson.fromJson(resource(name), type)
 
     private fun resource(name: String): String =
-        requireNotNull(javaClass.classLoader?.getResource("contracts/$name"))
+        requireNotNull(javaClass.classLoader?.getResource(name))
             .readText()
 }
