@@ -63,12 +63,13 @@ fun AuthScreen(
     state: LoginUiState,
     onLogin: (String, String) -> Unit,
     onLogout: () -> Unit,
+    onRegister: () -> Unit = {},
 ) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         when (state) {
             LoginUiState.Restoring -> RestoringSessionScreen()
             is LoginUiState.Success -> StudentScreen(state.session, onLogout)
-            else -> LoginScreen(state, onLogin)
+            else -> LoginScreen(state, onLogin, onRegister)
         }
     }
 }
@@ -152,6 +153,7 @@ private fun RestoringSessionScreen() {
 private fun LoginScreen(
     state: LoginUiState,
     onLogin: (String, String) -> Unit,
+    onRegister: () -> Unit,
 ) {
     var studentId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -315,6 +317,8 @@ private fun LoginScreen(
                                 )
                             }
                         }
+                        TextButton(onClick = onRegister) { Text("إنشاء حساب طالب جديد") }
+                        Text("نسيت كلمة المرور؟ تواصل مع الدعم لاستردادها يدويًا", style = MaterialTheme.typography.bodySmall, color = MasaryColors.muted)
                     }
                 }
 
@@ -355,6 +359,7 @@ private fun brandTextFieldColors() = OutlinedTextFieldDefaults.colors(
 private fun StudentScreen(
     session: StudentSession,
     onLogout: () -> Unit,
+    onRegister: () -> Unit = {},
 ) {
     BrandBackground {
         Box(

@@ -1,6 +1,9 @@
 package app.masary.core.network
 
 import app.masary.core.network.auth.StudentLoginResponseDto
+import app.masary.core.network.auth.CitiesResponseDto
+import app.masary.core.network.auth.GradesResponseDto
+import app.masary.core.network.auth.SchoolsResponseDto
 import app.masary.core.network.auth.StudentLogoutResponseDto
 import app.masary.core.network.auth.StudentMeResponseDto
 import app.masary.core.network.auth.StudentRefreshResponseDto
@@ -18,6 +21,13 @@ class ApiContractFixtureTest {
 
     @Test
     fun `success fixtures match Android DTOs`() {
+        val cities = parse("cities-success.json", CitiesResponseDto::class.java)
+        assertTrue(cities.data?.cities?.first()?.requiresSchool == true)
+        assertEquals(7L, parse("grades-success.json", GradesResponseDto::class.java).data?.grades?.first()?.id)
+        assertEquals(12L, parse("schools-success.json", SchoolsResponseDto::class.java).data?.schools?.first()?.id)
+        val registration = parse("register-success.json", StudentLoginResponseDto::class.java)
+        assertNotNull(registration.data?.refreshToken)
+
         val login = parse("login-success.json", StudentLoginResponseDto::class.java)
         assertTrue(login.success)
         assertEquals("42", login.data?.student?.id)

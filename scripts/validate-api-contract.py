@@ -8,6 +8,10 @@ CONTRACT_TEXT = (ROOT / "api-contract/openapi.json").read_text()
 CONTRACT = json.loads(CONTRACT_TEXT)
 EXPECTED = {
     "/api/v1/health": ("get", "server-hostinger/public_html/api/v1/health.php"),
+    "/api/v1/registration/cities": ("get", "server-hostinger/public_html/api/v1/registration/cities.php"),
+    "/api/v1/registration/grades": ("get", "server-hostinger/public_html/api/v1/registration/grades.php"),
+    "/api/v1/registration/schools": ("get", "server-hostinger/public_html/api/v1/registration/schools.php"),
+    "/api/v1/auth/student/register": ("post", "server-hostinger/public_html/api/v1/auth/student/register.php"),
     "/api/v1/auth/student/login": ("post", "server-hostinger/public_html/api/v1/auth/student/login.php"),
     "/api/v1/auth/refresh": ("post", "server-hostinger/public_html/api/v1/auth/refresh.php"),
     "/api/v1/auth/logout": ("post", "server-hostinger/public_html/api/v1/auth/logout.php"),
@@ -16,6 +20,10 @@ EXPECTED = {
 }
 FIXTURE_SCHEMAS = {
     "health-success.json": "HealthResponse",
+    "cities-success.json": "CitiesResponse",
+    "grades-success.json": "GradesResponse",
+    "schools-success.json": "SchoolsResponse",
+    "register-success.json": "LoginResponse",
     "login-success.json": "LoginResponse",
     "refresh-success.json": "RefreshResponse",
     "logout-success.json": "LogoutResponse",
@@ -75,7 +83,7 @@ for route, (method, php_file) in EXPECTED.items():
     require(operation is not None, f"{method.upper()} {route} is missing")
     require((ROOT / php_file).is_file(), f"PHP handler is missing: {php_file}")
     require("200" in operation.get("responses", {}), f"{route} has no success response")
-    if route not in {"/api/v1/health", "/api/v1/auth/student/login", "/api/v1/auth/refresh"}:
+    if route not in {"/api/v1/health", "/api/v1/auth/student/login", "/api/v1/auth/student/register", "/api/v1/auth/refresh", "/api/v1/registration/cities", "/api/v1/registration/grades", "/api/v1/registration/schools"}:
         require(operation.get("security") == [{"bearerAuth": []}], f"{route} must require bearer auth")
 
 servers = CONTRACT.get("servers", [])

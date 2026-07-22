@@ -1,45 +1,19 @@
 package app.masary.feature.auth.ui
-
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.masary.core.datastore.SessionManager
 import app.masary.core.models.auth.StudentSession
-import app.masary.feature.auth.domain.AuthRepository
+import app.masary.feature.auth.domain.*
 
-@Composable
-fun AuthRoute(
-    repository: AuthRepository,
-    sessionManager: SessionManager,
-    deviceName: String,
-    onAuthenticated: (StudentSession) -> Unit = {},
-    authenticatedContent: (@Composable (StudentSession, () -> Unit) -> Unit)? = null,
-) {
-    val viewModel: LoginViewModel = viewModel(
-        factory = LoginViewModelFactory(repository, sessionManager, deviceName),
-    )
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state) {
-        (state as? LoginUiState.Success)?.session?.let(onAuthenticated)
-    }
-    AuthenticatedContentHost(
-        state = state,
-        onLogin = viewModel::login,
-        onLogout = viewModel::logout,
-        authenticatedContent = authenticatedContent,
-    )
+@Composable fun AuthRoute(repository:AuthRepository,registrationRepository:RegistrationRepository,sessionManager:SessionManager,deviceName:String,onAuthenticated:(StudentSession)->Unit={},authenticatedContent:(@Composable (StudentSession,()->Unit)->Unit)?=null){
+ val login:LoginViewModel=viewModel(factory=LoginFactory(repository,sessionManager,deviceName));val state by login.state.collectAsStateWithLifecycle();var registering by rememberSaveable{mutableStateOf(false)}
+ LaunchedEffect(state){(state as? LoginUiState.Success)?.session?.let(onAuthenticated)}
+ if(registering){val registration:RegistrationViewModel=viewModel(factory=RegistrationFactory(registrationRepository,sessionManager,deviceName){ registering=false; onAuthenticated(it) });val rs by registration.state.collectAsStateWithLifecycle();RegistrationScreen(rs,registration::account,registration::city,registration::academic,registration::submit,registration::back){registering=false}}
+ else if(state is LoginUiState.Success && authenticatedContent!=null)authenticatedContent((state as LoginUiState.Success).session,login::logout)
+ else AuthScreen(state,login::login,login::logout){registering=true}
 }
-
-private class LoginViewModelFactory(
-    private val repository: AuthRepository,
-    private val sessionManager: SessionManager,
-    private val deviceName: String,
-) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T =
-        LoginViewModel(repository, sessionManager, deviceName) as T
-}
+private class LoginFactory(val r:AuthRepository,val s:SessionManager,val d:String):ViewModelProvider.Factory{override fun<T:ViewModel>create(c:Class<T>):T=@Suppress("UNCHECKED_CAST")(LoginViewModel(r,s,d) as T)}
+private class RegistrationFactory(val r:RegistrationRepository,val s:SessionManager,val d:String,val done:(StudentSession)->Unit):ViewModelProvider.Factory{override fun<T:ViewModel>create(c:Class<T>):T=@Suppress("UNCHECKED_CAST")(RegistrationViewModel(r,s,d,done) as T)}

@@ -1,0 +1,1 @@
+{"success":true,"data":{"cities":[{"id":1,"name":"عدن","requires_school":true},{"id":2,"name":"مدينة بلا مدرسة","requires_school":false}]},"error":null,"request_id":"contract-cities"}

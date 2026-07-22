@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "data": {
+    "access_token": "contract-access",
+    "refresh_token": "contract-refresh",
+    "expires_in": 900,
+    "student": {
+      "id": "42",
+      "username": "contract.student",
+      "display_name": "طالب العقد"
+    }
+  },
+  "error": null,
+  "request_id": "contract-login"
+}
