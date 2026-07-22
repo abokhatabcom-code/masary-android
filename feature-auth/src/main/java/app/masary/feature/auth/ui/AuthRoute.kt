@@ -36,6 +36,7 @@ fun AuthRoute(
             ),
         )
         val registrationState by registration.state.collectAsStateWithLifecycle()
+        LaunchedEffect(registration) { registration.beginRegistration() }
         RegistrationScreen(
             registrationState,
             registration::updateDraft,

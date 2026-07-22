@@ -20,7 +20,7 @@ class RegistrationViewModelTest {
     @Before fun setup() = Dispatchers.setMain(dispatcher)
     @After fun teardown() = Dispatchers.resetMain()
 
-    @Test fun `draft and step survive recreation including sensitive input`() = runTest(dispatcher) {
+    @Test fun `public draft and step survive recreation but passwords do not`() = runTest(dispatcher) {
         val handle = SavedStateHandle()
         val repository = FakeRegistrationRepository()
         val first = viewModel(handle, repository)
@@ -31,8 +31,10 @@ class RegistrationViewModelTest {
         val recreated = viewModel(handle, repository)
         advanceUntilIdle()
         assertEquals(2, recreated.state.value.step)
-        assertEquals("secret", recreated.state.value.draft.password)
+        assertEquals("", recreated.state.value.draft.password)
+        assertEquals("", recreated.state.value.draft.passwordConfirmation)
         assertEquals("a@example.com", recreated.state.value.draft.email)
+        assertFalse(handle.keys().any { key -> handle.get<Any>(key).toString().contains("secret") })
     }
 
     @Test fun `retryable failure retains password and idempotency key`() = runTest(dispatcher) {

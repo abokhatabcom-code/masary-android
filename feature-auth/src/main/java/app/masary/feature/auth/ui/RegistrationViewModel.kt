@@ -32,13 +32,15 @@ class RegistrationViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow(restoreState())
     val state = _state.asStateFlow()
-    private var idempotencyKey: String = savedState[KEY_IDEMPOTENCY] ?: newKey()
+    private var idempotencyKey: String? = savedState[KEY_IDEMPOTENCY]
 
     init {
         if (_state.value.cities is LookupState.Loading) loadCities()
         if (_state.value.grades is LookupState.Loading) loadGrades()
         _state.value.draft.city?.takeIf { it.requiresSchool }?.let(::loadSchools)
     }
+
+    fun beginRegistration() { if (idempotencyKey == null) idempotencyKey = newKey() }
 
     fun updateDraft(draft: RegistrationDraft) {
         _state.value = _state.value.copy(draft = draft, error = null)
@@ -94,7 +96,7 @@ class RegistrationViewModel(
         if (_state.value.submitting) return
         _state.value = _state.value.copy(submitting = true, error = null)
         viewModelScope.launch {
-            repository.register(draft, deviceName, idempotencyKey)
+            repository.register(draft, deviceName, idempotencyKey ?: newKey().also { idempotencyKey = it })
                 .onSuccess { authenticated ->
                     try {
                         sessionManager.save(authenticated)
@@ -153,7 +155,7 @@ class RegistrationViewModel(
 
     private fun reset() {
         savedState.keys().filter { it.startsWith("registration.") }.forEach { savedState.remove<Any>(it) }
-        idempotencyKey = newKey()
+        idempotencyKey = null
         _state.value = RegistrationState()
     }
 
@@ -162,16 +164,16 @@ class RegistrationViewModel(
     private fun persist() {
         val d = _state.value.draft
         savedState[KEY_STEP] = _state.value.step
-        savedState[KEY_DRAFT] = arrayListOf(d.fullName, d.username, d.phone, d.email, d.password, d.passwordConfirmation, d.gender, d.personality, d.city?.id?.toString().orEmpty(), d.city?.name.orEmpty(), d.city?.requiresSchool?.toString().orEmpty(), d.school?.id?.toString().orEmpty(), d.school?.name.orEmpty(), d.grade?.id?.toString().orEmpty(), d.grade?.name.orEmpty(), d.privacyAccepted.toString())
+        savedState[KEY_DRAFT] = arrayListOf(d.fullName, d.username, d.phone, d.email, d.gender, d.personality, d.city?.id?.toString().orEmpty(), d.city?.name.orEmpty(), d.city?.requiresSchool?.toString().orEmpty(), d.school?.id?.toString().orEmpty(), d.school?.name.orEmpty(), d.grade?.id?.toString().orEmpty(), d.grade?.name.orEmpty(), d.privacyAccepted.toString())
     }
 
     private fun restoreState(): RegistrationState {
         val values = savedState.get<ArrayList<String>>(KEY_DRAFT) ?: return RegistrationState()
         fun value(index: Int) = values.getOrElse(index) { "" }
-        val city = value(8).toLongOrNull()?.let { RegistrationCity(it, value(9), value(10).toBoolean()) }
-        val school = value(11).toLongOrNull()?.let { AcademicOption(it, value(12)) }
-        val grade = value(13).toLongOrNull()?.let { AcademicOption(it, value(14)) }
-        return RegistrationState(step = savedState[KEY_STEP] ?: 1, draft = RegistrationDraft(value(0), value(1), value(2), value(3), value(4), value(5), value(6), value(7), city, school, grade, value(15).toBoolean()))
+        val city = value(6).toLongOrNull()?.let { RegistrationCity(it, value(7), value(8).toBoolean()) }
+        val school = value(9).toLongOrNull()?.let { AcademicOption(it, value(10)) }
+        val grade = value(11).toLongOrNull()?.let { AcademicOption(it, value(12)) }
+        return RegistrationState(step = savedState[KEY_STEP] ?: 1, draft = RegistrationDraft(fullName = value(0), username = value(1), phone = value(2), email = value(3), gender = value(4), personality = value(5), city = city, school = school, grade = grade, privacyAccepted = value(13).toBoolean()))
     }
 
     companion object {
