@@ -119,8 +119,78 @@ function api_registration_idempotency(string $key, string $fingerprint, callable
     }
 }
 
-function api_register_student(PDO $pdo,array $p): array {
- $v=api_registration_validate($pdo,$p);$lock='masary_register_'.hash('sha256',strtolower($v['username']));$s=$pdo->prepare('SELECT GET_LOCK(?,10)');$s->execute([$lock]);if((int)$s->fetchColumn()!==1)api_registration_fail('registration_busy','حاول مرة أخرى.',503);
- try{$s=$pdo->prepare('SELECT id FROM app_users WHERE username=? LIMIT 1');$s->execute([$v['username']]);if($s->fetchColumn())api_registration_fail('username_taken','اسم المستخدم مستخدم مسبقًا.',409);$pdo->beginTransaction();do{$code=(string)random_int(100000,999999);$s=$pdo->prepare('SELECT id FROM app_users WHERE student_code=?');$s->execute([$code]);}while($s->fetchColumn());$s=$pdo->prepare("INSERT INTO app_users(role,full_name,username,phone,email,city_id,school_id,grade_id,gender,student_personality,password_hash,is_active,created_at,student_code) VALUES('student',?,?,?,?,?,?,?,?,?,?,1,?,?)");$s->execute([$v['full_name'],$v['username'],$v['phone']?:null,$v['email']?:null,$v['city_id'],$v['school_id'],$v['grade_id'],$v['gender'],$v['student_personality']?:null,password_hash($v['password'],PASSWORD_DEFAULT),api_mysql_datetime(time()),$code]);$id=(int)$pdo->lastInsertId();$pdo->commit();}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}finally{$pdo->prepare('SELECT RELEASE_LOCK(?)')->execute([$lock]);}
- $user=['id'=>$id,'user_id'=>$id,'username'=>$v['username'],'full_name'=>$v['full_name'],'city_id'=>$v['city_id'],'school_id'=>$v['school_id'],'grade_id'=>$v['grade_id'],'student_code'=>$code,'avatar_path'=>null];$tokens=api_issue_session($pdo,$user,$v['device_name']);return ['access_token'=>$tokens['access_token'],'refresh_token'=>$tokens['refresh_token'],'expires_in'=>$tokens['expires_in'],'student'=>api_student_payload($user)];
+function api_register_student(PDO $pdo, array $payload): array
+{
+    $values = api_registration_validate($pdo, $payload);
+    $lock = 'masary_register_' . hash('sha256', strtolower($values['username']));
+    $statement = $pdo->prepare('SELECT GET_LOCK(?,10)');
+    $statement->execute([$lock]);
+    if ((int) $statement->fetchColumn() !== 1) {
+        api_registration_fail('registration_busy', 'حاول مرة أخرى.', 503);
+    }
+
+    try {
+        $statement = $pdo->prepare('SELECT id FROM app_users WHERE username=? LIMIT 1');
+        $statement->execute([$values['username']]);
+        if ($statement->fetchColumn()) {
+            api_registration_fail('username_taken', 'اسم المستخدم مستخدم مسبقًا.', 409);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            do {
+                $studentCode = (string) random_int(100000, 999999);
+                $statement = $pdo->prepare('SELECT id FROM app_users WHERE student_code=?');
+                $statement->execute([$studentCode]);
+            } while ($statement->fetchColumn());
+
+            $statement = $pdo->prepare(
+                "INSERT INTO app_users(role,full_name,username,phone,email,city_id,school_id,grade_id,gender,student_personality,password_hash,is_active,created_at,student_code) VALUES('student',?,?,?,?,?,?,?,?,?,?,1,?,?)"
+            );
+            $statement->execute([
+                $values['full_name'],
+                $values['username'],
+                $values['phone'] ?: null,
+                $values['email'] ?: null,
+                $values['city_id'],
+                $values['school_id'],
+                $values['grade_id'],
+                $values['gender'],
+                $values['student_personality'] ?: null,
+                password_hash($values['password'], PASSWORD_DEFAULT),
+                api_mysql_datetime(time()),
+                $studentCode,
+            ]);
+            $studentId = (int) $pdo->lastInsertId();
+            $user = [
+                'id' => $studentId,
+                'user_id' => $studentId,
+                'username' => $values['username'],
+                'full_name' => $values['full_name'],
+                'city_id' => $values['city_id'],
+                'school_id' => $values['school_id'],
+                'grade_id' => $values['grade_id'],
+                'student_code' => $studentCode,
+                'avatar_path' => null,
+            ];
+
+            // Student and session inserts must either both commit or both roll back.
+            $tokens = api_issue_session($pdo, $user, $values['device_name']);
+            $pdo->commit();
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $exception;
+        }
+
+        return [
+            'access_token' => $tokens['access_token'],
+            'refresh_token' => $tokens['refresh_token'],
+            'expires_in' => $tokens['expires_in'],
+            'student' => api_student_payload($user),
+        ];
+    } finally {
+        $pdo->prepare('SELECT RELEASE_LOCK(?)')->execute([$lock]);
+    }
 }
