@@ -1,0 +1,23 @@
+package app.masary.feature.notifications
+import android.content.Context
+import androidx.work.*
+import java.util.concurrent.TimeUnit
+
+object NotificationSyncCoordinator {
+    const val MIN_BACKOFF_SECONDS = 30L
+    private const val PREFS="notification_runtime_v1"
+    fun configure(context:Context,baseUrl:String,hasSession:Boolean) { context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putString("base_url",baseUrl).putBoolean("has_session",hasSession).apply() }
+    fun updatePermission(context:Context,status:NotificationPermissionState) { context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putString("permission",status.name).apply() }
+    fun scheduleRegistration(context:Context) = enqueue(context,"register",ExistingWorkPolicy.REPLACE)
+    fun scheduleUnregister(context:Context,accessToken:String) {
+        SecurePendingTokenStore(context,"logout_access").write(accessToken)
+        context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putBoolean("has_session",false).apply()
+        enqueue(context,"unregister",ExistingWorkPolicy.REPLACE)
+    }
+    private fun enqueue(context:Context,action:String,policy:ExistingWorkPolicy) {
+        val request=OneTimeWorkRequestBuilder<NotificationSyncWorker>().setInputData(workDataOf("action" to action))
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL,MIN_BACKOFF_SECONDS,TimeUnit.SECONDS).build()
+        WorkManager.getInstance(context).enqueueUniqueWork("notifications-v1-$action",policy,request)
+    }
+}

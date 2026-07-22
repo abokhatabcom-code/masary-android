@@ -43,6 +43,10 @@ import app.masary.feature.auth.domain.RegistrationRepository
 import app.masary.feature.auth.ui.AuthRoute
 import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.ui.StudentHomeRoute
+import app.masary.feature.notifications.NotificationPermissionState
+import app.masary.feature.notifications.NotificationSyncCoordinator
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 private enum class AppRoute(val route: String) {
     Preparing("preparing"),
@@ -60,7 +64,9 @@ fun MasaryStudentApp(
     registrationRepository: RegistrationRepository,
     homeRepository: HomeRepository,
     deviceName: String,
+    notificationPermissionState: NotificationPermissionState = NotificationPermissionState.NotRequired,
     onNotificationsPermission: () -> Unit = {},
+    onOpenNotificationSettings: () -> Unit = {},
 ) {
     val startupViewModel: StartupViewModel = viewModel(
         factory = StartupViewModelFactory(onboardingStore, sessionManager, authRepository),
@@ -68,8 +74,13 @@ fun MasaryStudentApp(
     val state by startupViewModel.state.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val route = state.route()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(route) {
+        if (route == AppRoute.Home) {
+            NotificationSyncCoordinator.configure(navController.context, BuildConfig.MASARY_API_BASE_URL, true)
+            NotificationSyncCoordinator.scheduleRegistration(navController.context)
+        }
         if (navController.currentDestination?.route != route.route) {
             navController.navigate(route.route) {
                 popUpTo(navController.graph.id) { inclusive = true }
@@ -100,8 +111,15 @@ fun MasaryStudentApp(
                 StudentHomeRoute(
                     session = authenticated.session,
                     repository = homeRepository,
-                    onLogout = startupViewModel::logout,
+                    onLogout = {
+                        scope.launch {
+                            sessionManager.readTokens()?.accessToken?.let { NotificationSyncCoordinator.scheduleUnregister(navController.context, it) }
+                            startupViewModel.logout()
+                        }
+                    },
+                    permissionState = notificationPermissionState,
                     onNotificationsPermission = onNotificationsPermission,
+                    onOpenNotificationSettings = onOpenNotificationSettings,
                 )
             }
         }

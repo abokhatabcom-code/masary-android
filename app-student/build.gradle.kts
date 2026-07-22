@@ -49,6 +49,16 @@ android {
             "masaryEnvironment must be one of: ${environmentUrls.keys.joinToString()}"
         }
     }
+    fun firebaseValue(environment: String, key: String): String =
+        providers.gradleProperty("masaryFirebase${environment.replaceFirstChar(Char::uppercase)}$key").orNull?.trim().orEmpty()
+    val firebase = environmentUrls.keys.associateWith { environment ->
+        listOf("ProjectId", "ApplicationId", "ApiKey").associateWith { firebaseValue(environment, it) }
+    }
+    firebase.forEach { (environment, values) ->
+        check(values.values.all(String::isBlank) || values.values.none(String::isBlank)) {
+            "Firebase $environment configuration must be complete or absent"
+        }
+    }
 
     val masarySigningValues = listOf(
         System.getenv("MASARY_KEYSTORE_PATH"),
@@ -84,6 +94,8 @@ android {
             }
             buildConfigField("String", "MASARY_ENVIRONMENT", "\"$environment\"")
             buildConfigField("String", "MASARY_API_BASE_URL", "\"$environmentUrl\"")
+            check(environment != "production") { "Debug cannot use production Firebase" }
+            firebase.getValue(environment).forEach { (key, value) -> buildConfigField("String", "FIREBASE_${key.replace(Regex("([a-z])([A-Z])"), "$1_$2").uppercase()}", "\"$value\"") }
             if (hasMasarySigning) {
                 signingConfig = signingConfigs.getByName("masary")
             }
@@ -95,6 +107,7 @@ android {
             }
             buildConfigField("String", "MASARY_ENVIRONMENT", "\"$environment\"")
             buildConfigField("String", "MASARY_API_BASE_URL", "\"${environmentUrls.getValue(environment)}\"")
+            firebase.getValue(environment).forEach { (key, value) -> buildConfigField("String", "FIREBASE_${key.replace(Regex("([a-z])([A-Z])"), "$1_$2").uppercase()}", "\"$value\"") }
             if (hasMasarySigning) {
                 signingConfig = signingConfigs.getByName("masary")
             }

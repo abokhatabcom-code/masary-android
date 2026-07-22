@@ -30,6 +30,7 @@ FIXTURE_SCHEMAS = {
     "logout-success.json": "LogoutResponse",
     "me-success.json": "MeResponse",
     "home-success.json": "HomeResponse",
+    "push-token-success.json": "PushTokenResponse",
     "error.json": "ErrorResponse",
 }
 
