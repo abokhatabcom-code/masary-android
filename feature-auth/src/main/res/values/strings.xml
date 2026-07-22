@@ -16,4 +16,12 @@
     <string name="student_screen_title">مرحبًا، %1$s</string>
     <string name="student_screen_placeholder">تم الاتصال بحسابك بنجاح.</string>
     <string name="logout">تسجيل الخروج</string>
+    <string name="create_account">إنشاء حساب جديد</string>
+    <string name="recover_account">استرداد الحساب</string>
+    <string name="back_to_login">العودة إلى تسجيل الدخول</string>
+    <string name="registration_unavailable_title">التسجيل من التطبيق غير متاح حاليًا</string>
+    <string name="registration_unavailable_body">لم تُعتمد بعد خدمة تسجيل آمنة وبيانات أكاديمية مرتبطة بالخادم. لن يرسل التطبيق بياناتك إلى مسار غير موثّق.</string>
+    <string name="recovery_title">مساعدة في استرداد الحساب</string>
+    <string name="recovery_body">تواصل مع إدارة المنصة أو قناة الدعم المعتمدة لديك لاستعادة الوصول. لا توجد خدمة استرداد أو رمز تحقق داخل التطبيق حاليًا.</string>
+    <string name="recovery_privacy_note">لن نطلب منك هنا رقم الهاتف أو كلمة المرور، ولن نكشف ما إذا كان حساب معين موجودًا.</string>
 </resources>

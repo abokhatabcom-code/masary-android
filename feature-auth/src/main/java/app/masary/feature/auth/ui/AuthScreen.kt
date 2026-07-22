@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -64,14 +65,36 @@ fun AuthScreen(
     onLogin: (String, String) -> Unit,
     onLogout: () -> Unit,
 ) {
+    var panel by rememberSaveable { mutableStateOf(AuthPanel.Login) }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         when (state) {
             LoginUiState.Restoring -> RestoringSessionScreen()
             is LoginUiState.Success -> StudentScreen(state.session, onLogout)
-            else -> LoginScreen(state, onLogin)
+            else -> when (panel) {
+                AuthPanel.Login -> LoginScreen(
+                    state = state,
+                    onLogin = onLogin,
+                    onRegister = { panel = AuthPanel.Registration },
+                    onRecover = { panel = AuthPanel.Recovery },
+                )
+                AuthPanel.Registration -> AuthInformationScreen(
+                    title = stringResource(R.string.registration_unavailable_title),
+                    body = stringResource(R.string.registration_unavailable_body),
+                    note = null,
+                    onBack = { panel = AuthPanel.Login },
+                )
+                AuthPanel.Recovery -> AuthInformationScreen(
+                    title = stringResource(R.string.recovery_title),
+                    body = stringResource(R.string.recovery_body),
+                    note = stringResource(R.string.recovery_privacy_note),
+                    onBack = { panel = AuthPanel.Login },
+                )
+            }
         }
     }
 }
+
+private enum class AuthPanel { Login, Registration, Recovery }
 
 @Composable
 private fun BrandBackground(content: @Composable () -> Unit) {
@@ -152,6 +175,8 @@ private fun RestoringSessionScreen() {
 private fun LoginScreen(
     state: LoginUiState,
     onLogin: (String, String) -> Unit,
+    onRegister: () -> Unit,
+    onRecover: () -> Unit,
 ) {
     var studentId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -315,6 +340,18 @@ private fun LoginScreen(
                                 )
                             }
                         }
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            TextButton(onClick = onRegister, enabled = !loading) {
+                                Text(stringResource(R.string.create_account))
+                            }
+                            TextButton(onClick = onRecover, enabled = !loading) {
+                                Text(stringResource(R.string.recover_account))
+                            }
+                        }
                     }
                 }
 
@@ -332,6 +369,56 @@ private fun LoginScreen(
                         color = Color.White.copy(alpha = 0.78f),
                         textAlign = TextAlign.Center,
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthInformationScreen(
+    title: String,
+    body: String,
+    note: String?,
+    onBack: () -> Unit,
+) {
+    BrandBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            MasaryBrandMark(size = 78.dp)
+            Spacer(Modifier.height(20.dp))
+            Card(
+                modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MasaryColors.brandNavy,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(body, style = MaterialTheme.typography.bodyLarge, color = MasaryColors.muted)
+                    if (note != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(note, style = MaterialTheme.typography.bodyMedium, color = MasaryColors.brandNavyDeep)
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = onBack,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MasaryColors.brandNavy),
+                    ) {
+                        Text(stringResource(R.string.back_to_login))
+                    }
                 }
             }
         }
