@@ -1,5 +1,0 @@
-<resources>
-    <style name="Theme.Masary">
-        <item name="android:windowLightNavigationBar">true</item>
-    </style>
-</resources>
