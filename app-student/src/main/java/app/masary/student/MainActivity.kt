@@ -2,6 +2,9 @@ package app.masary.student
 
 import android.os.Build
 import android.os.Bundle
+import android.Manifest
+import androidx.activity.result.contract.ActivityResultContracts
+import app.masary.feature.notifications.NotificationPolicy
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,9 +20,11 @@ private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "s
 private val ComponentActivity.onboardingDataStore by preferencesDataStore(name = "student_onboarding")
 
 class MainActivity : ComponentActivity() {
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        NotificationPolicy.createChannels(this)
         val tokenStore = TokenStoreFactory.create(applicationContext)
         val sessionManager = DataStoreSessionManager(sessionDataStore, tokenStore)
         val onboardingStore = DataStoreOnboardingStore(onboardingDataStore)
@@ -35,6 +40,11 @@ class MainActivity : ComponentActivity() {
                     registrationRepository = registrationRepository,
                     homeRepository = homeRepository,
                     deviceName = Build.MODEL.ifBlank { "Android" },
+                    onNotificationsPermission = {
+                        if (NotificationPolicy.requiresRuntimePermission() && !NotificationPolicy.isGranted(this)) {
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    },
                 )
             }
         }

@@ -119,6 +119,7 @@ dependencies {
     implementation(project(":core-ui"))
     implementation(project(":feature-auth"))
     implementation(project(":feature-home"))
+    implementation(project(":feature-notifications"))
     implementation(project(":core-datastore"))
     implementation(project(":core-security"))
     implementation(libs.androidx.core.ktx)

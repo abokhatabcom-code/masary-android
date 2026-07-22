@@ -60,6 +60,7 @@ fun MasaryStudentApp(
     registrationRepository: RegistrationRepository,
     homeRepository: HomeRepository,
     deviceName: String,
+    onNotificationsPermission: () -> Unit = {},
 ) {
     val startupViewModel: StartupViewModel = viewModel(
         factory = StartupViewModelFactory(onboardingStore, sessionManager, authRepository),
@@ -100,6 +101,7 @@ fun MasaryStudentApp(
                     session = authenticated.session,
                     repository = homeRepository,
                     onLogout = startupViewModel::logout,
+                    onNotificationsPermission = onNotificationsPermission,
                 )
             }
         }

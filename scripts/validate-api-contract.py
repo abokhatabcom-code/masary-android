@@ -16,7 +16,8 @@ EXPECTED = {
     "/api/v1/auth/refresh": ("post", "server-hostinger/public_html/api/v1/auth/refresh.php"),
     "/api/v1/auth/logout": ("post", "server-hostinger/public_html/api/v1/auth/logout.php"),
     "/api/v1/me": ("get", "server-hostinger/public_html/api/v1/me.php"),
-    "/api/v1/student/home": ("get", "server-hostinger/public_html/api/v1/student/home.php"),
+    "/api/v1/student/home": (("get",), "server-hostinger/public_html/api/v1/student/home.php"),
+    "/api/v1/student/push-token": (("put", "delete"), "server-hostinger/public_html/api/v1/student/push-token.php"),
 }
 FIXTURE_SCHEMAS = {
     "health-success.json": "HealthResponse",
@@ -78,13 +79,15 @@ def validate_schema(value: object, schema: dict, location: str) -> None:
 
 require(CONTRACT.get("openapi") == "3.1.0", "OpenAPI version must be 3.1.0")
 require(set(CONTRACT.get("paths", {})) == set(EXPECTED), "endpoint set differs from the supported v1 API")
-for route, (method, php_file) in EXPECTED.items():
-    operation = CONTRACT["paths"][route].get(method)
-    require(operation is not None, f"{method.upper()} {route} is missing")
+for route, (methods, php_file) in EXPECTED.items():
+    methods = (methods,) if isinstance(methods, str) else methods
     require((ROOT / php_file).is_file(), f"PHP handler is missing: {php_file}")
-    require("200" in operation.get("responses", {}), f"{route} has no success response")
-    if route not in {"/api/v1/health", "/api/v1/auth/student/login", "/api/v1/auth/student/register", "/api/v1/auth/refresh", "/api/v1/registration/cities", "/api/v1/registration/grades", "/api/v1/registration/schools"}:
-        require(operation.get("security") == [{"bearerAuth": []}], f"{route} must require bearer auth")
+    for method in methods:
+        operation = CONTRACT["paths"][route].get(method)
+        require(operation is not None, f"{method.upper()} {route} is missing")
+        require("200" in operation.get("responses", {}), f"{route} has no success response")
+        if route not in {"/api/v1/health", "/api/v1/auth/student/login", "/api/v1/auth/student/register", "/api/v1/auth/refresh", "/api/v1/registration/cities", "/api/v1/registration/grades", "/api/v1/registration/schools"}:
+            require(operation.get("security") == [{"bearerAuth": []}], f"{route} must require bearer auth")
 
 servers = CONTRACT.get("servers", [])
 server_urls = {item["url"] for item in servers}

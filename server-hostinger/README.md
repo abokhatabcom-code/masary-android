@@ -51,6 +51,8 @@ POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET  /api/v1/me
 GET  /api/v1/student/home
+PUT  /api/v1/student/push-token
+DELETE /api/v1/student/push-token
 ```
 
 ## الصفحة الرئيسية للطالب
@@ -101,6 +103,7 @@ curl -sS https://masary.app/api/v1/auth/student/login \
 - الصفحة الرئيسية لا تستقبل `student_id` من التطبيق؛ هوية الطالب تأتي من الرمز فقط.
 - لا CORS مفتوح.
 - لا تعديل على Push V2 أو PWA.
+- مسار Push Token خاص بـ Android Notifications V1 فقط؛ لا يرسل إشعارات ولا ينشئ حملات.
 
 ## الأداء والضغط العالي
 

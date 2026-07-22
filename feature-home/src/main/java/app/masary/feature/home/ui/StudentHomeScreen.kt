@@ -108,6 +108,7 @@ fun StudentHomeRoute(
     session: StudentSession,
     repository: HomeRepository,
     onLogout: () -> Unit,
+    onNotificationsPermission: () -> Unit = {},
 ) {
     val homeViewModel: StudentHomeViewModel = viewModel(
         factory = StudentHomeViewModelFactory(repository),
@@ -152,13 +153,7 @@ fun StudentHomeRoute(
                         session = session,
                         state = state,
                         onRefresh = homeViewModel::refresh,
-                        onNotifications = {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    "سيتم ربط إشعارات أندرويد الأصلية في مرحلتها المستقلة.",
-                                )
-                            }
-                        },
+                        onNotifications = onNotificationsPermission,
                         onGuideStep = {
                             scope.launch {
                                 snackbarHostState.showSnackbar(
