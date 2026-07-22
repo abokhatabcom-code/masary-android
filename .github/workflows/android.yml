@@ -25,23 +25,29 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Bootstrap Gradle wrapper
+        run: ./scripts/bootstrap-gradle-wrapper.sh
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Run unit tests and Android lint
+        run: ./gradlew --no-daemon test lint
+
+      - name: Upload quality reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          gradle-version: "8.11.1"
+          name: android-quality-reports
+          path: |
+            **/build/reports/**
+            **/build/test-results/**
+          if-no-files-found: ignore
+          retention-days: 14
 
-      - name: Generate Gradle wrapper
-        run: gradle wrapper --gradle-version 8.11.1
-
-      - name: Run student unit tests
-        run: ./gradlew :app-student:testDebugUnitTest
-
-      - name: Build student debug APK
-        run: ./gradlew :app-student:assembleDebug
-
-      - name: Build admin debug APK
-        run: ./gradlew :app-admin:assembleDebug
-
-      - name: Build POS debug APK
-        run: ./gradlew :app-pos:assembleDebug
+      - name: Build debug APKs
+        run: ./gradlew --no-daemon :app-student:assembleDebug :app-admin:assembleDebug :app-pos:assembleDebug
 
       - name: Upload student debug APK
         uses: actions/upload-artifact@v4
@@ -119,23 +125,18 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.11.1"
 
-      - name: Generate Gradle wrapper
-        run: gradle wrapper --gradle-version 8.11.1
+      - name: Bootstrap Gradle wrapper
+        run: ./scripts/bootstrap-gradle-wrapper.sh
 
-      - name: Run student unit tests
-        run: ./gradlew :app-student:testDebugUnitTest
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
 
-      - name: Build signed student debug APK
-        run: ./gradlew :app-student:assembleDebug
+      - name: Run unit tests and Android lint
+        run: ./gradlew --no-daemon test lint
 
-      - name: Build signed admin debug APK
-        run: ./gradlew :app-admin:assembleDebug
-
-      - name: Build signed POS debug APK
-        run: ./gradlew :app-pos:assembleDebug
+      - name: Build signed debug APKs
+        run: ./gradlew --no-daemon :app-student:assembleDebug :app-admin:assembleDebug :app-pos:assembleDebug
 
       - name: Upload signed student debug APK
         uses: actions/upload-artifact@v4

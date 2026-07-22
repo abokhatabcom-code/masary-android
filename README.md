@@ -6,17 +6,43 @@
 
 - JDK 17
 - Android SDK 35
+- لا يلزم تثبيت Gradle على الجهاز؛ جهّز Gradle Wrapper الموثوق عبر السكربت المرفق.
+
+بعد استنساخ نسخة نظيفة، نزّل ملف Wrapper الرسمي وتحقق من سلامته، ثم افحص البيئة:
+
+```bash
+./scripts/bootstrap-gradle-wrapper.sh
+java -version
+./gradlew --version
+```
+
+إذا لم يكتشف Gradle حزمة Android تلقائيًا، عرّف `ANDROID_HOME` أو أضف مسار
+الحزمة في ملف `local.properties` المحلي (هذا الملف مستثنى من Git).
+
+## بوابة الجودة المحلية
+
+شغّل اختبارات JVM لكل الوحدات وفحص Android Lint قبل إرسال أي تغيير:
+
+```bash
+./gradlew --no-daemon test lint
+```
 
 ## بناء نسخة Debug
 
 ```bash
-./gradlew :app-student:assembleDebug
-./gradlew :app-admin:assembleDebug
-./gradlew :app-pos:assembleDebug
+./gradlew --no-daemon \
+  :app-student:assembleDebug \
+  :app-admin:assembleDebug \
+  :app-pos:assembleDebug
 ```
 
 يرفع GitHub Actions ملفات البناء بثلاثة Artifacts مستقلة: `masary-student-debug-apk`،
 و`masary-admin-debug-apk`، و`masary-pos-debug-apk`.
+
+يجهّز CI ملف Wrapper الرسمي عبر السكربت نفسه ويتحقق من SHA-256 المثبّت قبل
+استخدامه، ثم يتحقق من Wrapper ويشغّل جميع اختبارات JVM وAndroid Lint قبل بناء
+التطبيقات الثلاثة. عند تغيير نسخة Gradle يجب تحديث نسخة التوزيعة ورابط JAR
+والبصمة معًا ومراجعتها في تغيير مستقل.
 
 ## توقيع نسخ Debug في GitHub Actions
 
