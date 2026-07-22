@@ -23,14 +23,15 @@ class MasaryMessagingService : FirebaseMessagingService() {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("notification_destination", destination)
         } ?: return
-        val pending = PendingIntent.getActivity(this, 41, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val requestCode = NotificationPendingIntentPolicy.requestCode(message.messageId, destination)
+        val pending = PendingIntent.getActivity(this, requestCode, intent, PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(this, channel)
             .setSmallIcon(R.drawable.ic_notification_small)
             .setContentTitle(message.data["title"]?.take(80) ?: getString(R.string.channel_system_name))
             .setContentText(message.data["body"]?.take(160).orEmpty())
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setContentIntent(pending).setAutoCancel(true).build()
         if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-            NotificationManagerCompat.from(this).notify(message.messageId?.hashCode() ?: System.nanoTime().toInt(), notification)
+            NotificationManagerCompat.from(this).notify(requestCode, notification)
         }
     }
 }

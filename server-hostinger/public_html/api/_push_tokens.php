@@ -15,7 +15,7 @@ function api_android_installation_payload(array $payload,bool $tokenRequired): a
     if($tokenRequired && (strlen($token)<32||strlen($token)>4096||preg_match('/\s/',$token))) api_error('invalid_push_token','رمز الإشعارات غير صالح.',422);
     $platform=trim((string)($payload['platform']??'')); if($platform!=='android') api_error('invalid_platform','المنصة غير صالحة.',422);
     $status=trim((string)($payload['permission_status']??''));
-    if(!in_array($status,['NotRequired','NotRequested','Denied','PermanentlyDenied','Granted'],true)) api_error('invalid_permission_status','حالة الإذن غير صالحة.',422);
+    if(!in_array($status,['NotRequired','SystemDisabled','NotRequested','Denied','PermanentlyDenied','Granted'],true)) api_error('invalid_permission_status','حالة الإذن غير صالحة.',422);
     return ['installation_id'=>$installation,'token'=>$token,'app_version'=>substr(trim((string)($payload['app_version']??'')),0,40),'app_build'=>(int)($payload['app_build']??0),'platform'=>$platform,'locale'=>substr(trim((string)($payload['locale']??'')),0,35),'timezone'=>substr(trim((string)($payload['timezone']??'')),0,64),'permission_status'=>$status];
 }
 function api_upsert_android_installation(PDO $pdo,int $userId,array $payload): void {
@@ -25,7 +25,11 @@ function api_upsert_android_installation(PDO $pdo,int $userId,array $payload): v
         if(!$hasToken) {
             $stmt=$pdo->prepare('UPDATE api_android_push_installations SET app_version=?,app_build=?,locale=?,timezone=?,permission_status=?,last_seen_at=?,updated_at=? WHERE installation_id=? AND user_id=? AND disabled_at IS NULL');
             $stmt->execute([$v['app_version'],$v['app_build'],$v['locale'],$v['timezone'],$v['permission_status'],$now,$now,$v['installation_id'],$userId]);
-            if($stmt->rowCount()===0) api_error('fcm_token_required','رمز الإشعارات مطلوب للتسجيل الأول.',422);
+            if($stmt->rowCount()===0) {
+                $exists=$pdo->prepare('SELECT 1 FROM api_android_push_installations WHERE installation_id=? AND user_id=? AND disabled_at IS NULL LIMIT 1');
+                $exists->execute([$v['installation_id'],$userId]);
+                if($exists->fetchColumn()===false) api_error('fcm_token_required','رمز الإشعارات مطلوب للتسجيل الأول.',422);
+            }
         } else {
             $hash=hash('sha256',$v['token']); $encrypted=api_encrypt_fcm_token($v['token']);
             $pdo->prepare('UPDATE api_android_push_installations SET encrypted_fcm_token=NULL,token_hash=NULL,disabled_at=?,updated_at=? WHERE token_hash=? AND installation_id<>?')->execute([$now,$now,$hash,$v['installation_id']]);

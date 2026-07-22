@@ -182,6 +182,7 @@ fun StudentHomeRoute(
                                 NotificationPermissionState.Denied,
                                 -> showPermissionExplanation = true
                                 NotificationPermissionState.PermanentlyDenied -> onOpenNotificationSettings()
+                                NotificationPermissionState.SystemDisabled -> onOpenNotificationSettings()
                                 else -> Unit
                             }
                         },

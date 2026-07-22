@@ -80,6 +80,7 @@ fun MasaryStudentApp(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(route) {
+        if (route == AppRoute.Authentication || route == AppRoute.Onboarding) onNotificationDestinationConsumed()
         if (route == AppRoute.Home) {
             NotificationSyncCoordinator.configure(navController.context, BuildConfig.MASARY_API_BASE_URL, true)
             NotificationSyncCoordinator.scheduleRegistration(navController.context)

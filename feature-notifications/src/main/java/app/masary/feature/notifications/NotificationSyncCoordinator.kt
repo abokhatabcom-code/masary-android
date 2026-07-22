@@ -21,4 +21,7 @@ object NotificationSyncCoordinator {
         WorkManager.getInstance(context).enqueueUniqueWork("notifications-v1-$action",policy,request)
     }
 }
-data class PendingLogout(val accessToken:String,val refreshToken:String) { override fun toString()="PendingLogout(accessToken=[REDACTED], refreshToken=[REDACTED])" }
+data class PendingLogout(val accessToken:String,val refreshToken:String) {
+    fun rotated(accessToken:String,refreshToken:String)=PendingLogout(accessToken,refreshToken)
+    override fun toString()="PendingLogout(accessToken=[REDACTED], refreshToken=[REDACTED])"
+}

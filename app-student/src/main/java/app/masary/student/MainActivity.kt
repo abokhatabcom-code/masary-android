@@ -25,6 +25,7 @@ private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "s
 private val ComponentActivity.onboardingDataStore by preferencesDataStore(name = "student_onboarding")
 
 class MainActivity : ComponentActivity() {
+    private val destinationInbox = NotificationDestinationInbox()
     private val notificationDestination = mutableStateOf<String?>(null)
     private val permissionState = mutableStateOf(NotificationPermissionState.NotRequested)
     private val permissionController = NotificationPermissionController()
@@ -46,7 +47,8 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        notificationDestination.value = intent?.getStringExtra("notification_destination")
+        destinationInbox.receive(intent?.getStringExtra("notification_destination"))
+        notificationDestination.value = destinationInbox.consume(true, false) { intent?.removeExtra("notification_destination") }
         enableEdgeToEdge()
         NotificationChannels.create(this)
         refreshPermissionState()
@@ -70,7 +72,7 @@ class MainActivity : ComponentActivity() {
                     deviceName = Build.MODEL.ifBlank { "Android" },
                     notificationPermissionState = permissionState.value,
                     notificationDestination = notificationDestination.value,
-                    onNotificationDestinationConsumed = { notificationDestination.value = null },
+                    onNotificationDestinationConsumed = { notificationDestination.value = null; intent?.removeExtra("notification_destination") },
                     onNotificationsPermission = { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) },
                     onOpenNotificationSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) },
                 )
@@ -80,7 +82,8 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        notificationDestination.value = intent.getStringExtra("notification_destination")
+        destinationInbox.receive(intent.getStringExtra("notification_destination"))
+        notificationDestination.value = destinationInbox.consume(true, false) { intent.removeExtra("notification_destination") }
     }
 
 }

@@ -3,5 +3,5 @@ package app.masary.feature.notifications
 class NotificationDestinationInbox {
  private var pending:String?=null
  fun receive(destination:String?) { pending=destination }
- fun consume(hasSession:Boolean,testActive:Boolean):String? = pending?.let { NotificationDestinationPolicy.resolve(it,hasSession,testActive) }.also { pending=null }
+ fun consume(hasSession:Boolean,testActive:Boolean,onConsumed:()->Unit={}):String? = pending?.let { NotificationDestinationPolicy.resolve(it,hasSession,testActive) }.also { if(pending!=null)onConsumed(); pending=null }
 }
