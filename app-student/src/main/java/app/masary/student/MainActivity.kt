@@ -22,11 +22,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val tokenStore = TokenStoreFactory.create(applicationContext)
         val sessionManager = DataStoreSessionManager(sessionDataStore, tokenStore)
-        val homeRepository = HomeRepositoryFactory.create(sessionManager)
+        val homeRepository = HomeRepositoryFactory.create(sessionManager, BuildConfig.MASARY_API_BASE_URL)
         setContent {
             MasaryTheme {
                 AuthRoute(
-                    repository = AuthRepositoryFactory.create(),
+                    repository = AuthRepositoryFactory.create(BuildConfig.MASARY_API_BASE_URL),
                     sessionManager = sessionManager,
                     deviceName = Build.MODEL.ifBlank { "Android" },
                     authenticatedContent = { session, onLogout ->

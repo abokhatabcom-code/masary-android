@@ -25,7 +25,21 @@ java -version
 
 ```bash
 ./gradlew --no-daemon test lint
+python3 scripts/validate-api-contract.py
 ```
+
+## بيئات API والعقد
+
+تستخدم نسخة Debug عنوان development المحقون عبر
+`-PmasaryDevelopmentBaseUrl=...` أو متغير GitHub
+`MASARY_DEVELOPMENT_BASE_URL`، بينما تتصل نسخة Release افتراضيًا بالإنتاج. وبالمثل
+يُحقن staging عبر `-PmasaryStagingBaseUrl=...` أو
+`MASARY_STAGING_BASE_URL`. عند غياب عنوان غير إنتاجي يستخدم البناء نطاق `.invalid`
+آمنًا. يرفض البناء HTTP، والعنوان الذي لا ينتهي بـ `/`، وأي Debug موجّه إلى الإنتاج.
+
+يوجد عقد OpenAPI 3.1 وأمثلة الاستجابات وتعليمات التحديث في
+[`api-contract/README.md`](api-contract/README.md). فحوصات العقد محلية بالكامل؛ لا
+تتصل بالإنتاج ولا تطبق ملف SQL أو تنشر حزمة Hostinger.
 
 ## بناء نسخة Debug
 

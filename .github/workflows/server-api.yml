@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - "server-hostinger/**"
+      - "api-contract/**"
+      - "scripts/validate-api-contract.py"
       - ".github/workflows/server-api.yml"
   push:
     branches: [main]
     paths:
       - "server-hostinger/**"
+      - "api-contract/**"
+      - "scripts/validate-api-contract.py"
       - ".github/workflows/server-api.yml"
   workflow_dispatch:
 
@@ -34,6 +38,9 @@ jobs:
           set -euo pipefail
           find server-hostinger -type f -name '*.php' -print0 \
             | xargs -0 -n1 php -l
+
+      - name: Validate Android/PHP API contract
+        run: python3 scripts/validate-api-contract.py
 
       - name: Reject committed private material
         shell: bash

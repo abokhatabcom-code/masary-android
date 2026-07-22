@@ -1,0 +1,1256 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Masary Android API",
+    "version": "1.0.0",
+    "description": "العقد المرجعي الحالي بين تطبيق Android وواجهة PHP لمسارات /api/v1 الموجودة. لا ينشئ مسارات /api/android/v1 ولا يصف Push V2 أو PWA."
+  },
+  "servers": [
+    {
+      "url": "https://development.masary.invalid/",
+      "description": "Development placeholder only; inject the real URL at build time"
+    },
+    {
+      "url": "https://staging.masary.invalid/",
+      "description": "Staging placeholder only; inject the real URL at build time"
+    },
+    {
+      "url": "https://masary.app/",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/student/login": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/student/home": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "API envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Student": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password",
+          "device_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "device_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "LogoutRequest": {
+        "$ref": "#/components/schemas/RefreshRequest"
+      },
+      "LogoutData": {
+        "type": "object",
+        "required": [
+          "logged_out"
+        ],
+        "properties": {
+          "logged_out": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MeData": {
+        "type": "object",
+        "required": [
+          "student"
+        ],
+        "properties": {
+          "student": {
+            "$ref": "#/components/schemas/Student"
+          }
+        }
+      },
+      "HealthData": {
+        "type": "object",
+        "required": [
+          "service",
+          "version",
+          "status",
+          "server_time"
+        ],
+        "properties": {
+          "service": {
+            "const": "masary-api"
+          },
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "const": "ok"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "HomeData": {
+        "type": "object",
+        "required": [
+          "version",
+          "generated_at",
+          "student",
+          "summary",
+          "streak",
+          "today",
+          "subscription",
+          "notifications",
+          "continue_learning",
+          "smart_guide"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "generated_at": {
+            "type": "string"
+          },
+          "student": {
+            "$ref": "#/components/schemas/HomeStudent"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/HomeSummary"
+          },
+          "streak": {
+            "$ref": "#/components/schemas/HomeStreak"
+          },
+          "today": {
+            "$ref": "#/components/schemas/HomeToday"
+          },
+          "subscription": {
+            "$ref": "#/components/schemas/HomeSubscription"
+          },
+          "notifications": {
+            "$ref": "#/components/schemas/HomeNotifications"
+          },
+          "continue_learning": {
+            "$ref": "#/components/schemas/HomeContinueLearning"
+          },
+          "smart_guide": {
+            "$ref": "#/components/schemas/HomeSmartGuide"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/HealthData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/LogoutData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "MeResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MeData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/HomeData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "null"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeStudent": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "avatar_path"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "avatar_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HomeSummary": {
+        "type": "object",
+        "required": [
+          "global_xp",
+          "gems",
+          "level",
+          "level_percent",
+          "level_next_xp"
+        ],
+        "properties": {
+          "global_xp": {
+            "type": "integer"
+          },
+          "gems": {
+            "type": "integer"
+          },
+          "level": {
+            "type": "integer"
+          },
+          "level_percent": {
+            "type": "integer"
+          },
+          "level_next_xp": {
+            "type": "integer"
+          }
+        }
+      },
+      "HomeStreakGoal": {
+        "type": "object",
+        "required": [
+          "days",
+          "status",
+          "is_completed",
+          "remaining_days",
+          "progress_percent",
+          "gems",
+          "shields",
+          "label"
+        ],
+        "properties": {
+          "days": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "is_completed": {
+            "type": "boolean"
+          },
+          "remaining_days": {
+            "type": "integer"
+          },
+          "progress_percent": {
+            "type": "integer"
+          },
+          "gems": {
+            "type": "integer"
+          },
+          "shields": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeStreak": {
+        "type": "object",
+        "required": [
+          "current_days",
+          "best_days",
+          "protection_count",
+          "protection_max",
+          "next_milestone",
+          "checkpoint_days",
+          "status",
+          "message",
+          "goal"
+        ],
+        "properties": {
+          "current_days": {
+            "type": "integer"
+          },
+          "best_days": {
+            "type": "integer"
+          },
+          "protection_count": {
+            "type": "integer"
+          },
+          "protection_max": {
+            "type": "integer"
+          },
+          "next_milestone": {
+            "type": "integer"
+          },
+          "checkpoint_days": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "goal": {
+            "$ref": "#/components/schemas/HomeStreakGoal"
+          }
+        }
+      },
+      "HomeToday": {
+        "type": "object",
+        "required": [
+          "xp",
+          "seconds",
+          "minutes",
+          "attempts"
+        ],
+        "properties": {
+          "xp": {
+            "type": "integer"
+          },
+          "seconds": {
+            "type": "integer"
+          },
+          "minutes": {
+            "type": "integer"
+          },
+          "attempts": {
+            "type": "integer"
+          }
+        }
+      },
+      "HomeSubscription": {
+        "type": "object",
+        "required": [
+          "active",
+          "status",
+          "ends_at"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "ends_at": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeNotifications": {
+        "type": "object",
+        "required": [
+          "unread_count"
+        ],
+        "properties": {
+          "unread_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "HomeContinueLearning": {
+        "type": "object",
+        "required": [
+          "available",
+          "subject_version_id",
+          "subject_name",
+          "unit_id",
+          "unit_title",
+          "mode",
+          "label",
+          "hint",
+          "disabled",
+          "disabled_reason",
+          "hearts",
+          "updated_at"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "subject_version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subject_name": {
+            "type": "string"
+          },
+          "unit_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit_title": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "disabled_reason": {
+            "type": "string"
+          },
+          "hearts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeSmartGuideStep": {
+        "type": "object",
+        "required": [
+          "id",
+          "sort_order",
+          "subject_version_id",
+          "part",
+          "estimated_minutes",
+          "reward_gems",
+          "subject_name",
+          "action_key",
+          "action_group",
+          "title",
+          "subtitle",
+          "reason_text",
+          "cta_label",
+          "progress_state",
+          "completed_at",
+          "unit_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "sort_order": {
+            "type": "integer"
+          },
+          "subject_version_id": {
+            "type": "integer"
+          },
+          "part": {
+            "type": "integer"
+          },
+          "estimated_minutes": {
+            "type": "integer"
+          },
+          "reward_gems": {
+            "type": "integer"
+          },
+          "subject_name": {
+            "type": "string"
+          },
+          "action_key": {
+            "type": "string"
+          },
+          "action_group": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "reason_text": {
+            "type": "string"
+          },
+          "cta_label": {
+            "type": "string"
+          },
+          "progress_state": {
+            "type": "string"
+          },
+          "completed_at": {
+            "type": "string"
+          },
+          "unit_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HomeSmartGuide": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "status",
+          "guide_id",
+          "guide_date",
+          "headline",
+          "intro_text",
+          "boost_note",
+          "profile_key",
+          "completion_percent",
+          "completed_steps",
+          "total_steps",
+          "is_complete",
+          "updated_at",
+          "steps"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "guide_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guide_date": {
+            "type": "string"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "intro_text": {
+            "type": "string"
+          },
+          "boost_note": {
+            "type": "string"
+          },
+          "profile_key": {
+            "type": "string"
+          },
+          "completion_percent": {
+            "type": "integer"
+          },
+          "completed_steps": {
+            "type": "integer"
+          },
+          "total_steps": {
+            "type": "integer"
+          },
+          "is_complete": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeSmartGuideStep"
+            }
+          }
+        }
+      },
+      "LoginData": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in",
+          "student"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer"
+          },
+          "student": {
+            "$ref": "#/components/schemas/Student"
+          }
+        }
+      },
+      "RefreshData": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer"
+          },
+          "student": {
+            "$ref": "#/components/schemas/Student"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/LoginData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RefreshResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/RefreshData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

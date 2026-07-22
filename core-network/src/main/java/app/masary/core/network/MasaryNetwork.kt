@@ -10,20 +10,18 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object MasaryNetwork {
-    const val PRODUCTION_BASE_URL = "https://masary.app/"
-
     fun studentAuthApi(
-        baseUrl: String = PRODUCTION_BASE_URL,
+        baseUrl: String,
         client: OkHttpClient = defaultClient(),
-    ): StudentAuthApi = studentAuthApi(baseUrl.toHttpUrl(), client)
+    ): StudentAuthApi = studentAuthApi(validateBaseUrl(baseUrl), client)
 
     fun studentAuthApi(baseUrl: HttpUrl, client: OkHttpClient = defaultClient()): StudentAuthApi =
         retrofit(baseUrl, client).create(StudentAuthApi::class.java)
 
     fun studentHomeApi(
-        baseUrl: String = PRODUCTION_BASE_URL,
+        baseUrl: String,
         client: OkHttpClient = defaultClient(),
-    ): StudentHomeApi = studentHomeApi(baseUrl.toHttpUrl(), client)
+    ): StudentHomeApi = studentHomeApi(validateBaseUrl(baseUrl), client)
 
     fun studentHomeApi(baseUrl: HttpUrl, client: OkHttpClient = defaultClient()): StudentHomeApi =
         retrofit(baseUrl, client).create(StudentHomeApi::class.java)
@@ -34,6 +32,13 @@ object MasaryNetwork {
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+
+    internal fun validateBaseUrl(baseUrl: String): HttpUrl {
+        require(baseUrl.endsWith('/')) { "API Base URL must end with /" }
+        return baseUrl.toHttpUrl().also {
+            require(it.isHttps) { "API Base URL must use HTTPS" }
+        }
+    }
 
     private fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
