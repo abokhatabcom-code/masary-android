@@ -1,0 +1,78 @@
+<?php
+// مرجع غير تنفيذي مستخرج من register.php القديم. لا يُستدعى مباشرة.
+// حُذف منه HTML وPush V2 وأي تفاصيل بيئة.
+
+function legacy_public_registration_rules(PDO $pdo, array $input): array {
+    $errors = [];
+    $fullName = trim((string)($input['full_name'] ?? ''));
+    $username = trim((string)($input['username'] ?? ''));
+    $phone = trim((string)($input['phone'] ?? ''));
+    $email = trim((string)($input['email'] ?? ''));
+    $cityId = (int)($input['city_id'] ?? 0);
+    $schoolId = (int)($input['school_id'] ?? 0);
+    $gradeId = (int)($input['grade_id'] ?? 0);
+    $gender = trim((string)($input['gender'] ?? ''));
+    $personality = trim((string)($input['student_personality'] ?? ''));
+    $password = (string)($input['password'] ?? '');
+    $password2 = (string)($input['password2'] ?? '');
+
+    if ($fullName === '') $errors[] = 'full_name_required';
+    if (!preg_match('/^[a-zA-Z0-9_]{3,24}$/', $username)) $errors[] = 'username_invalid';
+    if (strlen($password) < 6) $errors[] = 'password_too_short';
+    if ($password !== $password2) $errors[] = 'password_confirmation_mismatch';
+    if (!in_array($gender, ['male', 'female'], true)) $errors[] = 'gender_invalid';
+    if (($input['privacy_accept'] ?? null) !== '1' && ($input['privacy_accept'] ?? null) !== 1 && ($input['privacy_accept'] ?? null) !== true) {
+        $errors[] = 'privacy_required';
+    }
+
+    $cityRequiresSchool = true;
+    if ($cityId <= 0) {
+        $errors[] = 'city_required';
+    } else {
+        $st = $pdo->prepare("SELECT id, COALESCE(requires_school,1) requires_school FROM cities WHERE id=? AND is_active=1 LIMIT 1");
+        $st->execute([$cityId]);
+        $city = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$city) $errors[] = 'city_unavailable';
+        else $cityRequiresSchool = (int)$city['requires_school'] === 1;
+    }
+
+    if ($cityRequiresSchool && $schoolId <= 0) $errors[] = 'school_required';
+    if (!$cityRequiresSchool) $schoolId = 0;
+    if ($gradeId <= 0) $errors[] = 'grade_required';
+
+    if (!$errors) {
+        $st = $pdo->prepare('SELECT id FROM app_users WHERE username=? LIMIT 1');
+        $st->execute([$username]);
+        if ($st->fetchColumn()) $errors[] = 'username_taken';
+    }
+
+    if (!$errors && $cityRequiresSchool) {
+        $st = $pdo->prepare("SELECT id FROM schools WHERE id=? AND city_id=? AND is_active=1 AND COALESCE(student_visibility,'public')='public'");
+        $st->execute([$schoolId, $cityId]);
+        if (!$st->fetchColumn()) $errors[] = 'school_city_mismatch';
+    }
+
+    if (!$errors) {
+        $st = $pdo->prepare("SELECT id FROM grades WHERE id=? AND is_active=1 AND COALESCE(student_visibility,'public')='public'");
+        $st->execute([$gradeId]);
+        if (!$st->fetchColumn()) $errors[] = 'grade_unavailable';
+    }
+
+    return [
+        'errors' => $errors,
+        'normalized' => [
+            'role' => 'student',
+            'full_name' => $fullName,
+            'username' => $username,
+            'phone' => $phone !== '' ? $phone : null,
+            'email' => $email !== '' ? $email : null,
+            'city_id' => $cityId,
+            'school_id' => $cityRequiresSchool ? $schoolId : null,
+            'grade_id' => $gradeId,
+            'gender' => $gender,
+            'student_personality' => $personality !== '' ? $personality : null,
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'is_active' => 1,
+        ],
+    ];
+}
