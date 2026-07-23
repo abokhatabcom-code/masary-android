@@ -1,7 +1,7 @@
 package app.masary.core.network.notifications
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.Body
-import retrofit2.http.DELETE
+import retrofit2.http.HTTP
 import retrofit2.http.Header
 import retrofit2.http.PUT
 
@@ -18,5 +18,5 @@ data class PushTokenResponse(val success:Boolean,val data:PushTokenData?,val err
 data class PushTokenError(val code:String,val message:String)
 interface StudentPushTokenApi {
  @PUT("api/v1/student/push-token") suspend fun register(@Header("Authorization") authorization:String,@Body request:PushInstallationRequest):PushTokenResponse
- @DELETE("api/v1/student/push-token") suspend fun unregister(@Header("Authorization") authorization:String,@Body request:PushInstallationRequest):PushTokenResponse
+ @HTTP(method="DELETE",path="api/v1/student/push-token",hasBody=true) suspend fun unregister(@Header("Authorization") authorization:String,@Body request:PushInstallationRequest):PushTokenResponse
 }

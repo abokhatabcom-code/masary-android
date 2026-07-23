@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import java.io.IOException
 import java.util.Locale
 import java.util.TimeZone
+import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
 
 class NotificationSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params) {
@@ -27,26 +28,28 @@ class NotificationSyncWorker(context:Context,params:WorkerParameters):CoroutineW
   return try {
    val push=MasaryNetwork.studentPushTokenApi(base)
    if(action=="unregister") {
-    var unregistered=try{push.unregister("Bearer $access",request)}catch(e:HttpException){
-     if(e.code()!=401||pending==null)throw e
-     val refresh=MasaryNetwork.studentAuthApi(base).refresh(StudentRefreshRequestDto(pending.refreshToken))
-     val refreshed=refresh.data?.takeIf{refresh.success}?:return permanent(logoutStore)
-     pending=pending.rotated(refreshed.accessToken,refreshed.refreshToken)
-     logoutStore.write(Gson().toJson(pending));access=refreshed.accessToken
-     push.unregister("Bearer $access",request)
+    val initial=requireNotNull(pending)
+    val auth=MasaryNetwork.studentAuthApi(base)
+    val transport=object:LogoutTransport {
+     override suspend fun unregister(accessToken:String)=outcome { push.unregister("Bearer $accessToken",request).success }
+     override suspend fun refresh(refreshToken:String):RefreshOutcome = try { val response=auth.refresh(StudentRefreshRequestDto(refreshToken));val data=response.data;if(response.success&&data!=null)RefreshOutcome.Success(RefreshedCredentials(data.accessToken,data.refreshToken))else RefreshOutcome.PermanentFailure } catch(error:CancellationException){throw error}catch(error:HttpException){if(SyncFailurePolicy.classify(error.code(),attempt=runAttemptCount)==SyncDecision.Retry)RefreshOutcome.TemporaryFailure else RefreshOutcome.PermanentFailure}catch(error:java.io.IOException){RefreshOutcome.TemporaryFailure}catch(error:Exception){RefreshOutcome.PermanentFailure}
+     override suspend fun logout(accessToken:String,refreshToken:String)=outcome { auth.logout("Bearer $accessToken",StudentLogoutRequestDto(refreshToken)).success }
+     private suspend fun outcome(call:suspend()->Boolean):TransportOutcome = try { if(call())TransportOutcome.Success else TransportOutcome.PermanentFailure } catch(error:CancellationException){throw error}catch(error:HttpException){when{error.code()==401->TransportOutcome.Unauthorized;SyncFailurePolicy.classify(error.code(),attempt=runAttemptCount)==SyncDecision.Retry->TransportOutcome.TemporaryFailure;else->TransportOutcome.PermanentFailure}}catch(error:java.io.IOException){TransportOutcome.TemporaryFailure}catch(error:Exception){TransportOutcome.PermanentFailure}
     }
-    if(!unregistered.success)return permanent(logoutStore)
-    val active=requireNotNull(pending)
-    val loggedOut=MasaryNetwork.studentAuthApi(base).logout("Bearer $access",StudentLogoutRequestDto(active.refreshToken))
-    if(!loggedOut.success)return permanent(logoutStore)
-    logoutStore.clear()
+    when(LogoutSequence(transport){logoutStore.write(Gson().toJson(it))}.run(initial)) {
+     LogoutSequenceResult.Success->{logoutStore.clear()}
+     LogoutSequenceResult.Retry->return if(runAttemptCount<SyncFailurePolicy.MAX_ATTEMPTS-1)Result.retry()else permanent(logoutStore)
+     LogoutSequenceResult.PermanentFailure->return permanent(logoutStore)
+    }
    }else{
     val registered=push.register("Bearer $access",request);if(!registered.success)return Result.failure()
-    if(fcm!=null)SecurePendingTokenStore(applicationContext).clear()
+    // Retain the current token encrypted so the same installation can bind a later account session.
    }
    Result.success()
-  }catch(e:HttpException){decision(e.code(),null,logoutStore,action)}
-   catch(e:Throwable){decision(null,e,logoutStore,action)}
+  }catch(error:CancellationException){throw error}
+   catch(e:HttpException){decision(e.code(),null,logoutStore,action)}
+   catch(e:java.io.IOException){decision(null,e,logoutStore,action)}
+   catch(e:Exception){decision(null,e,logoutStore,action)}
  }
  private fun decision(code:Int?,error:Throwable?,store:SecurePendingTokenStore,action:String):Result =
   if(SyncFailurePolicy.classify(code,error,runAttemptCount)==SyncDecision.Retry)Result.retry()else{if(action=="unregister")store.clear();Result.failure()}

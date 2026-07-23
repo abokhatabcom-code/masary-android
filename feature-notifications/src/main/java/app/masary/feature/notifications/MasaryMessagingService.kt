@@ -23,7 +23,8 @@ class MasaryMessagingService : FirebaseMessagingService() {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("notification_destination", destination)
         } ?: return
-        val requestCode = NotificationPendingIntentPolicy.requestCode(message.messageId, destination)
+        val fingerprint = message.data.toSortedMap().entries.joinToString("|") { "${it.key}=${it.value}" }
+        val requestCode = NotificationPendingIntentPolicy.requestCode(message.messageId, message.sentTime, destination, fingerprint)
         val pending = PendingIntent.getActivity(this, requestCode, intent, PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(this, channel)
             .setSmallIcon(R.drawable.ic_notification_small)

@@ -13,12 +13,12 @@ import javax.crypto.spec.GCMParameterSpec
 /** Stores pending FCM material encrypted with a non-exportable Android Keystore key. */
 class SecurePendingTokenStore(context: Context, private val purpose: String = "fcm") {
     private val preferences = context.getSharedPreferences("notification_pending_v1_$purpose", Context.MODE_PRIVATE)
-    fun write(token: String) {
+    fun write(token: String): Boolean {
         require(token.isNotBlank())
         val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key()) }
         val encrypted = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
-        preferences.edit().putString(DATA, Base64.encodeToString(encrypted, Base64.NO_WRAP))
-            .putString(IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP)).apply()
+        return preferences.edit().putString(DATA, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+            .putString(IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP)).commit()
     }
     fun read(): String? = runCatching {
         val data = preferences.getString(DATA, null) ?: return null
