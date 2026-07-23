@@ -64,7 +64,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -93,7 +92,6 @@ import app.masary.feature.home.domain.HomeSmartGuide
 import app.masary.feature.home.domain.HomeSmartGuideStep
 import app.masary.feature.home.domain.StudentHomeData
 import app.masary.feature.notifications.NotificationPermissionState
-import kotlinx.coroutines.launch
 
 private enum class StudentDestination(
     @StringRes val labelRes: Int,
@@ -122,7 +120,6 @@ fun StudentHomeRoute(
     val state by homeViewModel.state.collectAsStateWithLifecycle()
     var destination by rememberSaveable { mutableStateOf(StudentDestination.Home) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     var showPermissionExplanation by rememberSaveable { mutableStateOf(permissionState == NotificationPermissionState.NotRequested) }
     LaunchedEffect(externalDestination) {
         externalDestination?.let { requested ->
@@ -186,13 +183,7 @@ fun StudentHomeRoute(
                                 else -> Unit
                             }
                         },
-                        onGuideStep = {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    "سيتم فتح الخطوة داخل صفحة المادة الأصلية في المرحلة التالية.",
-                                )
-                            }
-                        },
+                        onGuideStep = { destination = StudentDestination.Subjects },
                         onBrowseSubjects = { destination = StudentDestination.Subjects },
                     )
 
@@ -363,6 +354,13 @@ private fun HomeContent(
             item {
                 Box(Modifier.padding(horizontal = 18.dp)) {
                     ErrorBanner(errorMessage, onRefresh)
+                }
+            }
+        }
+        if (data.snapshot != null) {
+            item {
+                Box(Modifier.padding(horizontal = 18.dp)) {
+                    ErrorBanner("أنت تعرض آخر نسخة محفوظة. حدّث الصفحة عند عودة الاتصال.", onRefresh)
                 }
             }
         }

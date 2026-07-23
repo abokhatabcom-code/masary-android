@@ -15,6 +15,7 @@ import app.masary.feature.home.domain.HomeContinueLearning
 import app.masary.feature.home.domain.HomeNetworkException
 import app.masary.feature.home.domain.HomeNotifications
 import app.masary.feature.home.domain.HomeRepository
+import app.masary.feature.home.domain.HomeSnapshotStore
 import app.masary.feature.home.domain.HomeServiceException
 import app.masary.feature.home.domain.HomeSessionExpiredException
 import app.masary.feature.home.domain.HomeSmartGuide
@@ -28,32 +29,41 @@ import app.masary.feature.home.domain.HomeToday
 import app.masary.feature.home.domain.StudentHomeData
 import java.io.IOException
 import retrofit2.HttpException
+import kotlinx.coroutines.flow.first
 
 class NetworkHomeRepository(
     private val homeApi: StudentHomeApi,
     private val authApi: StudentAuthApi,
     private val sessionManager: SessionManager,
+    private val snapshotStore: HomeSnapshotStore,
     private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
 ) : HomeRepository {
 
-    override suspend fun loadHome(): Result<StudentHomeData> = runCatching {
-        var tokens = sessionManager.readTokens()
-            ?: throw HomeSessionExpiredException()
+    override suspend fun loadHome(): Result<StudentHomeData> {
+        val studentId = sessionManager.session.first()?.id ?: return Result.failure(HomeSessionExpiredException())
+        return runCatching {
+            var tokens = sessionManager.readTokens()
+                ?: throw HomeSessionExpiredException()
 
-        if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
-            tokens = refreshTokens(tokens.refreshToken)
-        }
+            if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
+                tokens = refreshTokens(tokens.refreshToken)
+            }
 
-        try {
-            requestHome(tokens)
-        } catch (error: HttpException) {
-            if (error.code() != 401) throw error
-            tokens = refreshTokens(tokens.refreshToken)
-            requestHome(tokens)
+            try {
+                requestHome(tokens)
+            } catch (error: HttpException) {
+                if (error.code() != 401) throw error
+                tokens = refreshTokens(tokens.refreshToken)
+                requestHome(tokens)
+            }.also { snapshotStore.write(studentId, it) }
+        }.recoverCatching { error ->
+            val mapped = mapFailure(error)
+            if (mapped is HomeSessionExpiredException) throw mapped
+            snapshotStore.read(studentId) ?: throw mapped
         }
-    }.recoverCatching { error ->
-        throw mapFailure(error)
     }
+
+    override suspend fun clearSnapshot() = snapshotStore.clear()
 
     private suspend fun requestHome(tokens: AuthTokens): StudentHomeData {
         val response = homeApi.home("Bearer ${tokens.accessToken}")

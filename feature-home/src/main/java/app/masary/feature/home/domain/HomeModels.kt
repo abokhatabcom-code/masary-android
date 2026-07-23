@@ -11,7 +11,10 @@ data class StudentHomeData(
     val notifications: HomeNotifications,
     val continueLearning: HomeContinueLearning,
     val smartGuide: HomeSmartGuide,
+    val snapshot: HomeSnapshotMetadata? = null,
 )
+
+data class HomeSnapshotMetadata(val savedAtEpochMillis: Long)
 
 data class HomeStudent(
     val id: String,

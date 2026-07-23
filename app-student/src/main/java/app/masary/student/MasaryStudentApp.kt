@@ -123,7 +123,10 @@ fun MasaryStudentApp(
                                 tokens.accessToken,
                                 tokens.refreshToken,
                             )
-                            if (prepared) startupViewModel.logoutLocally()
+                            if (prepared) {
+                                homeRepository.clearSnapshot()
+                                startupViewModel.logoutLocally()
+                            }
                             else startupViewModel.logoutPreparationFailed()
                         }
                     },

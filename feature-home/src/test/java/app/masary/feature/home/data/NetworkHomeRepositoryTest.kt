@@ -19,12 +19,16 @@ import app.masary.core.network.home.HomeSmartGuideStepDto
 import app.masary.core.network.home.StudentHomeApi
 import app.masary.core.network.home.StudentHomeDataDto
 import app.masary.core.network.home.StudentHomeResponseDto
+import app.masary.feature.home.domain.HomeSnapshotStore
+import app.masary.feature.home.domain.HomeSnapshotMetadata
+import app.masary.feature.home.domain.StudentHomeData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class NetworkHomeRepositoryTest {
     @Test
@@ -43,6 +47,7 @@ class NetworkHomeRepositoryTest {
             homeApi = homeApi,
             authApi = authApi,
             sessionManager = sessionManager,
+            snapshotStore = FakeSnapshotStore(),
             nowEpochSeconds = { 1000L },
         )
 
@@ -53,12 +58,27 @@ class NetworkHomeRepositoryTest {
         assertEquals("Bearer new-access", homeApi.lastAuthorization)
         assertEquals(listOf(1, 2), result.getOrThrow().smartGuide.steps.map { it.sortOrder })
     }
+
+    @Test
+    fun `returns the student snapshot when the platform is offline`() = runTest {
+        val sessionManager = FakeSessionManager(AuthTokens("access", "refresh", 900, 2_000))
+        val snapshot = FakeSnapshotStore()
+        val homeApi = FakeHomeApi()
+        val repository = NetworkHomeRepository(homeApi, FakeAuthApi(), sessionManager, snapshot) { 1_000 }
+        val online = repository.loadHome().getOrThrow()
+        homeApi.offline = true
+
+        val offline = repository.loadHome().getOrThrow()
+
+        assertEquals(online.student.id, offline.student.id)
+        assertTrue(offline.snapshot != null)
+    }
 }
 
 private class FakeSessionManager(
     var tokens: AuthTokens?,
 ) : SessionManager {
-    override val session: Flow<StudentSession?> = flowOf(null)
+    override val session: Flow<StudentSession?> = flowOf(StudentSession("42", "student", "طالب"))
 
     override suspend fun save(authenticatedStudent: AuthenticatedStudent) = Unit
 
@@ -71,6 +91,13 @@ private class FakeSessionManager(
     override suspend fun clear() {
         tokens = null
     }
+}
+
+private class FakeSnapshotStore : HomeSnapshotStore {
+    var value: StudentHomeData? = null
+    override suspend fun read(studentId: String) = value?.copy(snapshot = HomeSnapshotMetadata(1L))
+    override suspend fun write(studentId: String, data: StudentHomeData) { value = data }
+    override suspend fun clear() { value = null }
 }
 
 private class FakeAuthApi : StudentAuthApi {
@@ -105,8 +132,10 @@ private class FakeAuthApi : StudentAuthApi {
 
 private class FakeHomeApi : StudentHomeApi {
     var lastAuthorization: String = ""
+    var offline = false
 
     override suspend fun home(authorization: String): StudentHomeResponseDto {
+        if (offline) throw IOException("offline")
         lastAuthorization = authorization
         return StudentHomeResponseDto(
             success = true,
