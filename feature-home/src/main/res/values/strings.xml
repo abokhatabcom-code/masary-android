@@ -42,6 +42,7 @@
     <string name="home_subscription_until">حتى %1$s</string>
     <string name="nav_home">الرئيسية</string>
     <string name="nav_subjects">المواد</string>
+    <string name="nav_guide">الموجّه</string>
     <string name="nav_ranking">الترتيب</string>
     <string name="nav_profile">حسابي</string>
     <string name="coming_soon_title">%1$s قيد التجهيز</string>
@@ -51,4 +52,9 @@
     <string name="profile_session_secure">الجلسة مشفرة ومحفوظة بأمان على هذا الجهاز.</string>
     <string name="profile_total_points">إجمالي النقاط: %1$d</string>
     <string name="logout">تسجيل الخروج</string>
+    <string name="home_no_subjects">لا توجد مواد مرتبطة بحسابك حاليًا.</string>
+    <string name="home_news">خبر</string>
+    <string name="home_offer">عرض</string>
+    <string name="home_rank_value">ترتيبك العام: %1$d</string>
+    <string name="home_rank_unavailable">سيظهر ترتيبك بعد تسجيل نشاط تعليمي.</string>
 </resources>

@@ -46,6 +46,54 @@ function api_student_home_subject_names(PDO $pdo, array $subjectVersionIds): arr
     return $out;
 }
 
+function api_student_home_subjects(PDO $pdo, int $studentId): array
+{
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT ss.subject_version_id, s.name, ss.hearts "
+            . "FROM student_subject_state ss "
+            . "JOIN subject_versions sv ON sv.id=ss.subject_version_id "
+            . "JOIN subjects s ON s.id=sv.subject_id "
+            . "WHERE ss.student_id=? ORDER BY s.name, ss.subject_version_id LIMIT 12"
+        );
+        $stmt->execute([$studentId]);
+        $items = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $subjectVersionId = max(0, (int)($row['subject_version_id'] ?? 0));
+            $progress = function_exists('ik_dash_subject_progress')
+                ? (int)ik_dash_subject_progress($pdo, $studentId, $subjectVersionId)
+                : 0;
+            $items[] = [
+                'subject_version_id' => $subjectVersionId,
+                'name' => trim((string)($row['name'] ?? '')),
+                'hearts' => max(0, (int)($row['hearts'] ?? 0)),
+                'progress_percent' => max(0, min(100, $progress)),
+            ];
+        }
+        return $items;
+    } catch (Throwable) {
+        return [];
+    }
+}
+
+function api_student_home_spotlight(PDO $pdo, int $studentId): ?array
+{
+    if (!function_exists('ik_dash_home_spotlight')) {
+        return null;
+    }
+    $item = ik_dash_home_spotlight($pdo, $studentId);
+    if (!is_array($item) || trim((string)($item['title'] ?? '')) === '') {
+        return null;
+    }
+    return [
+        'type' => in_array(($item['type'] ?? ''), ['news', 'offer'], true) ? $item['type'] : 'news',
+        'title' => trim((string)$item['title']),
+        'body' => trim((string)($item['body'] ?? '')),
+        'cta_label' => trim((string)($item['cta_label'] ?? '')),
+        'cta_url' => trim((string)($item['cta_url'] ?? '')),
+    ];
+}
+
 function api_student_home_continue(PDO $pdo, int $studentId): array
 {
     $empty = [
@@ -253,6 +301,11 @@ function api_student_home_payload(PDO $pdo, array $session): array
         : ['status' => 'غير نشط', 'ends_at' => ''];
     $continue = api_student_home_continue($pdo, $studentId);
     $smartGuide = api_student_home_smart_guide($pdo, $studentId);
+    $subjects = api_student_home_subjects($pdo, $studentId);
+    $spotlight = api_student_home_spotlight($pdo, $studentId);
+    $globalRank = function_exists('ik_dash_global_rank')
+        ? max(0, (int)ik_dash_global_rank($pdo, $studentId))
+        : max(0, (int)($profile['global_rank'] ?? 0));
 
     $globalXp = max(0.0, (float)($profile['global_xp'] ?? 0));
     $levelStep = 300.0;
@@ -295,6 +348,9 @@ function api_student_home_payload(PDO $pdo, array $session): array
         (string)($continue['updated_at'] ?? ''),
         $unreadCount,
         (string)($subscription['ends_at'] ?? ''),
+        $globalRank,
+        sha1(json_encode($subjects, JSON_UNESCAPED_UNICODE) ?: ''),
+        sha1(json_encode($spotlight, JSON_UNESCAPED_UNICODE) ?: ''),
     ];
 
     return [
@@ -349,5 +405,13 @@ function api_student_home_payload(PDO $pdo, array $session): array
         ],
         'continue_learning' => $continue,
         'smart_guide' => $smartGuide,
+        'indicators' => [
+            'total_xp' => (int)floor($globalXp),
+            'gems' => max(0, (int)($profile['gems'] ?? 0)),
+            'streak_days' => max(0, (int)($streak['current_days'] ?? 0)),
+            'global_rank' => $globalRank > 0 ? $globalRank : null,
+        ],
+        'subjects' => $subjects,
+        'spotlight' => $spotlight,
     ];
 }

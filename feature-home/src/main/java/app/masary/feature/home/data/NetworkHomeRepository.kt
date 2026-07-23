@@ -26,6 +26,9 @@ import app.masary.feature.home.domain.HomeStudent
 import app.masary.feature.home.domain.HomeSubscription
 import app.masary.feature.home.domain.HomeSummary
 import app.masary.feature.home.domain.HomeToday
+import app.masary.feature.home.domain.HomeIndicators
+import app.masary.feature.home.domain.HomeSubject
+import app.masary.feature.home.domain.HomeSpotlight
 import app.masary.feature.home.domain.StudentHomeData
 import java.io.IOException
 import retrofit2.HttpException
@@ -56,12 +59,12 @@ class NetworkHomeRepository(
                 tokens = refreshTokens(tokens.refreshToken)
                 requestHome(tokens)
             }.also { snapshotStore.write(studentId, it) }
-        }.recoverCatching { error ->
-            val mapped = mapFailure(error)
-            if (mapped is HomeSessionExpiredException) throw mapped
-            if (!error.canUseSnapshot()) throw mapped
-            snapshotStore.read(studentId) ?: throw mapped
-        }
+        }.recoverCatching { throw mapFailure(it) }
+    }
+
+    override suspend fun loadSnapshot(): StudentHomeData? {
+        val studentId = sessionManager.session.first()?.id ?: return null
+        return snapshotStore.read(studentId)
     }
 
     override suspend fun clearSnapshot() = snapshotStore.clear()
@@ -119,8 +122,6 @@ class NetworkHomeRepository(
         else -> HomeServiceException(cause = error)
     }
 
-    private fun Throwable.canUseSnapshot(): Boolean =
-        this is IOException || (this is HttpException && (code() == 429 || code() >= 500))
 }
 
 private fun StudentHomeDataDto.toDomain(): StudentHomeData = StudentHomeData(
@@ -154,6 +155,18 @@ private fun StudentHomeDataDto.toDomain(): StudentHomeData = StudentHomeData(
     notifications = HomeNotifications(notifications.unreadCount.coerceAtLeast(0)),
     continueLearning = continueLearning.toDomain(),
     smartGuide = smartGuide.toDomain(),
+    indicators = HomeIndicators(
+        totalXp = indicators.totalXp.coerceAtLeast(0),
+        gems = indicators.gems.coerceAtLeast(0),
+        streakDays = indicators.streakDays.coerceAtLeast(0),
+        globalRank = indicators.globalRank?.takeIf { it > 0 },
+    ),
+    subjects = subjects.filter { it.subjectVersionId > 0 }.map {
+        HomeSubject(it.subjectVersionId, it.name, it.hearts.coerceAtLeast(0), it.progressPercent.coerceIn(0, 100))
+    },
+    spotlight = spotlight?.takeIf { it.title.isNotBlank() }?.let {
+        HomeSpotlight(it.type, it.title, it.body, it.ctaLabel, it.ctaUrl)
+    },
 )
 
 private fun HomeStreakDto.toDomain(): HomeStreak = HomeStreak(

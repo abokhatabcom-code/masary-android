@@ -46,6 +46,9 @@ class ApiContractFixtureTest {
         val home = parse("home-success.json", StudentHomeResponseDto::class.java)
         assertTrue(home.success)
         assertEquals(120, home.data?.summary?.globalXp)
+        assertEquals(14, home.data?.indicators?.globalRank)
+        assertEquals("الرياضيات", home.data?.subjects?.single()?.name)
+        assertEquals("news", home.data?.spotlight?.type)
     }
 
     @Test

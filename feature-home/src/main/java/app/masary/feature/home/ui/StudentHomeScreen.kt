@@ -1,6 +1,5 @@
 package app.masary.feature.home.ui
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +80,12 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavDestination.Companion.hasRoute
+import kotlinx.serialization.Serializable
 import app.masary.core.models.auth.StudentSession
 import app.masary.core.ui.MasaryBrandLockup
 import app.masary.core.ui.MasaryBrandMark
@@ -91,16 +96,27 @@ import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.domain.HomeSmartGuide
 import app.masary.feature.home.domain.HomeSmartGuideStep
 import app.masary.feature.home.domain.StudentHomeData
+import app.masary.feature.home.domain.HomeSpotlight
 import app.masary.feature.notifications.NotificationPermissionState
 
-private enum class StudentDestination(
-    @StringRes val labelRes: Int,
-    val icon: ImageVector,
-) {
-    Home(R.string.nav_home, Icons.Outlined.Home),
-    Subjects(R.string.nav_subjects, Icons.AutoMirrored.Outlined.MenuBook),
-    Ranking(R.string.nav_ranking, Icons.Outlined.EmojiEvents),
-    Profile(R.string.nav_profile, Icons.Outlined.Person),
+@Serializable internal sealed interface StudentDestination {
+    @Serializable data object Home : StudentDestination
+    @Serializable data object Subjects : StudentDestination
+    @Serializable data object Guide : StudentDestination
+    @Serializable data object Ranking : StudentDestination
+    @Serializable data object Profile : StudentDestination
+}
+
+internal val studentDestinations = listOf(StudentDestination.Home, StudentDestination.Subjects, StudentDestination.Guide, StudentDestination.Ranking, StudentDestination.Profile)
+private val StudentDestination.labelRes: Int get() = when (this) {
+    StudentDestination.Home -> R.string.nav_home; StudentDestination.Subjects -> R.string.nav_subjects
+    StudentDestination.Guide -> R.string.nav_guide; StudentDestination.Ranking -> R.string.nav_ranking
+    StudentDestination.Profile -> R.string.nav_profile
+}
+private val StudentDestination.icon: ImageVector get() = when (this) {
+    StudentDestination.Home -> Icons.Outlined.Home; StudentDestination.Subjects -> Icons.AutoMirrored.Outlined.MenuBook
+    StudentDestination.Guide -> Icons.Outlined.AutoAwesome; StudentDestination.Ranking -> Icons.Outlined.EmojiEvents
+    StudentDestination.Profile -> Icons.Outlined.Person
 }
 
 @Composable
@@ -118,12 +134,21 @@ fun StudentHomeRoute(
         factory = StudentHomeViewModelFactory(repository),
     )
     val state by homeViewModel.state.collectAsStateWithLifecycle()
-    var destination by rememberSaveable { mutableStateOf(StudentDestination.Home) }
+    val studentNavController = rememberNavController()
+    val backStack by studentNavController.currentBackStackEntryAsState()
+    val destination = when {
+        backStack?.destination?.hasRoute<StudentDestination.Subjects>() == true -> StudentDestination.Subjects
+        backStack?.destination?.hasRoute<StudentDestination.Guide>() == true -> StudentDestination.Guide
+        backStack?.destination?.hasRoute<StudentDestination.Ranking>() == true -> StudentDestination.Ranking
+        backStack?.destination?.hasRoute<StudentDestination.Profile>() == true -> StudentDestination.Profile
+        else -> StudentDestination.Home
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     var showPermissionExplanation by rememberSaveable { mutableStateOf(permissionState == NotificationPermissionState.NotRequested) }
     LaunchedEffect(externalDestination) {
         externalDestination?.let { requested ->
-            destination = StudentDestination.entries.firstOrNull { it.name.equals(requested, ignoreCase = true) } ?: StudentDestination.Home
+            val target = studentDestinations.firstOrNull { it::class.simpleName.equals(requested, ignoreCase = true) } ?: StudentDestination.Home
+            studentNavController.navigate(target) { launchSingleTop = true; popUpTo(StudentDestination.Home) { saveState = true }; restoreState = true }
             onExternalDestinationConsumed()
         }
     }
@@ -158,7 +183,7 @@ fun StudentHomeRoute(
             bottomBar = {
                 StudentBottomBar(
                     selected = destination,
-                    onSelected = { destination = it },
+                    onSelected = { target -> studentNavController.navigate(target) { launchSingleTop = true; popUpTo(StudentDestination.Home) { saveState = true }; restoreState = true } },
                 )
             },
         ) { innerPadding ->
@@ -168,8 +193,8 @@ fun StudentHomeRoute(
                     .padding(innerPadding)
                     .background(MasaryColors.background),
             ) {
-                when (destination) {
-                    StudentDestination.Home -> HomeStateContent(
+                NavHost(studentNavController, startDestination = StudentDestination.Home) {
+                    composable<StudentDestination.Home> { HomeStateContent(
                         session = session,
                         state = state,
                         onRefresh = homeViewModel::refresh,
@@ -183,19 +208,16 @@ fun StudentHomeRoute(
                                 else -> Unit
                             }
                         },
-                        onGuideStep = { destination = StudentDestination.Subjects },
-                        onBrowseSubjects = { destination = StudentDestination.Subjects },
-                    )
-
-                    StudentDestination.Subjects,
-                    StudentDestination.Ranking,
-                    -> ComingSoonSection(destination)
-
-                    StudentDestination.Profile -> ProfileSection(
+                        onBrowseSubjects = { studentNavController.navigate(StudentDestination.Subjects) },
+                    ) }
+                    composable<StudentDestination.Subjects> { DataDestination(currentData) { SubjectsSection(it) } }
+                    composable<StudentDestination.Guide> { DataDestination(currentData) { SmartGuideCard(it.smartGuide) { studentNavController.navigate(StudentDestination.Subjects) } } }
+                    composable<StudentDestination.Ranking> { DataDestination(currentData) { RankingSection(it) } }
+                    composable<StudentDestination.Profile> { ProfileSection(
                         session = session,
                         data = currentData,
                         onLogout = onLogout,
-                    )
+                    ) }
                 }
             }
         }
@@ -208,7 +230,6 @@ private fun HomeStateContent(
     state: HomeUiState,
     onRefresh: () -> Unit,
     onNotifications: () -> Unit,
-    onGuideStep: (HomeSmartGuideStep) -> Unit,
     onBrowseSubjects: () -> Unit,
 ) {
     when (state) {
@@ -223,7 +244,6 @@ private fun HomeStateContent(
             errorMessage = state.refreshMessage,
             onRefresh = onRefresh,
             onNotifications = onNotifications,
-            onGuideStep = onGuideStep,
             onBrowseSubjects = onBrowseSubjects,
         )
 
@@ -237,7 +257,6 @@ private fun HomeStateContent(
                     errorMessage = state.message,
                     onRefresh = onRefresh,
                     onNotifications = onNotifications,
-                    onGuideStep = onGuideStep,
                     onBrowseSubjects = onBrowseSubjects,
                 )
             } else {
@@ -331,7 +350,6 @@ private fun HomeContent(
     errorMessage: String?,
     onRefresh: () -> Unit,
     onNotifications: () -> Unit,
-    onGuideStep: (HomeSmartGuideStep) -> Unit,
     onBrowseSubjects: () -> Unit,
 ) {
     LazyColumn(
@@ -376,9 +394,10 @@ private fun HomeContent(
         }
         item {
             Box(Modifier.padding(horizontal = 18.dp)) {
-                SmartGuideCard(data.smartGuide, onGuideStep)
+                SubjectsPreview(data, onBrowseSubjects)
             }
         }
+        data.spotlight?.let { spotlight -> item { Box(Modifier.padding(horizontal = 18.dp)) { SpotlightCard(spotlight) } } }
         item {
             Box(Modifier.padding(horizontal = 18.dp)) {
                 ContinueJourneyCard(data, onBrowseSubjects)
@@ -670,31 +689,31 @@ private fun QuickMetrics(data: StudentHomeData) {
     ) {
         BrandedMetric(
             modifier = Modifier.weight(1f),
-            icon = Icons.Outlined.Diamond,
-            value = data.summary.gems.toString(),
+            icon = Icons.Outlined.EmojiEvents,
+            value = data.indicators.totalXp.toString(),
+            label = stringResource(R.string.home_xp),
+            accent = MasaryColors.brandGoldBright,
+        )
+        BrandedMetric(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Outlined.LocalFireDepartment,
+            value = data.indicators.gems.toString(),
             label = stringResource(R.string.home_gems),
             accent = MasaryColors.brandGoldBright,
         )
         BrandedMetric(
             modifier = Modifier.weight(1f),
             icon = Icons.Outlined.LocalFireDepartment,
-            value = data.streak.currentDays.toString(),
+            value = data.indicators.streakDays.toString(),
             label = stringResource(R.string.home_streak),
             accent = MasaryColors.warning,
         )
         BrandedMetric(
             modifier = Modifier.weight(1f),
-            icon = Icons.Outlined.Timer,
-            value = data.today.minutes.toString(),
-            label = stringResource(R.string.home_minutes),
+            icon = Icons.Outlined.EmojiEvents,
+            value = data.indicators.globalRank?.toString() ?: "—",
+            label = stringResource(R.string.nav_ranking),
             accent = MasaryColors.info,
-        )
-        BrandedMetric(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Outlined.TaskAlt,
-            value = data.today.attempts.toString(),
-            label = stringResource(R.string.home_attempts),
-            accent = MasaryColors.success,
         )
     }
 }
@@ -990,6 +1009,62 @@ private fun GuideChip(icon: ImageVector, text: String) {
                 color = MasaryColors.brandNavy,
             )
         }
+    }
+}
+
+@Composable
+private fun DataDestination(data: StudentHomeData?, content: @Composable (StudentHomeData) -> Unit) {
+    if (data == null) LoadingHome() else LazyColumn(
+        modifier = Modifier.fillMaxSize().statusBarsPadding(),
+        contentPadding = PaddingValues(18.dp),
+    ) { item { content(data) } }
+}
+
+@Composable
+private fun SubjectsPreview(data: StudentHomeData, onOpen: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(18.dp)) {
+            SectionHeader(stringResource(R.string.nav_subjects), Icons.AutoMirrored.Outlined.MenuBook)
+            data.subjects.take(3).forEach { subject ->
+                Text(subject.name, modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleMedium)
+                LinearProgressIndicator({ subject.progressPercent / 100f }, Modifier.fillMaxWidth().padding(top = 5.dp))
+            }
+            if (data.subjects.isEmpty()) Text(stringResource(R.string.home_no_subjects), Modifier.padding(top = 12.dp), color = MasaryColors.muted)
+            TextButton(onClick = onOpen, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.home_browse_subjects)) }
+        }
+    }
+}
+
+@Composable
+private fun SubjectsSection(data: StudentHomeData) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(R.string.nav_subjects), style = MaterialTheme.typography.headlineMedium, color = MasaryColors.brandNavy)
+        data.subjects.forEach { subject -> Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Text(subject.name, style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.home_hearts, subject.hearts), color = MasaryColors.muted)
+                LinearProgressIndicator({ subject.progressPercent / 100f }, Modifier.fillMaxWidth().padding(top = 8.dp))
+            }
+        } }
+        if (data.subjects.isEmpty()) Text(stringResource(R.string.home_no_subjects), color = MasaryColors.muted)
+    }
+}
+
+@Composable
+private fun SpotlightCard(item: HomeSpotlight) {
+    Card(colors = CardDefaults.cardColors(containerColor = MasaryColors.warmSurface)) { Column(Modifier.fillMaxWidth().padding(18.dp)) {
+        Text(if (item.type == "offer") stringResource(R.string.home_offer) else stringResource(R.string.home_news), color = MasaryColors.brandGold)
+        Text(item.title, style = MaterialTheme.typography.titleLarge, color = MasaryColors.brandNavy)
+        if (item.body.isNotBlank()) Text(item.body, color = MasaryColors.muted)
+    } }
+}
+
+@Composable
+private fun RankingSection(data: StudentHomeData) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Icon(Icons.Outlined.EmojiEvents, null, Modifier.size(72.dp), tint = MasaryColors.brandGold)
+        Text(stringResource(R.string.nav_ranking), style = MaterialTheme.typography.headlineMedium)
+        Text(data.indicators.globalRank?.let { stringResource(R.string.home_rank_value, it) } ?: stringResource(R.string.home_rank_unavailable), style = MaterialTheme.typography.titleLarge, color = MasaryColors.brandNavy)
     }
 }
 
@@ -1396,7 +1471,7 @@ private fun StudentBottomBar(
         containerColor = MasaryColors.brandNavyDeep,
         tonalElevation = 0.dp,
     ) {
-        StudentDestination.entries.forEach { destination ->
+        studentDestinations.forEach { destination ->
             NavigationBarItem(
                 selected = destination == selected,
                 onClick = { onSelected(destination) },

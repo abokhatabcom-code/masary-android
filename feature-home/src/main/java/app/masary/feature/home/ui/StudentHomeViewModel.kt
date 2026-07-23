@@ -36,6 +36,10 @@ class StudentHomeViewModel(
         }
 
         viewModelScope.launch {
+            val snapshot = if (previous == null) repository.loadSnapshot() else null
+            if (snapshot != null) {
+                _state.value = HomeUiState.Content(snapshot, isRefreshing = true)
+            }
             repository.loadHome()
                 .onSuccess { data ->
                     _state.value = HomeUiState.Content(data)
@@ -46,7 +50,7 @@ class StudentHomeViewModel(
                     } else {
                         HomeUiState.Error(
                             message = error.message ?: "تعذر تحميل الصفحة الرئيسية.",
-                            previousData = previous,
+                            previousData = previous ?: snapshot,
                         )
                     }
                 }

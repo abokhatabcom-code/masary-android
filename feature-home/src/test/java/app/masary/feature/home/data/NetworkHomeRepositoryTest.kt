@@ -60,7 +60,7 @@ class NetworkHomeRepositoryTest {
     }
 
     @Test
-    fun `returns the student snapshot when the platform is offline`() = runTest {
+    fun `exposes the snapshot before a background refresh fails`() = runTest {
         val sessionManager = FakeSessionManager(AuthTokens("access", "refresh", 900, 2_000))
         val snapshot = FakeSnapshotStore()
         val homeApi = FakeHomeApi()
@@ -68,10 +68,12 @@ class NetworkHomeRepositoryTest {
         val online = repository.loadHome().getOrThrow()
         homeApi.offline = true
 
-        val offline = repository.loadHome().getOrThrow()
+        val cached = repository.loadSnapshot()
+        val refresh = repository.loadHome()
 
-        assertEquals(online.student.id, offline.student.id)
-        assertTrue(offline.snapshot != null)
+        assertEquals(online.student.id, cached?.student?.id)
+        assertTrue(cached?.snapshot != null)
+        assertTrue(refresh.isFailure)
     }
 
     @Test

@@ -11,8 +11,15 @@ data class StudentHomeData(
     val notifications: HomeNotifications,
     val continueLearning: HomeContinueLearning,
     val smartGuide: HomeSmartGuide,
+    val indicators: HomeIndicators = HomeIndicators(0, 0, 0, null),
+    val subjects: List<HomeSubject> = emptyList(),
+    val spotlight: HomeSpotlight? = null,
     val snapshot: HomeSnapshotMetadata? = null,
 )
+
+data class HomeIndicators(val totalXp: Int, val gems: Int, val streakDays: Int, val globalRank: Int?)
+data class HomeSubject(val subjectVersionId: Int, val name: String, val hearts: Int, val progressPercent: Int)
+data class HomeSpotlight(val type: String, val title: String, val body: String, val ctaLabel: String, val ctaUrl: String)
 
 data class HomeSnapshotMetadata(val savedAtEpochMillis: Long)
 

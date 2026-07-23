@@ -13,4 +13,10 @@ class StudentHomeScreenTest {
     fun `falls back when display name is empty`() {
         assertEquals("طالب مساري", shortDisplayName("   "))
     }
+
+    @Test
+    fun `bottom navigation exposes five typed destinations`() {
+        assertEquals(5, studentDestinations.size)
+        assertEquals(5, studentDestinations.map { it::class }.distinct().size)
+    }
 }

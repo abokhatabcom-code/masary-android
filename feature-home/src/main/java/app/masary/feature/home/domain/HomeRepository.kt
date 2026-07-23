@@ -1,6 +1,7 @@
 package app.masary.feature.home.domain
 
 interface HomeRepository {
+    suspend fun loadSnapshot(): StudentHomeData?
     suspend fun loadHome(): Result<StudentHomeData>
     suspend fun clearSnapshot()
 }
