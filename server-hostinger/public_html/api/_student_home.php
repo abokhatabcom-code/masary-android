@@ -83,12 +83,16 @@ function api_student_home_spotlight(PDO $pdo, int $studentId): ?array
     if (!is_array($item) || trim((string)($item['title'] ?? '')) === '') {
         return null;
     }
+    $ctaUrl = trim((string)($item['cta_url'] ?? ''));
+    if ($ctaUrl !== '' && strtolower((string)parse_url($ctaUrl, PHP_URL_SCHEME)) !== 'https') {
+        $ctaUrl = '';
+    }
     return [
         'type' => in_array(($item['type'] ?? ''), ['news', 'offer'], true) ? $item['type'] : 'news',
         'title' => trim((string)$item['title']),
         'body' => trim((string)($item['body'] ?? '')),
         'cta_label' => trim((string)($item['cta_label'] ?? '')),
-        'cta_url' => trim((string)($item['cta_url'] ?? '')),
+        'cta_url' => $ctaUrl,
     ];
 }
 
@@ -301,9 +305,8 @@ function api_student_home_payload(PDO $pdo, array $session): array
     $smartGuide = api_student_home_smart_guide($pdo, $studentId);
     $subjects = api_student_home_subjects($pdo, $studentId);
     $spotlight = api_student_home_spotlight($pdo, $studentId);
-    $globalRank = function_exists('ik_dash_global_rank')
-        ? max(0, (int)ik_dash_global_rank($pdo, $studentId))
-        : max(0, (int)($profile['global_rank'] ?? 0));
+    // Ranking is exposed only when the installed dashboard profile provides it.
+    $globalRank = max(0, (int)($profile['global_rank'] ?? 0));
 
     $globalXp = max(0.0, (float)($profile['global_xp'] ?? 0));
     $levelStep = 300.0;

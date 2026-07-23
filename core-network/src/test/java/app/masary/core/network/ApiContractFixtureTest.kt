@@ -48,6 +48,7 @@ class ApiContractFixtureTest {
         assertEquals(120, home.data?.summary?.globalXp)
         assertEquals(14, home.data?.indicators?.globalRank)
         assertEquals("الرياضيات", home.data?.subjects?.single()?.name)
+        assertEquals(null, home.data?.subjects?.single()?.progressPercent)
         assertEquals("news", home.data?.spotlight?.type)
     }
 

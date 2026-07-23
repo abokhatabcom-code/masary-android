@@ -54,11 +54,11 @@ class NetworkHomeRepository(
             }
 
             try {
-                requestHome(tokens)
+                requestHome(tokens, studentId)
             } catch (error: HttpException) {
                 if (error.code() != 401) throw error
                 tokens = refreshTokens(tokens.refreshToken)
-                requestHome(tokens)
+                requestHome(tokens, studentId)
             }.also { data ->
                 try {
                     snapshotStore.write(studentId, data)
@@ -87,7 +87,7 @@ class NetworkHomeRepository(
 
     override suspend fun clearSnapshot() = snapshotStore.clear()
 
-    private suspend fun requestHome(tokens: AuthTokens): StudentHomeData {
+    private suspend fun requestHome(tokens: AuthTokens, expectedStudentId: String): StudentHomeData {
         val response = homeApi.home("Bearer ${tokens.accessToken}")
         val data = response.data
         if (!response.success || data == null) {
@@ -98,8 +98,7 @@ class NetworkHomeRepository(
             throw HomeServiceException(response.error?.message ?: "تعذر تحميل الصفحة الرئيسية الآن.")
         }
         return data.toDomain().also { home ->
-            val sessionStudentId = sessionManager.session.first()?.id
-            if (sessionStudentId == null || home.student.id != sessionStudentId) {
+            if (home.student.id != expectedStudentId) {
                 throw HomeSessionExpiredException("تعذر التحقق من هوية بيانات الصفحة الرئيسية.")
             }
         }
