@@ -29,6 +29,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 
 class NetworkHomeRepositoryTest {
     @Test
@@ -88,6 +89,21 @@ class NetworkHomeRepositoryTest {
 
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun `cache write failure does not discard a successful platform response`() = runTest {
+        val session = FakeSessionManager(AuthTokens("access", "refresh", 900, 2_000))
+        val snapshot = FakeSnapshotStore().apply { failWrites = true }
+        val result = NetworkHomeRepository(FakeHomeApi(), FakeAuthApi(), session, snapshot) { 1_000 }.loadHome()
+        assertTrue(result.isSuccess)
+    }
+
+    @Test(expected = CancellationException::class)
+    fun `cancellation is never mapped to a service error`() = runTest {
+        val session = FakeSessionManager(AuthTokens("access", "refresh", 900, 2_000))
+        NetworkHomeRepository(FakeHomeApi().apply { cancelled = true }, FakeAuthApi(), session, FakeSnapshotStore()) { 1_000 }
+            .loadHome().getOrThrow()
+    }
 }
 
 private class FakeSessionManager(
@@ -110,8 +126,12 @@ private class FakeSessionManager(
 
 private class FakeSnapshotStore : HomeSnapshotStore {
     var value: StudentHomeData? = null
+    var failWrites = false
     override suspend fun read(studentId: String) = value?.copy(snapshot = HomeSnapshotMetadata(1L))
-    override suspend fun write(studentId: String, data: StudentHomeData) { value = data }
+    override suspend fun write(studentId: String, data: StudentHomeData) {
+        if (failWrites) throw IOException("disk full")
+        value = data
+    }
     override suspend fun clear() { value = null }
 }
 
@@ -149,9 +169,11 @@ private class FakeHomeApi : StudentHomeApi {
     var lastAuthorization: String = ""
     var offline = false
     var serviceError = false
+    var cancelled = false
 
     override suspend fun home(authorization: String): StudentHomeResponseDto {
         if (offline) throw IOException("offline")
+        if (cancelled) throw CancellationException("cancelled")
         if (serviceError) return StudentHomeResponseDto(success = false)
         lastAuthorization = authorization
         return StudentHomeResponseDto(

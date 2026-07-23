@@ -33,6 +33,7 @@ import app.masary.feature.home.domain.StudentHomeData
 import java.io.IOException
 import retrofit2.HttpException
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
 
 class NetworkHomeRepository(
     private val homeApi: StudentHomeApi,
@@ -58,13 +59,30 @@ class NetworkHomeRepository(
                 if (error.code() != 401) throw error
                 tokens = refreshTokens(tokens.refreshToken)
                 requestHome(tokens)
-            }.also { snapshotStore.write(studentId, it) }
-        }.recoverCatching { throw mapFailure(it) }
+            }.also { data ->
+                try {
+                    snapshotStore.write(studentId, data)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    // A cache write must never turn a valid platform response into an error.
+                }
+            }
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw mapFailure(error)
+        }
     }
 
     override suspend fun loadSnapshot(): StudentHomeData? {
         val studentId = sessionManager.session.first()?.id ?: return null
-        return snapshotStore.read(studentId)
+        return try {
+            snapshotStore.read(studentId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
     }
 
     override suspend fun clearSnapshot() = snapshotStore.clear()

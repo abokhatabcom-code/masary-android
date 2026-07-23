@@ -2,6 +2,7 @@ package app.masary.feature.home.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +73,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -85,6 +87,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.toRoute
 import kotlinx.serialization.Serializable
 import app.masary.core.models.auth.StudentSession
 import app.masary.core.ui.MasaryBrandLockup
@@ -105,6 +108,7 @@ import app.masary.feature.notifications.NotificationPermissionState
     @Serializable data object Guide : StudentDestination
     @Serializable data object Ranking : StudentDestination
     @Serializable data object Profile : StudentDestination
+    @Serializable data class SubjectDetails(val subjectVersionId: Int) : StudentDestination
 }
 
 internal val studentDestinations = listOf(StudentDestination.Home, StudentDestination.Subjects, StudentDestination.Guide, StudentDestination.Ranking, StudentDestination.Profile)
@@ -112,11 +116,13 @@ private val StudentDestination.labelRes: Int get() = when (this) {
     StudentDestination.Home -> R.string.nav_home; StudentDestination.Subjects -> R.string.nav_subjects
     StudentDestination.Guide -> R.string.nav_guide; StudentDestination.Ranking -> R.string.nav_ranking
     StudentDestination.Profile -> R.string.nav_profile
+    is StudentDestination.SubjectDetails -> R.string.nav_subjects
 }
 private val StudentDestination.icon: ImageVector get() = when (this) {
     StudentDestination.Home -> Icons.Outlined.Home; StudentDestination.Subjects -> Icons.AutoMirrored.Outlined.MenuBook
     StudentDestination.Guide -> Icons.Outlined.AutoAwesome; StudentDestination.Ranking -> Icons.Outlined.EmojiEvents
     StudentDestination.Profile -> Icons.Outlined.Person
+    is StudentDestination.SubjectDetails -> Icons.AutoMirrored.Outlined.MenuBook
 }
 
 @Composable
@@ -137,7 +143,8 @@ fun StudentHomeRoute(
     val studentNavController = rememberNavController()
     val backStack by studentNavController.currentBackStackEntryAsState()
     val destination = when {
-        backStack?.destination?.hasRoute<StudentDestination.Subjects>() == true -> StudentDestination.Subjects
+        backStack?.destination?.hasRoute<StudentDestination.Subjects>() == true ||
+            backStack?.destination?.hasRoute<StudentDestination.SubjectDetails>() == true -> StudentDestination.Subjects
         backStack?.destination?.hasRoute<StudentDestination.Guide>() == true -> StudentDestination.Guide
         backStack?.destination?.hasRoute<StudentDestination.Ranking>() == true -> StudentDestination.Ranking
         backStack?.destination?.hasRoute<StudentDestination.Profile>() == true -> StudentDestination.Profile
@@ -210,14 +217,18 @@ fun StudentHomeRoute(
                         },
                         onBrowseSubjects = { studentNavController.navigate(StudentDestination.Subjects) },
                     ) }
-                    composable<StudentDestination.Subjects> { DataDestination(currentData) { SubjectsSection(it) } }
-                    composable<StudentDestination.Guide> { DataDestination(currentData) { SmartGuideCard(it.smartGuide) { studentNavController.navigate(StudentDestination.Subjects) } } }
+                    composable<StudentDestination.Subjects> { DataDestination(currentData) { data -> SubjectsSection(data) { studentNavController.navigate(StudentDestination.SubjectDetails(it)) } } }
+                    composable<StudentDestination.Guide> { DataDestination(currentData) { SmartGuideCard(it.smartGuide) { step -> studentNavController.navigate(StudentDestination.SubjectDetails(step.subjectVersionId)) } } }
                     composable<StudentDestination.Ranking> { DataDestination(currentData) { RankingSection(it) } }
                     composable<StudentDestination.Profile> { ProfileSection(
                         session = session,
                         data = currentData,
                         onLogout = onLogout,
                     ) }
+                    composable<StudentDestination.SubjectDetails> { backStackEntry ->
+                        val id = backStackEntry.toRoute<StudentDestination.SubjectDetails>().subjectVersionId
+                        DataDestination(currentData) { data -> SubjectDetailsSection(data, id) }
+                    }
                 }
             }
         }
@@ -696,7 +707,7 @@ private fun QuickMetrics(data: StudentHomeData) {
         )
         BrandedMetric(
             modifier = Modifier.weight(1f),
-            icon = Icons.Outlined.LocalFireDepartment,
+            icon = Icons.Outlined.Diamond,
             value = data.indicators.gems.toString(),
             label = stringResource(R.string.home_gems),
             accent = MasaryColors.brandGoldBright,
@@ -1036,10 +1047,10 @@ private fun SubjectsPreview(data: StudentHomeData, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun SubjectsSection(data: StudentHomeData) {
+private fun SubjectsSection(data: StudentHomeData, onSubject: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.nav_subjects), style = MaterialTheme.typography.headlineMedium, color = MasaryColors.brandNavy)
-        data.subjects.forEach { subject -> Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        data.subjects.forEach { subject -> Card(modifier = Modifier.clickable { onSubject(subject.subjectVersionId) }, colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Text(subject.name, style = MaterialTheme.typography.titleLarge)
                 Text(stringResource(R.string.home_hearts, subject.hearts), color = MasaryColors.muted)
@@ -1051,11 +1062,32 @@ private fun SubjectsSection(data: StudentHomeData) {
 }
 
 @Composable
+private fun SubjectDetailsSection(data: StudentHomeData, subjectVersionId: Int) {
+    val subject = data.subjects.firstOrNull { it.subjectVersionId == subjectVersionId }
+    if (subject == null) {
+        Text(stringResource(R.string.home_subject_unavailable), color = MasaryColors.muted)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(subject.name, style = MaterialTheme.typography.headlineMedium, color = MasaryColors.brandNavy)
+        Text(stringResource(R.string.home_hearts, subject.hearts), color = MasaryColors.muted)
+        LinearProgressIndicator({ subject.progressPercent / 100f }, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
 private fun SpotlightCard(item: HomeSpotlight) {
+    val uriHandler = LocalUriHandler.current
+    val safeUrl = item.ctaUrl.takeIf { it.startsWith("https://") }
     Card(colors = CardDefaults.cardColors(containerColor = MasaryColors.warmSurface)) { Column(Modifier.fillMaxWidth().padding(18.dp)) {
         Text(if (item.type == "offer") stringResource(R.string.home_offer) else stringResource(R.string.home_news), color = MasaryColors.brandGold)
         Text(item.title, style = MaterialTheme.typography.titleLarge, color = MasaryColors.brandNavy)
         if (item.body.isNotBlank()) Text(item.body, color = MasaryColors.muted)
+        if (safeUrl != null && item.ctaLabel.isNotBlank()) {
+            TextButton(onClick = { uriHandler.openUri(safeUrl) }, modifier = Modifier.align(Alignment.End)) {
+                Text(item.ctaLabel)
+            }
+        }
     } }
 }
 

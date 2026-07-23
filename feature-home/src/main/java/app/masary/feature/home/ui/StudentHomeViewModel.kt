@@ -10,12 +10,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 class StudentHomeViewModel(
     private val repository: HomeRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
+    private var loadJob: Job? = null
 
     init {
         loadHome()
@@ -23,7 +25,7 @@ class StudentHomeViewModel(
 
     fun refresh() {
         val current = _state.value
-        if (current is HomeUiState.Content && current.isRefreshing) return
+        if (loadJob?.isActive == true) return
         loadHome(isRefresh = true)
     }
 
@@ -35,7 +37,7 @@ class StudentHomeViewModel(
             else -> HomeUiState.Loading
         }
 
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             val snapshot = if (previous == null) repository.loadSnapshot() else null
             if (snapshot != null) {
                 _state.value = HomeUiState.Content(snapshot, isRefreshing = true)
