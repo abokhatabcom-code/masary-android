@@ -43,6 +43,7 @@ class NotificationSyncWorker(context:Context,params:WorkerParameters):CoroutineW
     }
    }else{
     val registered=push.register("Bearer $access",request);if(!registered.success)return Result.failure()
+    if(SecurePendingTokenStore(applicationContext).read()!=fcm)return Result.retry()
     // Retain the current token encrypted so the same installation can bind a later account session.
    }
    Result.success()

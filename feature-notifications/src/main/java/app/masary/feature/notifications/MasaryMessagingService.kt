@@ -10,8 +10,7 @@ import com.google.firebase.messaging.RemoteMessage
 class MasaryMessagingService : FirebaseMessagingService() {
     override fun onCreate() { super.onCreate(); NotificationChannels.create(this) }
     override fun onNewToken(token: String) {
-        SecurePendingTokenStore(this).write(token)
-        NotificationSyncCoordinator.scheduleRegistration(this)
+        if (SecurePendingTokenStore(this).write(token)) NotificationSyncCoordinator.scheduleRegistration(this)
     }
     override fun onMessageReceived(message: RemoteMessage) {
         val state = getSharedPreferences("notification_runtime_v1", MODE_PRIVATE)
@@ -24,7 +23,7 @@ class MasaryMessagingService : FirebaseMessagingService() {
             putExtra("notification_destination", destination)
         } ?: return
         val fingerprint = message.data.toSortedMap().entries.joinToString("|") { "${it.key}=${it.value}" }
-        val requestCode = NotificationPendingIntentPolicy.requestCode(message.messageId, message.sentTime, destination, fingerprint)
+        val requestCode = NotificationPendingIntentPolicy.requestCode(message.messageId, message.sentTime, destination, fingerprint, System.nanoTime())
         val pending = PendingIntent.getActivity(this, requestCode, intent, PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(this, channel)
             .setSmallIcon(R.drawable.ic_notification_small)

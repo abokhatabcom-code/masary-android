@@ -13,7 +13,7 @@ object FirebaseInitializer {
         if (FirebaseApp.getApps(context).isEmpty()) FirebaseApp.initializeApp(context, FirebaseOptions.Builder().setProjectId(projectId).setApplicationId(applicationId).setApiKey(apiKey).setGcmSenderId(senderId).build())
         FirebaseMessaging.getInstance().isAutoInitEnabled = true
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            if (token.isNotBlank()) { SecurePendingTokenStore(context).write(token); NotificationSyncCoordinator.scheduleRegistration(context) }
+            if (token.isNotBlank() && SecurePendingTokenStore(context).write(token)) NotificationSyncCoordinator.scheduleRegistration(context)
         }
         return true
     }
