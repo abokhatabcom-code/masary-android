@@ -15,13 +15,18 @@ class DataStoreHomeSnapshotStore(
     private val dataStore: DataStore<Preferences>,
     private val gson: Gson = Gson(),
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val maxAgeMillis: Long = DEFAULT_MAX_AGE_MILLIS,
 ) : HomeSnapshotStore {
     override suspend fun read(studentId: String): StudentHomeData? {
         val values = dataStore.data.first()
         if (values[OWNER] != studentId) return null
+        val savedAt = values[SAVED_AT] ?: return null
+        val age = nowEpochMillis() - savedAt
+        if (values[SCHEMA_VERSION] != CURRENT_SCHEMA_VERSION || age !in 0..maxAgeMillis) return null
         val json = values[PAYLOAD] ?: return null
         return runCatching { gson.fromJson(json, StudentHomeData::class.java) }.getOrNull()
-            ?.copy(snapshot = HomeSnapshotMetadata(values[SAVED_AT] ?: 0L))
+            ?.takeIf { it.student.id == studentId }
+            ?.copy(snapshot = HomeSnapshotMetadata(savedAt))
     }
 
     override suspend fun write(studentId: String, data: StudentHomeData) {
@@ -29,6 +34,7 @@ class DataStoreHomeSnapshotStore(
             it[OWNER] = studentId
             it[PAYLOAD] = gson.toJson(data.copy(snapshot = null))
             it[SAVED_AT] = nowEpochMillis()
+            it[SCHEMA_VERSION] = CURRENT_SCHEMA_VERSION
         }
     }
 
@@ -38,5 +44,8 @@ class DataStoreHomeSnapshotStore(
         val OWNER = stringPreferencesKey("home_snapshot_owner")
         val PAYLOAD = stringPreferencesKey("home_snapshot_payload")
         val SAVED_AT = longPreferencesKey("home_snapshot_saved_at")
+        val SCHEMA_VERSION = androidx.datastore.preferences.core.intPreferencesKey("home_snapshot_schema_version")
+        const val CURRENT_SCHEMA_VERSION = 1
+        const val DEFAULT_MAX_AGE_MILLIS = 24L * 60L * 60L * 1_000L
     }
 }

@@ -73,6 +73,19 @@ class NetworkHomeRepositoryTest {
         assertEquals(online.student.id, offline.student.id)
         assertTrue(offline.snapshot != null)
     }
+
+    @Test
+    fun `does not hide a platform business error with a snapshot`() = runTest {
+        val sessionManager = FakeSessionManager(AuthTokens("access", "refresh", 900, 2_000))
+        val snapshot = FakeSnapshotStore()
+        val homeApi = FakeHomeApi()
+        val repository = NetworkHomeRepository(homeApi, FakeAuthApi(), sessionManager, snapshot) { 1_000 }
+        repository.loadHome().getOrThrow()
+        homeApi.serviceError = true
+        val result = repository.loadHome()
+
+        assertTrue(result.isFailure)
+    }
 }
 
 private class FakeSessionManager(
@@ -133,9 +146,11 @@ private class FakeAuthApi : StudentAuthApi {
 private class FakeHomeApi : StudentHomeApi {
     var lastAuthorization: String = ""
     var offline = false
+    var serviceError = false
 
     override suspend fun home(authorization: String): StudentHomeResponseDto {
         if (offline) throw IOException("offline")
+        if (serviceError) return StudentHomeResponseDto(success = false)
         lastAuthorization = authorization
         return StudentHomeResponseDto(
             success = true,

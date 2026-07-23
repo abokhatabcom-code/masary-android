@@ -59,6 +59,7 @@ class NetworkHomeRepository(
         }.recoverCatching { error ->
             val mapped = mapFailure(error)
             if (mapped is HomeSessionExpiredException) throw mapped
+            if (!error.canUseSnapshot()) throw mapped
             snapshotStore.read(studentId) ?: throw mapped
         }
     }
@@ -117,6 +118,9 @@ class NetworkHomeRepository(
         }
         else -> HomeServiceException(cause = error)
     }
+
+    private fun Throwable.canUseSnapshot(): Boolean =
+        this is IOException || (this is HttpException && (code() == 429 || code() >= 500))
 }
 
 private fun StudentHomeDataDto.toDomain(): StudentHomeData = StudentHomeData(
