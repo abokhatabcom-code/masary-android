@@ -16,6 +16,7 @@ import app.masary.core.network.auth.StudentRefreshRequestDto
 import app.masary.core.network.auth.StudentRefreshResponseDto
 import app.masary.core.network.home.HomeSmartGuideDto
 import app.masary.core.network.home.HomeSmartGuideStepDto
+import app.masary.core.network.home.HomeStudentDto
 import app.masary.core.network.home.StudentHomeApi
 import app.masary.core.network.home.StudentHomeDataDto
 import app.masary.core.network.home.StudentHomeResponseDto
@@ -104,6 +105,18 @@ class NetworkHomeRepositoryTest {
         NetworkHomeRepository(FakeHomeApi().apply { cancelled = true }, FakeAuthApi(), session, FakeSnapshotStore()) { 1_000 }
             .loadHome().getOrThrow()
     }
+
+    @Test
+    fun `rejects a home payload belonging to another student`() = runTest {
+        val session = FakeSessionManager(AuthTokens("access", "refresh", 900, 2_000))
+        val result = NetworkHomeRepository(
+            FakeHomeApi().apply { responseStudentId = "99" },
+            FakeAuthApi(),
+            session,
+            FakeSnapshotStore(),
+        ) { 1_000 }.loadHome()
+        assertTrue(result.exceptionOrNull() is app.masary.feature.home.domain.HomeSessionExpiredException)
+    }
 }
 
 private class FakeSessionManager(
@@ -170,6 +183,7 @@ private class FakeHomeApi : StudentHomeApi {
     var offline = false
     var serviceError = false
     var cancelled = false
+    var responseStudentId = "42"
 
     override suspend fun home(authorization: String): StudentHomeResponseDto {
         if (offline) throw IOException("offline")
@@ -179,6 +193,7 @@ private class FakeHomeApi : StudentHomeApi {
         return StudentHomeResponseDto(
             success = true,
             data = StudentHomeDataDto(
+                student = HomeStudentDto(id = responseStudentId),
                 smartGuide = HomeSmartGuideDto(
                     enabled = true,
                     status = "ready",

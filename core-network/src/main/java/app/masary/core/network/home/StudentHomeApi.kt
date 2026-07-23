@@ -42,7 +42,7 @@ data class HomeSubjectDto(
     @SerializedName("subject_version_id") val subjectVersionId: Int = 0,
     val name: String = "",
     val hearts: Int = 0,
-    @SerializedName("progress_percent") val progressPercent: Int = 0,
+    @SerializedName("progress_percent") val progressPercent: Int? = null,
 )
 
 data class HomeSpotlightDto(

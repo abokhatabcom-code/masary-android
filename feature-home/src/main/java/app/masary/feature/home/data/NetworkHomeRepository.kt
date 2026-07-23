@@ -97,7 +97,12 @@ class NetworkHomeRepository(
             }
             throw HomeServiceException(response.error?.message ?: "تعذر تحميل الصفحة الرئيسية الآن.")
         }
-        return data.toDomain()
+        return data.toDomain().also { home ->
+            val sessionStudentId = sessionManager.session.first()?.id
+            if (sessionStudentId == null || home.student.id != sessionStudentId) {
+                throw HomeSessionExpiredException("تعذر التحقق من هوية بيانات الصفحة الرئيسية.")
+            }
+        }
     }
 
     private suspend fun refreshTokens(refreshToken: String): AuthTokens {
@@ -180,7 +185,7 @@ private fun StudentHomeDataDto.toDomain(): StudentHomeData = StudentHomeData(
         globalRank = indicators.globalRank?.takeIf { it > 0 },
     ),
     subjects = subjects.filter { it.subjectVersionId > 0 }.map {
-        HomeSubject(it.subjectVersionId, it.name, it.hearts.coerceAtLeast(0), it.progressPercent.coerceIn(0, 100))
+        HomeSubject(it.subjectVersionId, it.name, it.hearts.coerceAtLeast(0), it.progressPercent?.coerceIn(0, 100))
     },
     spotlight = spotlight?.takeIf { it.title.isNotBlank() }?.let {
         HomeSpotlight(it.type, it.title, it.body, it.ctaLabel, it.ctaUrl)

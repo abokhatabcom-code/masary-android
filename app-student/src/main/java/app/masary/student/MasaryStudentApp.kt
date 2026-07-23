@@ -124,8 +124,12 @@ fun MasaryStudentApp(
                                 tokens.refreshToken,
                             )
                             if (prepared) {
-                                homeRepository.clearSnapshot()
-                                startupViewModel.logoutLocally()
+                                try {
+                                    homeRepository.clearSnapshot()
+                                } finally {
+                                    // Local logout must not be blocked by a damaged cache store.
+                                    startupViewModel.logoutLocally()
+                                }
                             }
                             else startupViewModel.logoutPreparationFailed()
                         }

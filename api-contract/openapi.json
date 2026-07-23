@@ -1997,7 +1997,14 @@
             "type": "integer"
           },
           "progress_percent": {
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

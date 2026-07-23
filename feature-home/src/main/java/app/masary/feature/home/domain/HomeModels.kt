@@ -18,7 +18,7 @@ data class StudentHomeData(
 )
 
 data class HomeIndicators(val totalXp: Int, val gems: Int, val streakDays: Int, val globalRank: Int?)
-data class HomeSubject(val subjectVersionId: Int, val name: String, val hearts: Int, val progressPercent: Int)
+data class HomeSubject(val subjectVersionId: Int, val name: String, val hearts: Int, val progressPercent: Int?)
 data class HomeSpotlight(val type: String, val title: String, val body: String, val ctaLabel: String, val ctaUrl: String)
 
 data class HomeSnapshotMetadata(val savedAtEpochMillis: Long)

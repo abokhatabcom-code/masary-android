@@ -1038,7 +1038,9 @@ private fun SubjectsPreview(data: StudentHomeData, onOpen: () -> Unit) {
             SectionHeader(stringResource(R.string.nav_subjects), Icons.AutoMirrored.Outlined.MenuBook)
             data.subjects.take(3).forEach { subject ->
                 Text(subject.name, modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleMedium)
-                LinearProgressIndicator({ subject.progressPercent / 100f }, Modifier.fillMaxWidth().padding(top = 5.dp))
+                subject.progressPercent?.let { progress ->
+                    LinearProgressIndicator({ progress / 100f }, Modifier.fillMaxWidth().padding(top = 5.dp))
+                }
             }
             if (data.subjects.isEmpty()) Text(stringResource(R.string.home_no_subjects), Modifier.padding(top = 12.dp), color = MasaryColors.muted)
             TextButton(onClick = onOpen, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.home_browse_subjects)) }
@@ -1054,7 +1056,9 @@ private fun SubjectsSection(data: StudentHomeData, onSubject: (Int) -> Unit) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Text(subject.name, style = MaterialTheme.typography.titleLarge)
                 Text(stringResource(R.string.home_hearts, subject.hearts), color = MasaryColors.muted)
-                LinearProgressIndicator({ subject.progressPercent / 100f }, Modifier.fillMaxWidth().padding(top = 8.dp))
+                subject.progressPercent?.let { progress ->
+                    LinearProgressIndicator({ progress / 100f }, Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
             }
         } }
         if (data.subjects.isEmpty()) Text(stringResource(R.string.home_no_subjects), color = MasaryColors.muted)
@@ -1071,7 +1075,7 @@ private fun SubjectDetailsSection(data: StudentHomeData, subjectVersionId: Int) 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(subject.name, style = MaterialTheme.typography.headlineMedium, color = MasaryColors.brandNavy)
         Text(stringResource(R.string.home_hearts, subject.hearts), color = MasaryColors.muted)
-        LinearProgressIndicator({ subject.progressPercent / 100f }, Modifier.fillMaxWidth())
+        subject.progressPercent?.let { progress -> LinearProgressIndicator({ progress / 100f }, Modifier.fillMaxWidth()) }
     }
 }
 

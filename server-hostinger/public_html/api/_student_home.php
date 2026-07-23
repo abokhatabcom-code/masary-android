@@ -60,14 +60,12 @@ function api_student_home_subjects(PDO $pdo, int $studentId): array
         $items = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
             $subjectVersionId = max(0, (int)($row['subject_version_id'] ?? 0));
-            $progress = function_exists('ik_dash_subject_progress')
-                ? (int)ik_dash_subject_progress($pdo, $studentId, $subjectVersionId)
-                : 0;
             $items[] = [
                 'subject_version_id' => $subjectVersionId,
                 'name' => trim((string)($row['name'] ?? '')),
                 'hearts' => max(0, (int)($row['hearts'] ?? 0)),
-                'progress_percent' => max(0, min(100, $progress)),
+                // This table has no authoritative completion percentage. Do not invent one.
+                'progress_percent' => null,
             ];
         }
         return $items;
