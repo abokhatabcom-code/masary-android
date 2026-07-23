@@ -1,0 +1,6 @@
+<resources>
+ <string name="channel_security_name">أمان الحساب</string><string name="channel_security_description">تنبيهات تسجيل الدخول وأمان الحساب</string>
+ <string name="channel_learning_name">تذكيرات التعلّم</string><string name="channel_learning_description">تذكيرات خطتك ودروسك التعليمية</string>
+ <string name="channel_news_name">الأخبار والعروض</string><string name="channel_news_description">أخبار مساري والعروض غير الحساسة</string>
+ <string name="channel_system_name">تحديثات النظام</string><string name="channel_system_description">تنبيهات الصيانة والتحديثات المهمة</string>
+</resources>

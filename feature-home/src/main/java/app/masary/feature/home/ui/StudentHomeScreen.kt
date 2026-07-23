@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Badge
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -91,6 +92,7 @@ import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.domain.HomeSmartGuide
 import app.masary.feature.home.domain.HomeSmartGuideStep
 import app.masary.feature.home.domain.StudentHomeData
+import app.masary.feature.notifications.NotificationPermissionState
 import kotlinx.coroutines.launch
 
 private enum class StudentDestination(
@@ -108,6 +110,11 @@ fun StudentHomeRoute(
     session: StudentSession,
     repository: HomeRepository,
     onLogout: () -> Unit,
+    externalDestination: String? = null,
+    onExternalDestinationConsumed: () -> Unit = {},
+    permissionState: NotificationPermissionState = NotificationPermissionState.NotRequired,
+    onNotificationsPermission: () -> Unit = {},
+    onOpenNotificationSettings: () -> Unit = {},
 ) {
     val homeViewModel: StudentHomeViewModel = viewModel(
         factory = StudentHomeViewModelFactory(repository),
@@ -116,6 +123,23 @@ fun StudentHomeRoute(
     var destination by rememberSaveable { mutableStateOf(StudentDestination.Home) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var showPermissionExplanation by rememberSaveable { mutableStateOf(permissionState == NotificationPermissionState.NotRequested) }
+    LaunchedEffect(externalDestination) {
+        externalDestination?.let { requested ->
+            destination = StudentDestination.entries.firstOrNull { it.name.equals(requested, ignoreCase = true) } ?: StudentDestination.Home
+            onExternalDestinationConsumed()
+        }
+    }
+
+    if (showPermissionExplanation) {
+        AlertDialog(
+            onDismissRequest = { showPermissionExplanation = false },
+            title = { Text("ابقَ على اطلاع") },
+            text = { Text("اسمح لمساري بإرسال تذكيرات التعلّم وتنبيهات أمان الحساب. يمكنك المتابعة واستخدام التطبيق كاملًا حتى عند الرفض.") },
+            confirmButton = { TextButton(onClick = { showPermissionExplanation = false; onNotificationsPermission() }) { Text("متابعة") } },
+            dismissButton = { TextButton(onClick = { showPermissionExplanation = false }) { Text("ليس الآن") } },
+        )
+    }
 
     LaunchedEffect(state) {
         if (state == HomeUiState.SessionExpired) onLogout()
@@ -153,10 +177,13 @@ fun StudentHomeRoute(
                         state = state,
                         onRefresh = homeViewModel::refresh,
                         onNotifications = {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    "سيتم ربط إشعارات أندرويد الأصلية في مرحلتها المستقلة.",
-                                )
+                            when (permissionState) {
+                                NotificationPermissionState.NotRequested,
+                                NotificationPermissionState.Denied,
+                                -> showPermissionExplanation = true
+                                NotificationPermissionState.PermanentlyDenied -> onOpenNotificationSettings()
+                                NotificationPermissionState.SystemDisabled -> onOpenNotificationSettings()
+                                else -> Unit
                             }
                         },
                         onGuideStep = {

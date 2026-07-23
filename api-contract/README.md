@@ -48,3 +48,7 @@ find server-hostinger -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 عند تعديل استجابة PHP يجب تحديث OpenAPI والـ fixture المقابل وDTO Android في التغيير
 نفسه. تتحقق أداة Python من المسارات والمعالجات والبيئات والأغلفة، وتثبت اختبارات JVM
 أن Gson يستطيع تحويل أمثلة العقد إلى DTOs الفعلية.
+
+## Android Notifications V1
+
+يوثق العقد تسجيل التثبيت عبر `/api/v1/student/push-token`. هوية المستخدم من Bearer session فقط؛ لا يقبل body قيمة `user_id`. لا يعيد الخادم FCM token. راجع `docs/ISSUE_41_ANDROID_NOTIFICATIONS_INVENTORY.md` لتهيئة Firebase الآمنة وخطة الانتقال المستقبلية.

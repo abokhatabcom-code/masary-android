@@ -42,6 +42,14 @@ jobs:
       - name: Validate Android/PHP API contract
         run: python3 scripts/validate-api-contract.py
 
+      - name: Run isolated PHP behavioral tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in server-hostinger/tests/*_test.php; do
+            php "$test_file"
+          done
+
       - name: Reject committed private material
         shell: bash
         run: |
