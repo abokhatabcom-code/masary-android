@@ -110,6 +110,16 @@ class StartupViewModelTest {
         assertTrue(sessions.cleared)
         assertEquals(StartupState.NeedsAuthentication, viewModel.state.value)
     }
+
+    @Test fun `failed logout preparation keeps credentials and exposes recovery`() = runTest(dispatcher) {
+        val sessions = FakeSessionManager(session, tokens)
+        val viewModel = StartupViewModel(FakeOnboardingStore(true), sessions, FakeAuthRepository())
+        advanceUntilIdle()
+        viewModel.logoutPreparationFailed()
+        assertEquals(StartupState.RecoverableError, viewModel.state.value)
+        assertEquals(tokens, sessions.tokens)
+        assertEquals(false, sessions.cleared)
+    }
 }
 
 private class FakeOnboardingStore(

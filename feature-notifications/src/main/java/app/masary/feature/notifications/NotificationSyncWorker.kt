@@ -42,9 +42,17 @@ class NotificationSyncWorker(context:Context,params:WorkerParameters):CoroutineW
      LogoutSequenceResult.PermanentFailure->return permanent(logoutStore)
     }
    }else{
-    val registered=push.register("Bearer $access",request);if(!registered.success)return Result.failure()
-    if(SecurePendingTokenStore(applicationContext).read()!=fcm)return Result.retry()
-    // Retain the current token encrypted so the same installation can bind a later account session.
+    val tokenStore=SecurePendingTokenStore(applicationContext)
+    val result=RegistrationSequence(CurrentFcmTokenStore { tokenStore.read() }) { currentToken ->
+     try {
+      if(push.register("Bearer $access",request.copy(fcmToken=currentToken)).success)TransportOutcome.Success else TransportOutcome.PermanentFailure
+     } catch(error:CancellationException){throw error}
+       catch(error:HttpException){if(SyncFailurePolicy.classify(error.code(),attempt=runAttemptCount)==SyncDecision.Retry)TransportOutcome.TemporaryFailure else TransportOutcome.PermanentFailure}
+       catch(error:java.io.IOException){TransportOutcome.TemporaryFailure}
+       catch(error:Exception){TransportOutcome.PermanentFailure}
+    }.run()
+    when(result){RegistrationSequenceResult.Success->Unit;RegistrationSequenceResult.Retry->return Result.retry();RegistrationSequenceResult.PermanentFailure->return Result.failure()}
+    // The encrypted current token remains available for a later account session.
    }
    Result.success()
   }catch(error:CancellationException){throw error}

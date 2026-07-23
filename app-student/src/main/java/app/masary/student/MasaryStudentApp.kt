@@ -117,8 +117,14 @@ fun MasaryStudentApp(
                     repository = homeRepository,
                     onLogout = {
                         scope.launch {
-                            sessionManager.readTokens()?.let { NotificationSyncCoordinator.scheduleUnregister(navController.context, it.accessToken, it.refreshToken) }
-                            startupViewModel.logoutLocally()
+                            val tokens = sessionManager.readTokens()
+                            val prepared = tokens == null || NotificationSyncCoordinator.scheduleUnregister(
+                                navController.context,
+                                tokens.accessToken,
+                                tokens.refreshToken,
+                            )
+                            if (prepared) startupViewModel.logoutLocally()
+                            else startupViewModel.logoutPreparationFailed()
                         }
                     },
                     externalDestination = notificationDestination?.let {

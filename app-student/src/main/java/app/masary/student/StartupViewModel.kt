@@ -81,6 +81,11 @@ class StartupViewModel(
         }
     }
 
+    /** Keeps the authenticated session intact and exposes a visible retry screen. */
+    fun logoutPreparationFailed() {
+        _state.value = StartupState.RecoverableError
+    }
+
     private fun prepare() {
         if (_state.value == StartupState.Preparing && preparationStarted) return
         _state.value = StartupState.Preparing

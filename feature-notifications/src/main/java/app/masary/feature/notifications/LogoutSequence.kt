@@ -7,16 +7,29 @@ enum class LogoutSequenceResult { Success, Retry, PermanentFailure }
 class LogoutSequence(private val transport:LogoutTransport,private val persistRotated:(PendingLogout)->Boolean) {
  suspend fun run(initial:PendingLogout):LogoutSequenceResult {
   var active=initial
-  when(val first=transport.unregister(active.accessToken)) {
+  var rotatedCredentialsDurable=true
+  when(transport.unregister(active.accessToken)) {
    TransportOutcome.Success -> Unit
    TransportOutcome.Unauthorized -> when(val refreshed=transport.refresh(active.refreshToken)) {
-    is RefreshOutcome.Success -> { active=active.rotated(refreshed.credentials.accessToken,refreshed.credentials.refreshToken);if(!persistRotated(active))return LogoutSequenceResult.Retry;when(transport.unregister(active.accessToken)){TransportOutcome.Success->Unit;TransportOutcome.TemporaryFailure->return LogoutSequenceResult.Retry;else->return LogoutSequenceResult.PermanentFailure} }
+    is RefreshOutcome.Success -> {
+     active=active.rotated(refreshed.credentials.accessToken,refreshed.credentials.refreshToken)
+     rotatedCredentialsDurable=persistRotated(active)
+     when(transport.unregister(active.accessToken)) {
+      TransportOutcome.Success->Unit
+      TransportOutcome.TemporaryFailure->return if(rotatedCredentialsDurable)LogoutSequenceResult.Retry else LogoutSequenceResult.PermanentFailure
+      else->return LogoutSequenceResult.PermanentFailure
+     }
+    }
     RefreshOutcome.TemporaryFailure->return LogoutSequenceResult.Retry
     RefreshOutcome.PermanentFailure->return LogoutSequenceResult.PermanentFailure
    }
    TransportOutcome.TemporaryFailure->return LogoutSequenceResult.Retry
    TransportOutcome.PermanentFailure->return LogoutSequenceResult.PermanentFailure
   }
-  return when(transport.logout(active.accessToken,active.refreshToken)){TransportOutcome.Success->LogoutSequenceResult.Success;TransportOutcome.TemporaryFailure->LogoutSequenceResult.Retry;else->LogoutSequenceResult.PermanentFailure}
+  return when(transport.logout(active.accessToken,active.refreshToken)) {
+   TransportOutcome.Success->LogoutSequenceResult.Success
+   TransportOutcome.TemporaryFailure->if(rotatedCredentialsDurable)LogoutSequenceResult.Retry else LogoutSequenceResult.PermanentFailure
+   else->LogoutSequenceResult.PermanentFailure
+  }
  }
 }
