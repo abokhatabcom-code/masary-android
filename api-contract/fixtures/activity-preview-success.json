@@ -1,0 +1,58 @@
+{
+  "success": true,
+  "data": {
+    "version": "contract-preview-v1",
+    "generated_at": "2026-07-24T12:00:00+00:00",
+    "activity": {
+      "subject_version_id": 12,
+      "subject_name": "الرياضيات",
+      "unit_id": 4,
+      "unit_title": "الوحدة الأولى",
+      "lesson_id": null,
+      "lesson_title": "",
+      "activity_type": "guide_step",
+      "activity_mode": "learn",
+      "title": "خطوتك التعليمية التالية",
+      "estimated_minutes": null,
+      "question_count": null
+    },
+    "eligibility": {
+      "available": true,
+      "status": "ready",
+      "reason": "",
+      "reason_code": ""
+    },
+    "subscription": {
+      "available": true,
+      "active": true,
+      "status": "نشط",
+      "ends_at": "2027-01-01",
+      "blocking": false
+    },
+    "balances": {
+      "hearts": 3,
+      "gems": 10
+    },
+    "cost": {
+      "required_hearts": 0,
+      "heart_cost": 0,
+      "gem_cost": 0
+    },
+    "attempts": {
+      "available": false,
+      "used": null,
+      "remaining": null,
+      "maximum": null,
+      "reason": "لا ينطبق حد المحاولات على هذا النشاط."
+    },
+    "resume": {
+      "available": false,
+      "session_id": null,
+      "status": "",
+      "expires_at": "",
+      "reason": ""
+    }
+  },
+  "error": null,
+  "request_id": "contract-activity-preview-001"
+}
