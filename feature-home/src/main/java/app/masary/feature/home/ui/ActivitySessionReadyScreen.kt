@@ -63,14 +63,14 @@ internal fun ActivitySessionReadyScreen(
                     color = MasaryColors.muted,
                     textAlign = TextAlign.Center,
                 )
-                Text(
-                    text = "رقم الجلسة: ${destination.sessionId.take(12)}…",
-                    color = MasaryColors.muted,
-                )
                 Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                     Text("العودة إلى المواد")
                 }
             }
         }
     }
+
+    // Keep the opaque server values in typed navigation state without displaying or logging them.
+    @Suppress("UNUSED_VARIABLE")
+    val retainedSessionState = destination
 }
