@@ -1,0 +1,83 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-07-22T12:00:00Z",
+  "student": {
+    "id": "42",
+    "username": "student",
+    "displayName": "طالب"
+  },
+  "summary": {
+    "globalXp": 1,
+    "gems": 2,
+    "level": 1,
+    "levelPercent": 10,
+    "levelNextXp": 100
+  },
+  "streak": {
+    "currentDays": 0,
+    "bestDays": 0,
+    "protectionCount": 0,
+    "protectionMax": 0,
+    "nextMilestone": 0,
+    "checkpointDays": 0,
+    "status": "start",
+    "message": "",
+    "goal": {
+      "days": 0,
+      "status": "none",
+      "isCompleted": false,
+      "remainingDays": 0,
+      "progressPercent": 0,
+      "gems": 0,
+      "shields": 0,
+      "label": ""
+    }
+  },
+  "today": {
+    "xp": 0,
+    "seconds": 0,
+    "minutes": 0,
+    "attempts": 0
+  },
+  "subscription": {
+    "active": false,
+    "status": "غير نشط",
+    "endsAt": ""
+  },
+  "notifications": {
+    "unreadCount": 0
+  },
+  "continueLearning": {
+    "available": false,
+    "subjectName": "",
+    "unitTitle": "",
+    "mode": "learn",
+    "label": "ابدأ من المواد",
+    "hint": "",
+    "disabled": false,
+    "disabledReason": "",
+    "updatedAt": ""
+  },
+  "smartGuide": {
+    "enabled": false,
+    "status": "disabled",
+    "guideDate": "",
+    "headline": "",
+    "introText": "",
+    "boostNote": "",
+    "profileKey": "",
+    "completionPercent": 0,
+    "completedSteps": 0,
+    "totalSteps": 0,
+    "isComplete": false,
+    "updatedAt": "",
+    "steps": []
+  },
+  "indicators": {
+    "totalXp": 1,
+    "gems": 2,
+    "streakDays": 0
+  },
+  "subjects": [],
+  "spotlight": null
+}

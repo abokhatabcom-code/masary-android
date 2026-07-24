@@ -840,7 +840,10 @@
           "subscription",
           "notifications",
           "continue_learning",
-          "smart_guide"
+          "smart_guide",
+          "indicators",
+          "subjects",
+          "spotlight"
         ],
         "properties": {
           "version": {
@@ -872,6 +875,25 @@
           },
           "smart_guide": {
             "$ref": "#/components/schemas/HomeSmartGuide"
+          },
+          "indicators": {
+            "$ref": "#/components/schemas/HomeIndicators"
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeSubject"
+            }
+          },
+          "spotlight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HomeSpotlight"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -1920,6 +1942,96 @@
             ]
           },
           "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeIndicators": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "total_xp",
+          "gems",
+          "streak_days",
+          "global_rank"
+        ],
+        "properties": {
+          "total_xp": {
+            "type": "integer"
+          },
+          "gems": {
+            "type": "integer"
+          },
+          "streak_days": {
+            "type": "integer"
+          },
+          "global_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HomeSubject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject_version_id",
+          "name",
+          "hearts",
+          "progress_percent"
+        ],
+        "properties": {
+          "subject_version_id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "hearts": {
+            "type": "integer"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HomeSpotlight": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "title",
+          "body",
+          "cta_label",
+          "cta_url"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "cta_label": {
+            "type": "string"
+          },
+          "cta_url": {
             "type": "string"
           }
         }

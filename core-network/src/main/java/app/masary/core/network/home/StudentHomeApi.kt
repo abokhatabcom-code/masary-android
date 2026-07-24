@@ -26,6 +26,31 @@ data class StudentHomeDataDto(
     val notifications: HomeNotificationsDto = HomeNotificationsDto(),
     @SerializedName("continue_learning") val continueLearning: HomeContinueLearningDto = HomeContinueLearningDto(),
     @SerializedName("smart_guide") val smartGuide: HomeSmartGuideDto = HomeSmartGuideDto(),
+    val indicators: HomeIndicatorsDto = HomeIndicatorsDto(),
+    val subjects: List<HomeSubjectDto> = emptyList(),
+    val spotlight: HomeSpotlightDto? = null,
+)
+
+data class HomeIndicatorsDto(
+    @SerializedName("total_xp") val totalXp: Int = 0,
+    val gems: Int = 0,
+    @SerializedName("streak_days") val streakDays: Int = 0,
+    @SerializedName("global_rank") val globalRank: Int? = null,
+)
+
+data class HomeSubjectDto(
+    @SerializedName("subject_version_id") val subjectVersionId: Int = 0,
+    val name: String = "",
+    val hearts: Int = 0,
+    @SerializedName("progress_percent") val progressPercent: Int? = null,
+)
+
+data class HomeSpotlightDto(
+    val type: String = "news",
+    val title: String = "",
+    val body: String = "",
+    @SerializedName("cta_label") val ctaLabel: String = "",
+    @SerializedName("cta_url") val ctaUrl: String = "",
 )
 
 data class HomeStudentDto(

@@ -98,6 +98,27 @@
           "completed_at": ""
         }
       ]
+    },
+    "indicators": {
+      "total_xp": 120,
+      "gems": 8,
+      "streak_days": 3,
+      "global_rank": 14
+    },
+    "subjects": [
+      {
+        "subject_version_id": 10,
+        "name": "الرياضيات",
+        "hearts": 3,
+        "progress_percent": null
+      }
+    ],
+    "spotlight": {
+      "type": "news",
+      "title": "تحديث المنصة",
+      "body": "اطّلع على آخر أخبار مساري",
+      "cta_label": "اعرف المزيد",
+      "cta_url": "https://masary.app/news"
     }
   },
   "error": null,

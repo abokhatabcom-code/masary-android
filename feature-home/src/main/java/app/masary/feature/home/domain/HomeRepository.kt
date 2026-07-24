@@ -1,7 +1,15 @@
 package app.masary.feature.home.domain
 
 interface HomeRepository {
+    suspend fun loadSnapshot(): StudentHomeData?
     suspend fun loadHome(): Result<StudentHomeData>
+    suspend fun clearSnapshot()
+}
+
+interface HomeSnapshotStore {
+    suspend fun read(studentId: String): StudentHomeData?
+    suspend fun write(studentId: String, data: StudentHomeData)
+    suspend fun clear()
 }
 
 class HomeSessionExpiredException(

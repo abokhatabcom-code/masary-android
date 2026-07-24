@@ -23,6 +23,7 @@ import app.masary.feature.home.data.HomeRepositoryFactory
 
 private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "student_session")
 private val ComponentActivity.onboardingDataStore by preferencesDataStore(name = "student_onboarding")
+private val ComponentActivity.homeSnapshotDataStore by preferencesDataStore(name = "student_home_snapshot")
 
 class MainActivity : ComponentActivity() {
     private val destinationInbox = NotificationDestinationInbox()
@@ -60,7 +61,7 @@ class MainActivity : ComponentActivity() {
         val onboardingStore = DataStoreOnboardingStore(onboardingDataStore)
         val authRepository = AuthRepositoryFactory.create(BuildConfig.MASARY_API_BASE_URL)
         val registrationRepository = AuthRepositoryFactory.createRegistration(BuildConfig.MASARY_API_BASE_URL)
-        val homeRepository = HomeRepositoryFactory.create(sessionManager, BuildConfig.MASARY_API_BASE_URL)
+        val homeRepository = HomeRepositoryFactory.create(sessionManager, BuildConfig.MASARY_API_BASE_URL, homeSnapshotDataStore)
         setContent {
             MasaryTheme {
                 MasaryStudentApp(

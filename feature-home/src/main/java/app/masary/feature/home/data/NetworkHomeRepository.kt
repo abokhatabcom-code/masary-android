@@ -15,6 +15,7 @@ import app.masary.feature.home.domain.HomeContinueLearning
 import app.masary.feature.home.domain.HomeNetworkException
 import app.masary.feature.home.domain.HomeNotifications
 import app.masary.feature.home.domain.HomeRepository
+import app.masary.feature.home.domain.HomeSnapshotStore
 import app.masary.feature.home.domain.HomeServiceException
 import app.masary.feature.home.domain.HomeSessionExpiredException
 import app.masary.feature.home.domain.HomeSmartGuide
@@ -25,37 +26,68 @@ import app.masary.feature.home.domain.HomeStudent
 import app.masary.feature.home.domain.HomeSubscription
 import app.masary.feature.home.domain.HomeSummary
 import app.masary.feature.home.domain.HomeToday
+import app.masary.feature.home.domain.HomeIndicators
+import app.masary.feature.home.domain.HomeSubject
+import app.masary.feature.home.domain.HomeSpotlight
 import app.masary.feature.home.domain.StudentHomeData
 import java.io.IOException
 import retrofit2.HttpException
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
 
 class NetworkHomeRepository(
     private val homeApi: StudentHomeApi,
     private val authApi: StudentAuthApi,
     private val sessionManager: SessionManager,
+    private val snapshotStore: HomeSnapshotStore,
     private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
 ) : HomeRepository {
 
-    override suspend fun loadHome(): Result<StudentHomeData> = runCatching {
-        var tokens = sessionManager.readTokens()
-            ?: throw HomeSessionExpiredException()
+    override suspend fun loadHome(): Result<StudentHomeData> {
+        val studentId = sessionManager.session.first()?.id ?: return Result.failure(HomeSessionExpiredException())
+        return runCatching {
+            var tokens = sessionManager.readTokens()
+                ?: throw HomeSessionExpiredException()
 
-        if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
-            tokens = refreshTokens(tokens.refreshToken)
-        }
+            if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
+                tokens = refreshTokens(tokens.refreshToken)
+            }
 
-        try {
-            requestHome(tokens)
-        } catch (error: HttpException) {
-            if (error.code() != 401) throw error
-            tokens = refreshTokens(tokens.refreshToken)
-            requestHome(tokens)
+            try {
+                requestHome(tokens, studentId)
+            } catch (error: HttpException) {
+                if (error.code() != 401) throw error
+                tokens = refreshTokens(tokens.refreshToken)
+                requestHome(tokens, studentId)
+            }.also { data ->
+                try {
+                    snapshotStore.write(studentId, data)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    // A cache write must never turn a valid platform response into an error.
+                }
+            }
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw mapFailure(error)
         }
-    }.recoverCatching { error ->
-        throw mapFailure(error)
     }
 
-    private suspend fun requestHome(tokens: AuthTokens): StudentHomeData {
+    override suspend fun loadSnapshot(): StudentHomeData? {
+        val studentId = sessionManager.session.first()?.id ?: return null
+        return try {
+            snapshotStore.read(studentId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun clearSnapshot() = snapshotStore.clear()
+
+    private suspend fun requestHome(tokens: AuthTokens, expectedStudentId: String): StudentHomeData {
         val response = homeApi.home("Bearer ${tokens.accessToken}")
         val data = response.data
         if (!response.success || data == null) {
@@ -65,7 +97,11 @@ class NetworkHomeRepository(
             }
             throw HomeServiceException(response.error?.message ?: "تعذر تحميل الصفحة الرئيسية الآن.")
         }
-        return data.toDomain()
+        return data.toDomain().also { home ->
+            if (home.student.id != expectedStudentId) {
+                throw HomeSessionExpiredException("تعذر التحقق من هوية بيانات الصفحة الرئيسية.")
+            }
+        }
     }
 
     private suspend fun refreshTokens(refreshToken: String): AuthTokens {
@@ -107,6 +143,7 @@ class NetworkHomeRepository(
         }
         else -> HomeServiceException(cause = error)
     }
+
 }
 
 private fun StudentHomeDataDto.toDomain(): StudentHomeData = StudentHomeData(
@@ -140,6 +177,18 @@ private fun StudentHomeDataDto.toDomain(): StudentHomeData = StudentHomeData(
     notifications = HomeNotifications(notifications.unreadCount.coerceAtLeast(0)),
     continueLearning = continueLearning.toDomain(),
     smartGuide = smartGuide.toDomain(),
+    indicators = HomeIndicators(
+        totalXp = indicators.totalXp.coerceAtLeast(0),
+        gems = indicators.gems.coerceAtLeast(0),
+        streakDays = indicators.streakDays.coerceAtLeast(0),
+        globalRank = indicators.globalRank?.takeIf { it > 0 },
+    ),
+    subjects = subjects.filter { it.subjectVersionId > 0 }.map {
+        HomeSubject(it.subjectVersionId, it.name, it.hearts.coerceAtLeast(0), it.progressPercent?.coerceIn(0, 100))
+    },
+    spotlight = spotlight?.takeIf { it.title.isNotBlank() }?.let {
+        HomeSpotlight(it.type, it.title, it.body, it.ctaLabel, it.ctaUrl)
+    },
 )
 
 private fun HomeStreakDto.toDomain(): HomeStreak = HomeStreak(
