@@ -59,18 +59,17 @@ internal fun ActivitySessionReadyScreen(
                     color = MasaryColors.brandNavy,
                 )
                 Text(
-                    text = "أُنشئت جلسة آمنة بنجاح. ستُربط واجهة الأسئلة بهذه الجلسة في المرحلة المختصة.",
+                    text = "أُنشئت جلسة آمنة بنجاح. ستبقى محفوظة وقابلة للاستئناف حتى انتهاء صلاحيتها، ولن يحدث خصم جديد عند العودة إليها.",
                     color = MasaryColors.muted,
                     textAlign = TextAlign.Center,
                 )
                 Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                    Text("العودة إلى المواد")
+                    Text("العودة مع حفظ الجلسة")
                 }
             }
         }
     }
 
-    // Keep the opaque server values in typed navigation state without displaying or logging them.
-    @Suppress("UNUSED_VARIABLE")
-    val retainedSessionState = destination
+    // The opaque values stay only in typed navigation state and are never displayed or logged.
+    destination.sessionId.length
 }
