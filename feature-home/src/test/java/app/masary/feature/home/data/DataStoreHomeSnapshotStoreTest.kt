@@ -14,14 +14,27 @@ import org.junit.Test
 
 class DataStoreHomeSnapshotStoreTest {
     @Test
-    fun `snapshot is isolated by owner and expires`() = runTest {
-        var now = 1_000L
-        val store = DataStoreHomeSnapshotStore(MemoryPreferencesDataStore(), nowEpochMillis = { now }, maxAgeMillis = 100L)
+    fun `snapshot is isolated by owner and invalid owner evicts payload`() = runTest {
+        val store = DataStoreHomeSnapshotStore(MemoryPreferencesDataStore())
         store.write("42", home("42"))
 
         assertEquals("42", store.read("42")?.student?.id)
         assertNull(store.read("7"))
+        assertNull(store.read("42"))
+    }
+
+    @Test
+    fun `expired snapshot is evicted`() = runTest {
+        var now = 1_000L
+        val store = DataStoreHomeSnapshotStore(
+            MemoryPreferencesDataStore(),
+            nowEpochMillis = { now },
+            maxAgeMillis = 100L,
+        )
+        store.write("42", home("42"))
+
         now = 1_101L
+        assertNull(store.read("42"))
         assertNull(store.read("42"))
     }
 
