@@ -13,6 +13,6 @@ api_response(
     api_activity_start_status(
         $pdo,
         $session,
-        (string)($_GET['idempotency_key'] ?? ''),
+        (string)($_SERVER['HTTP_IDEMPOTENCY_KEY'] ?? ''),
     ),
 );
