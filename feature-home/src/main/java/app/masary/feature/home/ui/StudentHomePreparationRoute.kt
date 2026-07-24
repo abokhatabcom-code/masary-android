@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Diamond
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Home
@@ -33,14 +32,11 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -81,7 +77,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import app.masary.core.models.auth.StudentSession
-import app.masary.core.ui.MasaryBrandLockup
 import app.masary.core.ui.MasaryBrandMark
 import app.masary.core.ui.MasaryColors
 import app.masary.feature.activitypreparation.ActivityPreparationDestination
@@ -89,12 +84,11 @@ import app.masary.feature.activitypreparation.ActivityPreparationPendingStore
 import app.masary.feature.activitypreparation.ActivityPreparationRepository
 import app.masary.feature.activitypreparation.ActivityPreparationRoute
 import app.masary.feature.home.domain.HomeSmartGuideStep
-import app.masary.feature.home.domain.HomeSpotlight
 import app.masary.feature.home.domain.HomeSubject
 import app.masary.feature.home.domain.StudentHomeData
 import app.masary.feature.notifications.NotificationPermissionState
 
-private val StudentDestination.phaseEightIcon: ImageVector
+private val StudentDestination.preparationIcon: ImageVector
     get() = when (this) {
         StudentDestination.Home -> Icons.Outlined.Home
         StudentDestination.Guide -> Icons.Outlined.AutoAwesome
@@ -123,11 +117,11 @@ fun StudentHomeRoute(
     val state by homeViewModel.state.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
-    var showPermissionExplanation by rememberSaveable {
+    var explainNotifications by rememberSaveable {
         mutableStateOf(permissionState == NotificationPermissionState.NotRequested)
     }
 
-    val selectedDestination = when {
+    val selected = when {
         backStack?.destination?.hasRoute<ActivityPreparationDestination>() == true ||
             backStack?.destination?.hasRoute<ActivitySessionDestination>() == true -> StudentDestination.Subjects
         backStack?.destination?.hasRoute<StudentDestination.Guide>() == true -> StudentDestination.Guide
@@ -138,7 +132,7 @@ fun StudentHomeRoute(
         else -> StudentDestination.Home
     }
 
-    fun navigateTo(destination: StudentDestination) {
+    fun navigate(destination: StudentDestination) {
         navController.navigate(destination) {
             launchSingleTop = true
             popUpTo(StudentDestination.Home) { saveState = true }
@@ -146,7 +140,7 @@ fun StudentHomeRoute(
         }
     }
 
-    fun openPreparation(step: HomeSmartGuideStep) {
+    fun prepare(step: HomeSmartGuideStep) {
         navController.navigate(
             ActivityPreparationDestination.fromGuide(
                 subjectVersionId = step.subjectVersionId,
@@ -159,7 +153,7 @@ fun StudentHomeRoute(
 
     LaunchedEffect(externalDestination) {
         externalDestination?.let {
-            navigateTo(externalStudentDestination(it))
+            navigate(externalStudentDestination(it))
             onExternalDestinationConsumed()
         }
     }
@@ -167,28 +161,24 @@ fun StudentHomeRoute(
         if (state == HomeUiState.SessionExpired) onLogout()
     }
 
-    if (showPermissionExplanation) {
+    if (explainNotifications) {
         AlertDialog(
-            onDismissRequest = { showPermissionExplanation = false },
+            onDismissRequest = { explainNotifications = false },
             title = { Text("ابقَ على اطلاع") },
-            text = {
-                Text("اسمح لمساري بإرسال تذكيرات التعلّم وتنبيهات أمان الحساب. يمكنك استخدام التطبيق كاملًا حتى عند الرفض.")
-            },
+            text = { Text("اسمح لمساري بإرسال تذكيرات التعلّم وتنبيهات أمان الحساب.") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPermissionExplanation = false
-                        onNotificationsPermission()
-                    },
-                ) { Text("متابعة") }
+                TextButton(onClick = {
+                    explainNotifications = false
+                    onNotificationsPermission()
+                }) { Text("متابعة") }
             },
             dismissButton = {
-                TextButton(onClick = { showPermissionExplanation = false }) { Text("ليس الآن") }
+                TextButton(onClick = { explainNotifications = false }) { Text("ليس الآن") }
             },
         )
     }
 
-    val currentData = when (val current = state) {
+    val data = when (val current = state) {
         is HomeUiState.Content -> current.data
         is HomeUiState.Error -> current.previousData
         HomeUiState.Loading,
@@ -198,74 +188,71 @@ fun StudentHomeRoute(
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
             containerColor = MasaryColors.background,
-            bottomBar = {
-                PhaseEightBottomBar(selectedDestination, ::navigateTo)
-            },
-        ) { innerPadding ->
+            bottomBar = { PreparationBottomBar(selected, ::navigate) },
+        ) { padding ->
             NavHost(
                 navController = navController,
                 startDestination = StudentDestination.Home,
-                modifier = Modifier.padding(innerPadding),
+                modifier = Modifier.padding(padding),
             ) {
                 composable<StudentDestination.Home> {
-                    PhaseEightHomeState(
+                    PreparationHomeState(
                         session = session,
                         state = state,
                         onRefresh = homeViewModel::refresh,
-                        onNotifications = {
+                        onNotification = {
                             when (permissionState) {
                                 NotificationPermissionState.NotRequested,
                                 NotificationPermissionState.Denied,
-                                -> showPermissionExplanation = true
+                                -> explainNotifications = true
                                 NotificationPermissionState.PermanentlyDenied,
                                 NotificationPermissionState.SystemDisabled,
                                 -> onOpenNotificationSettings()
                                 else -> Unit
                             }
                         },
-                        onGems = { navigateTo(StudentDestination.Profile) },
-                        onGuide = { navigateTo(StudentDestination.Guide) },
-                        onGuideStep = ::openPreparation,
-                        onSubjects = { navigateTo(StudentDestination.Subjects) },
-                        onSubject = { navigateTo(StudentDestination.SubjectDetails(it)) },
+                        onGuide = { navigate(StudentDestination.Guide) },
+                        onStep = ::prepare,
+                        onSubjects = { navigate(StudentDestination.Subjects) },
+                        onSubject = { navigate(StudentDestination.SubjectDetails(it)) },
+                        onProfile = { navigate(StudentDestination.Profile) },
                     )
                 }
                 composable<StudentDestination.Guide> {
-                    PhaseEightDataDestination(currentData) { data ->
-                        PhaseEightGuide(data.smartGuide.steps, ::openPreparation)
+                    PreparationDataDestination(data) { snapshot ->
+                        GuideList(snapshot.smartGuide.steps, ::prepare)
                     }
                 }
                 composable<StudentDestination.Subjects> {
-                    PhaseEightDataDestination(currentData) { data ->
-                        PhaseEightSubjects(data.subjects) {
-                            navigateTo(StudentDestination.SubjectDetails(it))
+                    PreparationDataDestination(data) { snapshot ->
+                        SubjectList(snapshot.subjects) {
+                            navigate(StudentDestination.SubjectDetails(it))
                         }
                     }
                 }
                 composable<StudentDestination.Ranking> {
-                    PhaseEightDataDestination(currentData) { data ->
-                        PhaseEightSimpleSection(
+                    PreparationDataDestination(data) { snapshot ->
+                        SimpleSection(
                             title = "الترتيب",
-                            body = data.indicators.globalRank?.let { "ترتيبك العام: $it" }
+                            body = snapshot.indicators.globalRank?.let { "ترتيبك العام: $it" }
                                 ?: "سيظهر ترتيبك بعد تسجيل نشاط تعليمي.",
                             icon = Icons.Outlined.EmojiEvents,
                         )
                     }
                 }
                 composable<StudentDestination.Profile> {
-                    PhaseEightProfile(session, currentData, onLogout)
+                    ProfileSection(session, data, onLogout)
                 }
                 composable<StudentDestination.SubjectDetails> { entry ->
                     val destination = entry.toRoute<StudentDestination.SubjectDetails>()
-                    PhaseEightDataDestination(currentData) { data ->
-                        val subject = data.subjects.firstOrNull {
+                    PreparationDataDestination(data) { snapshot ->
+                        val subject = snapshot.subjects.firstOrNull {
                             it.subjectVersionId == destination.subjectVersionId
                         }
-                        PhaseEightSimpleSection(
+                        SimpleSection(
                             title = subject?.name ?: "المادة الدراسية",
-                            body = "تُعرض الوحدات والدروس ومركز التدريب في مرحلتها المخصصة. بدء أي نشاط سيبقى محميًا بشاشة التجهيز.",
+                            body = "ستُستكمل الوحدات والدروس ومركز التدريب في مراحلها المخصصة. بدء أي نشاط يمر عبر شاشة التجهيز.",
                             icon = Icons.AutoMirrored.Outlined.MenuBook,
                         )
                     }
@@ -304,89 +291,52 @@ fun StudentHomeRoute(
 }
 
 @Composable
-private fun PhaseEightHomeState(
+private fun PreparationHomeState(
     session: StudentSession,
     state: HomeUiState,
     onRefresh: () -> Unit,
-    onNotifications: () -> Unit,
-    onGems: () -> Unit,
+    onNotification: () -> Unit,
     onGuide: () -> Unit,
-    onGuideStep: (HomeSmartGuideStep) -> Unit,
+    onStep: (HomeSmartGuideStep) -> Unit,
     onSubjects: () -> Unit,
     onSubject: (Int) -> Unit,
+    onProfile: () -> Unit,
 ) {
     when (state) {
         HomeUiState.Loading,
         HomeUiState.SessionExpired,
-        -> PhaseEightLoading()
-        is HomeUiState.Content -> PhaseEightHome(
-            session,
-            state.data,
-            state.isRefreshing,
-            state.refreshMessage,
-            onRefresh,
-            onNotifications,
-            onGems,
-            onGuide,
-            onGuideStep,
-            onSubjects,
-            onSubject,
+        -> PreparationLoading()
+        is HomeUiState.Content -> HomeContent(
+            session = session,
+            data = state.data,
+            refreshing = state.isRefreshing,
+            message = state.refreshMessage,
+            onRefresh = onRefresh,
+            onNotification = onNotification,
+            onGuide = onGuide,
+            onStep = onStep,
+            onSubjects = onSubjects,
+            onSubject = onSubject,
+            onProfile = onProfile,
         )
         is HomeUiState.Error -> {
             val previous = state.previousData
             if (previous == null) {
-                PhaseEightError(state.message, onRefresh)
+                PreparationError(state.message, onRefresh)
             } else {
-                PhaseEightHome(
-                    session,
-                    previous,
-                    false,
-                    state.message,
-                    onRefresh,
-                    onNotifications,
-                    onGems,
-                    onGuide,
-                    onGuideStep,
-                    onSubjects,
-                    onSubject,
+                HomeContent(
+                    session = session,
+                    data = previous,
+                    refreshing = false,
+                    message = state.message,
+                    onRefresh = onRefresh,
+                    onNotification = onNotification,
+                    onGuide = onGuide,
+                    onStep = onStep,
+                    onSubjects = onSubjects,
+                    onSubject = onSubject,
+                    onProfile = onProfile,
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PhaseEightLoading() {
-    Box(
-        modifier = Modifier.fillMaxSize().background(MasaryColors.brandNavyDeep),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            MasaryBrandMark(size = 84.dp)
-            Spacer(Modifier.height(22.dp))
-            CircularProgressIndicator(color = MasaryColors.brandGoldBright)
-            Spacer(Modifier.height(14.dp))
-            Text("نجهّز صفحتك الرئيسية…", color = Color.White)
-        }
-    }
-}
-
-@Composable
-private fun PhaseEightError(message: String, onRetry: () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize().statusBarsPadding().padding(24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                MasaryBrandMark(size = 70.dp)
-                Text("تعذر تحميل الصفحة الرئيسية", fontWeight = FontWeight.Bold)
-                Text(message, color = MasaryColors.muted, textAlign = TextAlign.Center)
-                Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("إعادة المحاولة") }
             }
         }
     }
@@ -394,35 +344,31 @@ private fun PhaseEightError(message: String, onRetry: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PhaseEightHome(
+private fun HomeContent(
     session: StudentSession,
     data: StudentHomeData,
-    isRefreshing: Boolean,
-    refreshMessage: String?,
+    refreshing: Boolean,
+    message: String?,
     onRefresh: () -> Unit,
-    onNotifications: () -> Unit,
-    onGems: () -> Unit,
+    onNotification: () -> Unit,
     onGuide: () -> Unit,
-    onGuideStep: (HomeSmartGuideStep) -> Unit,
+    onStep: (HomeSmartGuideStep) -> Unit,
     onSubjects: () -> Unit,
     onSubject: (Int) -> Unit,
+    onProfile: () -> Unit,
 ) {
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
-        modifier = Modifier.fillMaxSize(),
-    ) {
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {
-                PhaseEightHeader(
+                HomeHeader(
                     gems = data.summary.gems,
                     unread = data.notifications.unreadCount,
-                    onGems = onGems,
-                    onNotifications = onNotifications,
+                    onGems = onProfile,
+                    onNotification = onNotification,
                 )
             }
             item {
@@ -431,20 +377,35 @@ private fun PhaseEightHome(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Text(
-                        "مرحبًا ${phaseEightDisplayName(data.student.displayName.ifBlank { session.displayName })} 👋",
+                        "مرحبًا ${displayName(data.student.displayName.ifBlank { session.displayName })} 👋",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MasaryColors.brandNavy,
                     )
-                    Text("واصل طريقك الواضح نحو التميز", color = MasaryColors.muted)
-                    PhaseEightLevelCard(data)
-                    PhaseEightIndicators(data)
-                    refreshMessage?.takeIf(String::isNotBlank)?.let {
+                    LevelCard(data)
+                    IndicatorRow(data)
+                    message?.takeIf(String::isNotBlank)?.let {
                         Text(it, color = MasaryColors.muted, style = MaterialTheme.typography.bodySmall)
                     }
-                    PhaseEightGuideCard(data.smartGuide.nextPendingStep, onGuide, onGuideStep)
-                    PhaseEightSubjectPreview(data.subjects, onSubjects, onSubject)
-                    data.spotlight?.let { PhaseEightSpotlight(it) }
+                    GuideCard(data.smartGuide.nextPendingStep, onGuide, onStep)
+                    SubjectPreview(data.subjects, onSubjects, onSubject)
+                    data.spotlight?.let { spotlight ->
+                        Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(if (spotlight.type == "offer") "عرض" else "خبر", color = MasaryColors.brandGold)
+                                Text(spotlight.title, fontWeight = FontWeight.Bold)
+                                Text(
+                                    spotlight.body,
+                                    color = MasaryColors.muted,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -452,23 +413,23 @@ private fun PhaseEightHome(
 }
 
 @Composable
-private fun PhaseEightHeader(
+private fun HomeHeader(
     gems: Int,
     unread: Int,
     onGems: () -> Unit,
-    onNotifications: () -> Unit,
+    onNotification: () -> Unit,
 ) {
     Surface(color = MasaryColors.brandNavyDeep) {
         Row(
-            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 18.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MasaryBrandLockup()
+            Text("مساري", color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
             Surface(
                 modifier = Modifier.clickable(onClick = onGems),
-                shape = RoundedCornerShape(18.dp),
                 color = Color.White.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(18.dp),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -479,10 +440,24 @@ private fun PhaseEightHeader(
                     Text(gems.coerceAtLeast(0).toString(), color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = onNotifications) {
-                BadgedBox(badge = { if (unread > 0) Badge { Text(unread.coerceAtMost(99).toString()) } }) {
+            IconButton(onClick = onNotification) {
+                Box {
                     Icon(Icons.Outlined.NotificationsNone, "الإشعارات", tint = Color.White)
+                    if (unread > 0) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.TopEnd).size(16.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.error,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    unread.coerceAtMost(9).toString(),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -490,7 +465,7 @@ private fun PhaseEightHeader(
 }
 
 @Composable
-private fun PhaseEightLevelCard(data: StudentHomeData) {
+private fun LevelCard(data: StudentHomeData) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(18.dp),
@@ -498,47 +473,46 @@ private fun PhaseEightLevelCard(data: StudentHomeData) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("المستوى ${data.summary.level}", fontWeight = FontWeight.Bold, color = MasaryColors.brandNavy)
+                    Text("المستوى ${data.summary.level}", fontWeight = FontWeight.Bold)
                     Text("${data.summary.globalXp} نقطة", color = MasaryColors.muted)
                 }
-                Text("${data.summary.levelPercent.coerceIn(0, 100)}%", color = MasaryColors.brandGold, fontWeight = FontWeight.Bold)
+                Text("${data.summary.levelPercent.coerceIn(0, 100)}%", color = MasaryColors.brandGold)
             }
             LinearProgressIndicator(
                 progress = { data.summary.levelPercent.coerceIn(0, 100) / 100f },
                 modifier = Modifier.fillMaxWidth().height(8.dp),
             )
-            Text("الهدف التالي عند ${data.summary.levelNextXp} نقطة", color = MasaryColors.muted, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
 @Composable
-private fun PhaseEightIndicators(data: StudentHomeData) {
+private fun IndicatorRow(data: StudentHomeData) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PhaseEightIndicator(Icons.Outlined.Timer, "دقائق اليوم", data.today.minutes.toString(), Modifier.weight(1f))
-        PhaseEightIndicator(Icons.Outlined.LocalFireDepartment, "السلسلة", "${data.streak.currentDays} يوم", Modifier.weight(1f))
-        PhaseEightIndicator(Icons.Outlined.TaskAlt, "المهام", "غير متاح", Modifier.weight(1f))
-        PhaseEightIndicator(Icons.Outlined.Badge, "الشارات", "غير متاح", Modifier.weight(1f))
+        Indicator(Icons.Outlined.Timer, "دقائق", data.today.minutes.toString(), Modifier.weight(1f))
+        Indicator(Icons.Outlined.LocalFireDepartment, "السلسلة", data.streak.currentDays.toString(), Modifier.weight(1f))
+        Indicator(Icons.Outlined.TaskAlt, "المهام", "—", Modifier.weight(1f))
+        Indicator(Icons.Outlined.EmojiEvents, "الشارات", "—", Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun PhaseEightIndicator(icon: ImageVector, label: String, value: String, modifier: Modifier) {
+private fun Indicator(icon: ImageVector, label: String, value: String, modifier: Modifier) {
     Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 6.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Icon(icon, null, tint = MasaryColors.brandGold)
-            Text(value, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(label, color = MasaryColors.muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            Text(value, fontWeight = FontWeight.Bold)
+            Text(label, color = MasaryColors.muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
 @Composable
-private fun PhaseEightGuideCard(
+private fun GuideCard(
     step: HomeSmartGuideStep?,
     onGuide: () -> Unit,
     onStep: (HomeSmartGuideStep) -> Unit,
@@ -550,15 +524,13 @@ private fun PhaseEightGuideCard(
         ) {
             Text("الموجّه الدراسي الذكي", color = MasaryColors.brandGoldBright, fontWeight = FontWeight.Bold)
             if (step == null) {
-                Text("سيظهر اقتراح الموجّه الدراسي هنا فور تجهيزه من النظام.", color = Color.White)
+                Text("لا توجد خطوة معلقة الآن.", color = Color.White)
                 OutlinedButton(onClick = onGuide) { Text("فتح الموجّه") }
             } else {
                 Text(step.title, color = Color.White, fontWeight = FontWeight.Bold)
-                step.subtitle.takeIf(String::isNotBlank)?.let { Text(it, color = Color.White.copy(alpha = 0.8f)) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${step.estimatedMinutes} دقيقة", color = Color.White.copy(alpha = 0.8f))
-                    Spacer(Modifier.weight(1f))
-                    Button(onClick = { onStep(step) }) { Text(step.ctaLabel.ifBlank { "ابدأ" }) }
+                Text(step.subtitle, color = Color.White.copy(alpha = 0.8f))
+                Button(onClick = { onStep(step) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(step.ctaLabel.ifBlank { "ابدأ" })
                 }
             }
         }
@@ -566,121 +538,77 @@ private fun PhaseEightGuideCard(
 }
 
 @Composable
-private fun PhaseEightSubjectPreview(
+private fun SubjectPreview(
     subjects: List<HomeSubject>,
     onAll: () -> Unit,
     onSubject: (Int) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("المواد الدراسية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton(onClick = onAll) { Text("عرض الكل") }
         }
-        if (subjects.isEmpty()) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                Text("لا توجد مواد مرتبطة بحسابك حاليًا.", modifier = Modifier.fillMaxWidth().padding(18.dp), color = MasaryColors.muted)
-            }
-        } else {
-            subjects.take(4).forEach { subject ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onSubject(subject.subjectVersionId) },
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Surface(shape = CircleShape, color = MasaryColors.brandGold.copy(alpha = 0.15f)) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.MenuBook,
-                                null,
-                                tint = MasaryColors.brandNavy,
-                                modifier = Modifier.padding(10.dp),
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(subject.name, fontWeight = FontWeight.Bold, color = MasaryColors.brandNavy)
-                            Text("القلوب: ${subject.hearts}", color = MasaryColors.muted)
-                        }
-                        Text(subject.progressPercent?.let { "$it%" } ?: "—", color = MasaryColors.brandGold, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+        subjects.take(4).forEach { subject ->
+            SubjectCard(subject) { onSubject(subject.subjectVersionId) }
         }
+        if (subjects.isEmpty()) Text("لا توجد مواد مرتبطة بالحساب.", color = MasaryColors.muted)
     }
 }
 
 @Composable
-private fun PhaseEightSpotlight(spotlight: HomeSpotlight) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(if (spotlight.type == "offer") "عرض" else "خبر", color = MasaryColors.brandGold, fontWeight = FontWeight.Bold)
-            Text(spotlight.title, fontWeight = FontWeight.Bold, color = MasaryColors.brandNavy)
-            Text(spotlight.body, color = MasaryColors.muted, maxLines = 3, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-@Composable
-private fun PhaseEightGuide(
-    steps: List<HomeSmartGuideStep>,
-    onStep: (HomeSmartGuideStep) -> Unit,
-) {
+private fun SubjectList(subjects: List<HomeSubject>, onSubject: (Int) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item { Text("الموجّه الدراسي الذكي", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-        if (steps.isEmpty()) {
-            item { Text("لا توجد خطوات متاحة الآن.", color = MasaryColors.muted) }
-        } else {
-            items(steps, key = { it.id }) { step ->
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(step.title, fontWeight = FontWeight.Bold, color = MasaryColors.brandNavy)
-                        Text(step.subtitle, color = MasaryColors.muted)
-                        Button(
-                            onClick = { onStep(step) },
-                            enabled = step.progressState != "completed",
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text(if (step.progressState == "completed") "اكتملت" else step.ctaLabel.ifBlank { "ابدأ" }) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PhaseEightSubjects(subjects: List<HomeSubject>, onSubject: (Int) -> Unit) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item { Text("المواد الدراسية", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         items(subjects, key = { it.subjectVersionId }) { subject ->
-            Card(
-                modifier = Modifier.fillMaxWidth().clickable { onSubject(subject.subjectVersionId) },
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+            SubjectCard(subject) { onSubject(subject.subjectVersionId) }
+        }
+    }
+}
+
+@Composable
+private fun SubjectCard(subject: HomeSubject, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.AutoMirrored.Outlined.MenuBook, null, tint = MasaryColors.brandGold)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(subject.name, fontWeight = FontWeight.Bold)
+                Text("القلوب: ${subject.hearts}", color = MasaryColors.muted)
+            }
+            Text(subject.progressPercent?.let { "$it%" } ?: "—")
+        }
+    }
+}
+
+@Composable
+private fun GuideList(steps: List<HomeSmartGuideStep>, onStep: (HomeSmartGuideStep) -> Unit) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item { Text("الموجّه الدراسي الذكي", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        items(steps, key = { it.id }) { step ->
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(Icons.AutoMirrored.Outlined.MenuBook, null, tint = MasaryColors.brandGold)
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(subject.name, fontWeight = FontWeight.Bold)
-                        Text("القلوب: ${subject.hearts}", color = MasaryColors.muted)
-                    }
-                    Text(subject.progressPercent?.let { "$it%" } ?: "—")
+                    Text(step.title, fontWeight = FontWeight.Bold)
+                    Text(step.subtitle, color = MasaryColors.muted)
+                    Button(
+                        onClick = { onStep(step) },
+                        enabled = step.progressState != "completed",
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (step.progressState == "completed") "اكتملت" else step.ctaLabel.ifBlank { "ابدأ" }) }
                 }
             }
         }
@@ -688,11 +616,7 @@ private fun PhaseEightSubjects(subjects: List<HomeSubject>, onSubject: (Int) -> 
 }
 
 @Composable
-private fun PhaseEightProfile(
-    session: StudentSession,
-    data: StudentHomeData?,
-    onLogout: () -> Unit,
-) {
+private fun ProfileSection(session: StudentSession, data: StudentHomeData?, onLogout: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -703,7 +627,7 @@ private fun PhaseEightProfile(
                 modifier = Modifier.fillMaxWidth().padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(session.displayName, fontWeight = FontWeight.Bold, color = MasaryColors.brandNavy)
+                Text(session.displayName, fontWeight = FontWeight.Bold)
                 Text("اسم المستخدم: ${session.username}", color = MasaryColors.muted)
                 Text("إجمالي النقاط: ${data?.summary?.globalXp ?: 0}", color = MasaryColors.muted)
             }
@@ -713,16 +637,16 @@ private fun PhaseEightProfile(
 }
 
 @Composable
-private fun PhaseEightSimpleSection(title: String, body: String, icon: ImageVector) {
+private fun SimpleSection(title: String, body: String, icon: ImageVector) {
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(icon, null, tint = MasaryColors.brandGold, modifier = Modifier.size(56.dp))
-                Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Icon(icon, null, tint = MasaryColors.brandGold, modifier = Modifier.size(54.dp))
+                Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(body, color = MasaryColors.muted, textAlign = TextAlign.Center)
             }
         }
@@ -730,21 +654,49 @@ private fun PhaseEightSimpleSection(title: String, body: String, icon: ImageVect
 }
 
 @Composable
-private fun PhaseEightDataDestination(data: StudentHomeData?, content: @Composable (StudentHomeData) -> Unit) {
-    if (data == null) PhaseEightLoading() else content(data)
+private fun PreparationDataDestination(data: StudentHomeData?, content: @Composable (StudentHomeData) -> Unit) {
+    if (data == null) PreparationLoading() else content(data)
 }
 
 @Composable
-private fun PhaseEightBottomBar(
-    selected: StudentDestination,
-    onSelected: (StudentDestination) -> Unit,
-) {
+private fun PreparationLoading() {
+    Box(
+        modifier = Modifier.fillMaxSize().background(MasaryColors.brandNavyDeep),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            MasaryBrandMark(size = 80.dp)
+            Spacer(Modifier.height(20.dp))
+            CircularProgressIndicator(color = MasaryColors.brandGoldBright)
+        }
+    }
+}
+
+@Composable
+private fun PreparationError(message: String, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("تعذر تحميل الصفحة", fontWeight = FontWeight.Bold)
+                Text(message, color = MasaryColors.muted, textAlign = TextAlign.Center)
+                Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("إعادة المحاولة") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreparationBottomBar(selected: StudentDestination, onSelected: (StudentDestination) -> Unit) {
     NavigationBar(modifier = Modifier.navigationBarsPadding()) {
         studentDestinations.forEach { destination ->
             NavigationBarItem(
                 selected = selected == destination,
                 onClick = { onSelected(destination) },
-                icon = { Icon(destination.phaseEightIcon, null) },
+                icon = { Icon(destination.preparationIcon, null) },
                 label = {
                     Text(
                         when (destination) {
@@ -760,14 +712,14 @@ private fun PhaseEightBottomBar(
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MasaryColors.brandNavy,
                     selectedTextColor = MasaryColors.brandNavy,
-                    indicatorColor = MasaryColors.brandGold.copy(alpha = 0.25f),
+                    indicatorColor = MasaryColors.brandGold.copy(alpha = 0.22f),
                 ),
             )
         }
     }
 }
 
-private fun phaseEightDisplayName(value: String): String {
+private fun displayName(value: String): String {
     val parts = value.trim().split(Regex("\\s+")).filter(String::isNotBlank)
     return parts.take(2).joinToString(" ").ifBlank { "طالب مساري" }
 }
