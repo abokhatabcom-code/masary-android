@@ -32,7 +32,13 @@ object MasaryNetwork {
         baseUrl: String,
         client: OkHttpClient = defaultClient(),
     ): StudentActivityPreparationApi =
-        retrofit(validateBaseUrl(baseUrl), client).create(StudentActivityPreparationApi::class.java)
+        studentActivityPreparationApi(validateBaseUrl(baseUrl), client)
+
+    fun studentActivityPreparationApi(
+        baseUrl: HttpUrl,
+        client: OkHttpClient = defaultClient(),
+    ): StudentActivityPreparationApi =
+        retrofit(baseUrl, client).create(StudentActivityPreparationApi::class.java)
 
     fun studentPushTokenApi(baseUrl: String, client: OkHttpClient = defaultClient()): StudentPushTokenApi =
         retrofit(validateBaseUrl(baseUrl), client).create(StudentPushTokenApi::class.java)
