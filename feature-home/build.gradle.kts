@@ -21,6 +21,7 @@ android {
 
 dependencies {
     implementation(project(":feature-notifications"))
+    implementation(project(":feature-activity-preparation"))
     implementation(project(":core-models"))
     implementation(project(":core-ui"))
     implementation(project(":core-network"))
