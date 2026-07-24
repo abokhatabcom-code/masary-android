@@ -5,7 +5,6 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
-import retrofit2.http.Query
 
 data class ActivityPreparationRequestDto(
     @SerializedName("subject_version_id") val subjectVersionId: Int,
@@ -119,6 +118,6 @@ interface StudentActivityPreparationApi {
     @GET("/api/v1/student/activity/start-status")
     suspend fun startStatus(
         @Header("Authorization") authorization: String,
-        @Query("idempotency_key") idempotencyKey: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
     ): ActivityStartResponseDto
 }
