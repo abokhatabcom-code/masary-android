@@ -1,0 +1,271 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Masary Android API — Phase 08 extension",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/student/activity/preview": {
+      "post": {
+        "summary": "Read-only activity preparation preview",
+        "description": "يتحقق من المحتوى والأهلية والرصيد والجلسة القابلة للاستئناف دون إنشاء جلسة أو محاولة أو خصم.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ActivityPreparationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ActivityPreviewSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "409": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "429": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "503": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/student/activity/start": {
+      "post": {
+        "summary": "Create one idempotent server activity session",
+        "description": "ينشئ جلسة واحدة فقط. إعادة المفتاح نفسه مع الطلب نفسه تعيد النتيجة السابقة، واستخدامه لطلب مختلف يعيد 409.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": { "type": "string", "minLength": 16, "maxLength": 128 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ActivityPreparationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ActivityStartSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "409": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "429": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "503": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/student/activity/start-status": {
+      "get": {
+        "summary": "Resolve an uncertain activity start",
+        "description": "يستعلم بالمفتاح الأصلي بعد انقطاع الشبكة ولا ينشئ محاولة أخرى.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "idempotency_key",
+            "required": true,
+            "schema": { "type": "string", "minLength": 16, "maxLength": 128 }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ActivityStartSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "404": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "429": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "ActivityPreviewSuccess": {
+        "description": "API envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ActivityPreparationPreviewResponse" }
+          }
+        }
+      },
+      "ActivityStartSuccess": {
+        "description": "API envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ActivityStartResponse" }
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "description": "API error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ActivityPreparationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subject_version_id", "activity_type", "activity_mode", "source"],
+        "properties": {
+          "subject_version_id": { "type": "integer", "minimum": 1 },
+          "unit_id": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+          "lesson_id": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+          "activity_type": {
+            "type": "string",
+            "enum": ["guide_step", "unit_test", "lesson_practice", "review", "smart_review", "speed_test"]
+          },
+          "activity_mode": {
+            "type": "string",
+            "enum": ["learn", "practice", "review", "test", "speed"]
+          },
+          "guide_step_id": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+          "source": {
+            "type": "string",
+            "enum": ["home_guide", "guide", "subject", "unit", "lesson", "review"]
+          }
+        }
+      },
+      "ActivityDescriptor": {
+        "type": "object",
+        "required": ["subject_version_id", "subject_name", "unit_id", "unit_title", "lesson_id", "lesson_title", "activity_type", "activity_mode", "title", "estimated_minutes", "question_count"],
+        "properties": {
+          "subject_version_id": { "type": "integer" },
+          "subject_name": { "type": "string" },
+          "unit_id": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "unit_title": { "type": "string" },
+          "lesson_id": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "lesson_title": { "type": "string" },
+          "activity_type": { "type": "string" },
+          "activity_mode": { "type": "string" },
+          "title": { "type": "string" },
+          "estimated_minutes": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "question_count": { "anyOf": [{ "type": "integer" }, { "type": "null" }] }
+        }
+      },
+      "ActivityEligibility": {
+        "type": "object",
+        "required": ["available", "status", "reason", "reason_code"],
+        "properties": {
+          "available": { "type": "boolean" },
+          "status": { "type": "string" },
+          "reason": { "type": "string" },
+          "reason_code": { "type": "string" }
+        }
+      },
+      "ActivitySubscription": {
+        "type": "object",
+        "required": ["available", "active", "status", "ends_at", "blocking"],
+        "properties": {
+          "available": { "type": "boolean" },
+          "active": { "type": "boolean" },
+          "status": { "type": "string" },
+          "ends_at": { "type": "string" },
+          "blocking": { "type": "boolean" }
+        }
+      },
+      "ActivityBalances": {
+        "type": "object",
+        "required": ["hearts", "gems"],
+        "properties": {
+          "hearts": { "type": "integer", "minimum": 0 },
+          "gems": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ActivityCost": {
+        "type": "object",
+        "required": ["required_hearts", "heart_cost", "gem_cost"],
+        "properties": {
+          "required_hearts": { "type": "integer", "minimum": 0 },
+          "heart_cost": { "type": "integer", "minimum": 0 },
+          "gem_cost": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ActivityAttempts": {
+        "type": "object",
+        "required": ["available", "used", "remaining", "maximum", "reason"],
+        "properties": {
+          "available": { "type": "boolean" },
+          "used": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "remaining": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "maximum": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "reason": { "type": "string" }
+        }
+      },
+      "ActivityResume": {
+        "type": "object",
+        "required": ["available", "session_id", "status", "expires_at", "reason"],
+        "properties": {
+          "available": { "type": "boolean" },
+          "session_id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "status": { "type": "string" },
+          "expires_at": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      },
+      "ActivityPreparationPreviewData": {
+        "type": "object",
+        "required": ["version", "generated_at", "activity", "eligibility", "subscription", "balances", "cost", "attempts", "resume"],
+        "properties": {
+          "version": { "type": "string" },
+          "generated_at": { "type": "string" },
+          "activity": { "$ref": "#/components/schemas/ActivityDescriptor" },
+          "eligibility": { "$ref": "#/components/schemas/ActivityEligibility" },
+          "subscription": { "$ref": "#/components/schemas/ActivitySubscription" },
+          "balances": { "$ref": "#/components/schemas/ActivityBalances" },
+          "cost": { "$ref": "#/components/schemas/ActivityCost" },
+          "attempts": { "$ref": "#/components/schemas/ActivityAttempts" },
+          "resume": { "$ref": "#/components/schemas/ActivityResume" }
+        }
+      },
+      "ActivityPreparationPreviewResponse": {
+        "type": "object",
+        "required": ["success", "data", "error", "request_id"],
+        "properties": {
+          "success": { "const": true },
+          "data": { "$ref": "#/components/schemas/ActivityPreparationPreviewData" },
+          "error": { "type": "null" },
+          "request_id": { "type": "string", "minLength": 1 }
+        }
+      },
+      "ActivityDebit": {
+        "type": "object",
+        "required": ["heart_debited", "gems_debited"],
+        "properties": {
+          "heart_debited": { "type": "integer", "minimum": 0 },
+          "gems_debited": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ActivityStartData": {
+        "type": "object",
+        "required": ["session_id", "status", "destination", "replayed", "debit", "balances", "expires_at"],
+        "properties": {
+          "session_id": { "type": "string", "minLength": 1 },
+          "status": { "type": "string" },
+          "destination": { "type": "string" },
+          "replayed": { "type": "boolean" },
+          "debit": { "$ref": "#/components/schemas/ActivityDebit" },
+          "balances": { "$ref": "#/components/schemas/ActivityBalances" },
+          "expires_at": { "type": "string" }
+        }
+      },
+      "ActivityStartResponse": {
+        "type": "object",
+        "required": ["success", "data", "error", "request_id"],
+        "properties": {
+          "success": { "const": true },
+          "data": { "$ref": "#/components/schemas/ActivityStartData" },
+          "error": { "type": "null" },
+          "request_id": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
