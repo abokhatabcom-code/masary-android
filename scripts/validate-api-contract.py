@@ -151,6 +151,17 @@ def validate_schema(value: object, schema: dict, location: str) -> None:
             validate_schema(item, schema["items"], f"{location}[{index}]")
 
 
+def require_idempotency_header(route: str, method: str) -> None:
+    operation = CONTRACT["paths"][route][method]
+    matching = [
+        parameter
+        for parameter in operation.get("parameters", [])
+        if parameter.get("in") == "header" and parameter.get("name") == "Idempotency-Key"
+    ]
+    require(len(matching) == 1, f"{method.upper()} {route} must declare one Idempotency-Key header")
+    require(matching[0].get("required") is True, f"{method.upper()} {route} must require Idempotency-Key")
+
+
 require(BASE_CONTRACT.get("openapi") == "3.1.0", "base OpenAPI version must be 3.1.0")
 require(EXTENSION.get("openapi") == "3.1.0", "extension OpenAPI version must be 3.1.0")
 require(set(CONTRACT.get("paths", {})) == set(EXPECTED), "endpoint set differs from the supported v1 API")
@@ -167,14 +178,8 @@ for route, (methods, php_file) in EXPECTED.items():
                 f"{method.upper()} {route} must require bearer auth",
             )
 
-activity_start = CONTRACT["paths"]["/api/v1/student/activity/start"]["post"]
-require(
-    any(
-        parameter.get("name") == "Idempotency-Key" and parameter.get("required") is True
-        for parameter in activity_start.get("parameters", [])
-    ),
-    "activity start must require Idempotency-Key",
-)
+require_idempotency_header("/api/v1/student/activity/start", "post")
+require_idempotency_header("/api/v1/student/activity/start-status", "get")
 
 servers = BASE_CONTRACT.get("servers", [])
 server_urls = {item["url"] for item in servers}
