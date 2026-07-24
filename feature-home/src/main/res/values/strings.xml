@@ -24,7 +24,7 @@
     <string name="home_xp">النقاط</string>
     <string name="home_tasks">مهام الإنجاز</string>
     <string name="home_badges">الشارات</string>
-    <string name="home_unavailable_short">—</string>
+    <string name="home_unavailable_short">غير متاح</string>
     <string name="home_continue">تابع رحلتك</string>
     <string name="home_browse_subjects">عرض الكل</string>
     <string name="home_hearts">القلوب: %1$d</string>
