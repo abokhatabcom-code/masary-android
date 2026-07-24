@@ -107,6 +107,23 @@ function api_activity_start_guarded(
     }
 
     $ownsTransaction = !$pdo->inTransaction();
+    $cleanupPending = true;
+    register_shutdown_function(
+        static function () use ($pdo, $lockName, $ownsTransaction, &$cleanupPending): void {
+            if (!$cleanupPending) {
+                return;
+            }
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                try {
+                    $pdo->rollBack();
+                } catch (Throwable) {
+                    // Connection shutdown still discards an uncommitted transaction.
+                }
+            }
+            api_activity_release_start_lock($pdo, $lockName);
+        },
+    );
+
     try {
         if ($ownsTransaction) {
             $pdo->beginTransaction();
@@ -126,6 +143,7 @@ function api_activity_start_guarded(
         }
         throw $error;
     } finally {
+        $cleanupPending = false;
         api_activity_release_start_lock($pdo, $lockName);
     }
 }
