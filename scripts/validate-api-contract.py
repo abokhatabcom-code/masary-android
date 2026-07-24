@@ -1,94 +1,39 @@
 #!/usr/bin/env python3
 """Dependency-free consistency checks for the checked-in Android/PHP API contract."""
 import json
-import os
 from pathlib import Path
-import subprocess
-import sys
-import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def package_phase08_generated_sources() -> None:
-    """One-time CI bridge: generate the reviewed Phase 08 tree as a downloadable artifact.
-
-    This runs only on the dedicated implementation branch in GitHub Actions and deliberately
-    stops the validation job after packaging. It never commits, pushes, deploys, or runs SQL.
-    """
-    if os.environ.get("GITHUB_ACTIONS") != "true":
-        return
-    if os.environ.get("GITHUB_HEAD_REF") != "phase-08-pre-activity-implementation":
-        return
-    if (ROOT / "feature-activity-preparation/build.gradle.kts").is_file():
-        return
-    scripts = [ROOT / "automation/phase08_android.py", ROOT / "automation/phase08_server.py"]
-    if not all(path.is_file() for path in scripts):
-        return
-
-    report_dir = ROOT / "app-student/build/reports/phase08-source"
-    report_dir.mkdir(parents=True, exist_ok=True)
-    log_path = report_dir / "generation.log"
-    with log_path.open("w", encoding="utf-8") as log:
-        for script in scripts:
-            result = subprocess.run(
-                [sys.executable, str(script)],
-                cwd=ROOT,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                text=True,
-                check=False,
-            )
-            if result.returncode != 0:
-                log.write(f"\nGeneration failed in {script.name} with exit code {result.returncode}.\n")
-                raise SystemExit("Phase 08 source generation failed; inspect android-quality-reports artifact.")
-
-    status = subprocess.run(
-        ["git", "status", "--porcelain", "-z"],
-        cwd=ROOT,
-        capture_output=True,
-        check=True,
-    ).stdout
-    records = [item for item in status.split(b"\0") if item]
-    paths: list[Path] = []
-    for record in records:
-        decoded = record.decode("utf-8", errors="strict")
-        relative = decoded[3:]
-        if " -> " in relative:
-            relative = relative.split(" -> ", 1)[1]
-        candidate = ROOT / relative
-        if candidate.exists() and not relative.startswith("app-student/build/reports/phase08-source"):
-            paths.append(candidate)
-
-    manifest = report_dir / "manifest.txt"
-    manifest.write_text(
-        "\n".join(str(path.relative_to(ROOT)) for path in paths) + "\n",
-        encoding="utf-8",
-    )
-    archive = report_dir / "phase08-generated-sources.tar.gz"
-    with tarfile.open(archive, "w:gz") as tar:
-        for path in paths:
-            tar.add(path, arcname=str(path.relative_to(ROOT)))
-    raise SystemExit("Phase 08 generated sources packaged; download android-quality-reports artifact.")
-
-
-package_phase08_generated_sources()
-
-CONTRACT_TEXT = (ROOT / "api-contract/openapi.json").read_text()
+CONTRACT_TEXT = (ROOT / "api-contract/openapi.json").read_text(encoding="utf-8")
 CONTRACT = json.loads(CONTRACT_TEXT)
+
 EXPECTED = {
-    "/api/v1/health": ("get", "server-hostinger/public_html/api/v1/health.php"),
-    "/api/v1/registration/cities": ("get", "server-hostinger/public_html/api/v1/registration/cities.php"),
-    "/api/v1/registration/grades": ("get", "server-hostinger/public_html/api/v1/registration/grades.php"),
-    "/api/v1/registration/schools": ("get", "server-hostinger/public_html/api/v1/registration/schools.php"),
-    "/api/v1/auth/student/register": ("post", "server-hostinger/public_html/api/v1/auth/student/register.php"),
-    "/api/v1/auth/student/login": ("post", "server-hostinger/public_html/api/v1/auth/student/login.php"),
-    "/api/v1/auth/refresh": ("post", "server-hostinger/public_html/api/v1/auth/refresh.php"),
-    "/api/v1/auth/logout": ("post", "server-hostinger/public_html/api/v1/auth/logout.php"),
-    "/api/v1/me": ("get", "server-hostinger/public_html/api/v1/me.php"),
+    "/api/v1/health": (("get",), "server-hostinger/public_html/api/v1/health.php"),
+    "/api/v1/registration/cities": (("get",), "server-hostinger/public_html/api/v1/registration/cities.php"),
+    "/api/v1/registration/grades": (("get",), "server-hostinger/public_html/api/v1/registration/grades.php"),
+    "/api/v1/registration/schools": (("get",), "server-hostinger/public_html/api/v1/registration/schools.php"),
+    "/api/v1/auth/student/register": (("post",), "server-hostinger/public_html/api/v1/auth/student/register.php"),
+    "/api/v1/auth/student/login": (("post",), "server-hostinger/public_html/api/v1/auth/student/login.php"),
+    "/api/v1/auth/refresh": (("post",), "server-hostinger/public_html/api/v1/auth/refresh.php"),
+    "/api/v1/auth/logout": (("post",), "server-hostinger/public_html/api/v1/auth/logout.php"),
+    "/api/v1/me": (("get",), "server-hostinger/public_html/api/v1/me.php"),
     "/api/v1/student/home": (("get",), "server-hostinger/public_html/api/v1/student/home.php"),
     "/api/v1/student/push-token": (("put", "delete"), "server-hostinger/public_html/api/v1/student/push-token.php"),
+    "/api/v1/student/activity/preview": (("post",), "server-hostinger/public_html/api/v1/student/activity/preview.php"),
+    "/api/v1/student/activity/start": (("post",), "server-hostinger/public_html/api/v1/student/activity/start.php"),
+    "/api/v1/student/activity/start-status": (("get",), "server-hostinger/public_html/api/v1/student/activity/start-status.php"),
 }
+
+PUBLIC_ROUTES = {
+    "/api/v1/health",
+    "/api/v1/auth/student/login",
+    "/api/v1/auth/student/register",
+    "/api/v1/auth/refresh",
+    "/api/v1/registration/cities",
+    "/api/v1/registration/grades",
+    "/api/v1/registration/schools",
+}
+
 FIXTURE_SCHEMAS = {
     "health-success.json": "HealthResponse",
     "cities-success.json": "CitiesResponse",
@@ -101,19 +46,31 @@ FIXTURE_SCHEMAS = {
     "me-success.json": "MeResponse",
     "home-success.json": "HomeResponse",
     "push-token-success.json": "PushTokenResponse",
+    "activity-preview-success.json": "ActivityPreparationPreviewResponse",
+    "activity-start-success.json": "ActivityStartResponse",
     "error.json": "ErrorResponse",
 }
+
+REQUEST_FIXTURES = {
+    "push-token-request.json": "AndroidPushTokenRequest",
+    "activity-preview-request.json": "ActivityPreparationRequest",
+}
+
 
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise SystemExit(f"Contract validation failed: {message}")
 
+
 def validate_schema(value: object, schema: dict, location: str) -> None:
     if "$ref" in schema:
         prefix = "#/components/schemas/"
         require(schema["$ref"].startswith(prefix), f"unsupported reference at {location}")
-        validate_schema(value, CONTRACT["components"]["schemas"][schema["$ref"][len(prefix):]], location)
+        name = schema["$ref"][len(prefix):]
+        require(name in CONTRACT["components"]["schemas"], f"unknown schema {name} at {location}")
+        validate_schema(value, CONTRACT["components"]["schemas"][name], location)
         return
+
     if "anyOf" in schema:
         for option in schema["anyOf"]:
             try:
@@ -122,8 +79,12 @@ def validate_schema(value: object, schema: dict, location: str) -> None:
             except SystemExit:
                 pass
         require(False, f"no anyOf option matched at {location}")
+
     if "const" in schema:
         require(value == schema["const"], f"unexpected constant at {location}")
+    if "enum" in schema:
+        require(value in schema["enum"], f"value is outside enum at {location}")
+
     expected_type = schema.get("type")
     type_matches = {
         "object": lambda item: isinstance(item, dict),
@@ -134,7 +95,17 @@ def validate_schema(value: object, schema: dict, location: str) -> None:
         "null": lambda item: item is None,
     }
     if expected_type:
+        require(expected_type in type_matches, f"unsupported type {expected_type} at {location}")
         require(type_matches[expected_type](value), f"expected {expected_type} at {location}")
+
+    if isinstance(value, int) and not isinstance(value, bool) and "minimum" in schema:
+        require(value >= schema["minimum"], f"value is below minimum at {location}")
+    if isinstance(value, str):
+        if "minLength" in schema:
+            require(len(value) >= schema["minLength"], f"string is too short at {location}")
+        if "maxLength" in schema:
+            require(len(value) <= schema["maxLength"], f"string is too long at {location}")
+
     if expected_type == "object":
         missing = set(schema.get("required", [])) - set(value)
         require(not missing, f"missing {sorted(missing)} at {location}")
@@ -144,21 +115,33 @@ def validate_schema(value: object, schema: dict, location: str) -> None:
         for key, child in schema.get("properties", {}).items():
             if key in value:
                 validate_schema(value[key], child, f"{location}.{key}")
+
     if expected_type == "array":
         for index, item in enumerate(value):
             validate_schema(item, schema["items"], f"{location}[{index}]")
 
+
 require(CONTRACT.get("openapi") == "3.1.0", "OpenAPI version must be 3.1.0")
 require(set(CONTRACT.get("paths", {})) == set(EXPECTED), "endpoint set differs from the supported v1 API")
+
 for route, (methods, php_file) in EXPECTED.items():
-    methods = (methods,) if isinstance(methods, str) else methods
     require((ROOT / php_file).is_file(), f"PHP handler is missing: {php_file}")
     for method in methods:
         operation = CONTRACT["paths"][route].get(method)
         require(operation is not None, f"{method.upper()} {route} is missing")
-        require("200" in operation.get("responses", {}), f"{route} has no success response")
-        if route not in {"/api/v1/health", "/api/v1/auth/student/login", "/api/v1/auth/student/register", "/api/v1/auth/refresh", "/api/v1/registration/cities", "/api/v1/registration/grades", "/api/v1/registration/schools"}:
-            require(operation.get("security") == [{"bearerAuth": []}], f"{route} must require bearer auth")
+        require("200" in operation.get("responses", {}), f"{method.upper()} {route} has no success response")
+        if route not in PUBLIC_ROUTES:
+            require(
+                operation.get("security") == [{"bearerAuth": []}],
+                f"{method.upper()} {route} must require bearer auth",
+            )
+
+activity_start = CONTRACT["paths"]["/api/v1/student/activity/start"]["post"]
+require(
+    any(parameter.get("name") == "Idempotency-Key" and parameter.get("required") is True
+        for parameter in activity_start.get("parameters", [])),
+    "activity start must require Idempotency-Key",
+)
 
 servers = CONTRACT.get("servers", [])
 server_urls = {item["url"] for item in servers}
@@ -167,23 +150,55 @@ require(server_urls == {
     "https://staging.masary.invalid/",
     "https://masary.app/",
 }, "OpenAPI must use safe placeholders for unconfigured non-production environments")
-require(all(url.startswith("https://") and url.endswith("/") for url in server_urls),
-        "every OpenAPI server must use HTTPS and end with /")
-require("dev.masary.app" not in CONTRACT_TEXT and "staging.masary.app" not in CONTRACT_TEXT,
-        "the contract must not assume unprovisioned masary.app subdomains")
-require("/api/android/v1" in CONTRACT["info"].get("description", ""),
-        "the contract must state that the Android-specific path is not implemented")
+require(
+    all(url.startswith("https://") and url.endswith("/") for url in server_urls),
+    "every OpenAPI server must use HTTPS and end with /",
+)
+require(
+    "dev.masary.app" not in CONTRACT_TEXT and "staging.masary.app" not in CONTRACT_TEXT,
+    "the contract must not assume unprovisioned masary.app subdomains",
+)
+require(
+    "/api/android/v1" in CONTRACT["info"].get("description", ""),
+    "the contract must state that the Android-specific path is not implemented",
+)
 
-request_fixture = ROOT / "api-contract/fixtures/push-token-request.json"
-validate_schema(json.loads(request_fixture.read_text()), {"$ref": "#/components/schemas/AndroidPushTokenRequest"}, request_fixture.name)
-fixtures = sorted(item for item in (ROOT / "api-contract/fixtures").glob("*.json") if item != request_fixture)
-require({item.name for item in fixtures} == set(FIXTURE_SCHEMAS), "fixture set changed unexpectedly")
-for fixture in fixtures:
-    payload = json.loads(fixture.read_text())
-    require(set(payload) == {"success", "data", "error", "request_id"}, f"invalid envelope in {fixture.name}")
+fixture_root = ROOT / "api-contract/fixtures"
+for name, schema_name in REQUEST_FIXTURES.items():
+    fixture = fixture_root / name
+    require(fixture.is_file(), f"request fixture is missing: {name}")
+    validate_schema(
+        json.loads(fixture.read_text(encoding="utf-8")),
+        {"$ref": f"#/components/schemas/{schema_name}"},
+        name,
+    )
+
+response_fixtures = sorted(
+    item for item in fixture_root.glob("*.json") if item.name not in REQUEST_FIXTURES
+)
+require(
+    {item.name for item in response_fixtures} == set(FIXTURE_SCHEMAS),
+    "fixture set changed unexpectedly",
+)
+for fixture in response_fixtures:
+    payload = json.loads(fixture.read_text(encoding="utf-8"))
+    require(
+        set(payload) == {"success", "data", "error", "request_id"},
+        f"invalid envelope in {fixture.name}",
+    )
     require(isinstance(payload["success"], bool), f"success is not boolean in {fixture.name}")
-    require(isinstance(payload["request_id"], str) and payload["request_id"], f"request_id missing in {fixture.name}")
-    require((payload["data"] is None) != (payload["error"] is None), f"exactly one of data/error is required in {fixture.name}")
-    validate_schema(payload, {"$ref": f"#/components/schemas/{FIXTURE_SCHEMAS[fixture.name]}"}, fixture.name)
+    require(
+        isinstance(payload["request_id"], str) and payload["request_id"],
+        f"request_id missing in {fixture.name}",
+    )
+    require(
+        (payload["data"] is None) != (payload["error"] is None),
+        f"exactly one of data/error is required in {fixture.name}",
+    )
+    validate_schema(
+        payload,
+        {"$ref": f"#/components/schemas/{FIXTURE_SCHEMAS[fixture.name]}"},
+        fixture.name,
+    )
 
-print(f"Validated {len(EXPECTED)} endpoints and {len(fixtures)} fixtures.")
+print(f"Validated {len(EXPECTED)} endpoints, {len(REQUEST_FIXTURES)} request fixtures, and {len(response_fixtures)} response fixtures.")
