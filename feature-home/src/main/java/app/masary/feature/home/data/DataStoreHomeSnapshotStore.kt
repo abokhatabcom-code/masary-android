@@ -3,6 +3,7 @@ package app.masary.feature.home.data
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.masary.feature.home.domain.HomeSnapshotMetadata
@@ -19,14 +20,21 @@ class DataStoreHomeSnapshotStore(
 ) : HomeSnapshotStore {
     override suspend fun read(studentId: String): StudentHomeData? {
         val values = dataStore.data.first()
-        if (values[OWNER] != studentId) return null
-        val savedAt = values[SAVED_AT] ?: return null
+        val owner = values[OWNER] ?: return null
+        if (owner != studentId) return evictInvalidSnapshot()
+
+        val savedAt = values[SAVED_AT] ?: return evictInvalidSnapshot()
         val age = nowEpochMillis() - savedAt
-        if (values[SCHEMA_VERSION] != CURRENT_SCHEMA_VERSION || age !in 0..maxAgeMillis) return null
-        val json = values[PAYLOAD] ?: return null
-        return runCatching { gson.fromJson(json, StudentHomeData::class.java) }.getOrNull()
-            ?.takeIf { it.student.id == studentId }
-            ?.copy(snapshot = HomeSnapshotMetadata(savedAt))
+        if (values[SCHEMA_VERSION] != CURRENT_SCHEMA_VERSION || age !in 0..maxAgeMillis) {
+            return evictInvalidSnapshot()
+        }
+
+        val json = values[PAYLOAD] ?: return evictInvalidSnapshot()
+        val decoded = runCatching { gson.fromJson(json, StudentHomeData::class.java) }.getOrNull()
+            ?: return evictInvalidSnapshot()
+        if (decoded.student.id != studentId) return evictInvalidSnapshot()
+
+        return decoded.copy(snapshot = HomeSnapshotMetadata(savedAt))
     }
 
     override suspend fun write(studentId: String, data: StudentHomeData) {
@@ -38,13 +46,20 @@ class DataStoreHomeSnapshotStore(
         }
     }
 
-    override suspend fun clear() { dataStore.edit { it.clear() } }
+    override suspend fun clear() {
+        dataStore.edit { it.clear() }
+    }
+
+    private suspend fun evictInvalidSnapshot(): StudentHomeData? {
+        clear()
+        return null
+    }
 
     private companion object {
         val OWNER = stringPreferencesKey("home_snapshot_owner")
         val PAYLOAD = stringPreferencesKey("home_snapshot_payload")
         val SAVED_AT = longPreferencesKey("home_snapshot_saved_at")
-        val SCHEMA_VERSION = androidx.datastore.preferences.core.intPreferencesKey("home_snapshot_schema_version")
+        val SCHEMA_VERSION = intPreferencesKey("home_snapshot_schema_version")
         const val CURRENT_SCHEMA_VERSION = 2
         const val DEFAULT_MAX_AGE_MILLIS = 24L * 60L * 60L * 1_000L
     }
