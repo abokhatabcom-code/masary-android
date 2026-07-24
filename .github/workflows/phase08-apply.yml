@@ -1,0 +1,55 @@
+name: Apply Phase 08
+
+on:
+  push:
+    branches:
+      - phase-08-pre-activity-implementation
+    paths:
+      - "automation/phase08_android.py"
+      - "automation/phase08_server.py"
+      - ".github/workflows/phase08-apply.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase08-apply
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase-08-pre-activity-implementation
+          fetch-depth: 0
+
+      - name: Apply Android implementation
+        run: python3 automation/phase08_android.py
+
+      - name: Apply server and contract implementation
+        run: python3 automation/phase08_server.py
+
+      - name: Validate generated files before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile automation/phase08_android.py automation/phase08_server.py
+          python3 scripts/validate-api-contract.py
+          find server-hostinger -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git commit -m "feat: implement phase 08 pre-activity preparation"
+          git push origin HEAD:phase-08-pre-activity-implementation
