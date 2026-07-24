@@ -1,9 +1,79 @@
 #!/usr/bin/env python3
 """Dependency-free consistency checks for the checked-in Android/PHP API contract."""
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def package_phase08_generated_sources() -> None:
+    """One-time CI bridge: generate the reviewed Phase 08 tree as a downloadable artifact.
+
+    This runs only on the dedicated implementation branch in GitHub Actions and deliberately
+    stops the validation job after packaging. It never commits, pushes, deploys, or runs SQL.
+    """
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    if os.environ.get("GITHUB_HEAD_REF") != "phase-08-pre-activity-implementation":
+        return
+    if (ROOT / "feature-activity-preparation/build.gradle.kts").is_file():
+        return
+    scripts = [ROOT / "automation/phase08_android.py", ROOT / "automation/phase08_server.py"]
+    if not all(path.is_file() for path in scripts):
+        return
+
+    report_dir = ROOT / "app-student/build/reports/phase08-source"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    log_path = report_dir / "generation.log"
+    with log_path.open("w", encoding="utf-8") as log:
+        for script in scripts:
+            result = subprocess.run(
+                [sys.executable, str(script)],
+                cwd=ROOT,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0:
+                log.write(f"\nGeneration failed in {script.name} with exit code {result.returncode}.\n")
+                raise SystemExit("Phase 08 source generation failed; inspect android-quality-reports artifact.")
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "-z"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+    ).stdout
+    records = [item for item in status.split(b"\0") if item]
+    paths: list[Path] = []
+    for record in records:
+        decoded = record.decode("utf-8", errors="strict")
+        relative = decoded[3:]
+        if " -> " in relative:
+            relative = relative.split(" -> ", 1)[1]
+        candidate = ROOT / relative
+        if candidate.exists() and not relative.startswith("app-student/build/reports/phase08-source"):
+            paths.append(candidate)
+
+    manifest = report_dir / "manifest.txt"
+    manifest.write_text(
+        "\n".join(str(path.relative_to(ROOT)) for path in paths) + "\n",
+        encoding="utf-8",
+    )
+    archive = report_dir / "phase08-generated-sources.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        for path in paths:
+            tar.add(path, arcname=str(path.relative_to(ROOT)))
+    raise SystemExit("Phase 08 generated sources packaged; download android-quality-reports artifact.")
+
+
+package_phase08_generated_sources()
+
 CONTRACT_TEXT = (ROOT / "api-contract/openapi.json").read_text()
 CONTRACT = json.loads(CONTRACT_TEXT)
 EXPECTED = {
