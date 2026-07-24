@@ -1,9 +1,11 @@
 package app.masary.core.network
 
-import app.masary.core.network.auth.StudentLoginResponseDto
+import app.masary.core.network.activity.ActivityPreparationPreviewResponseDto
+import app.masary.core.network.activity.ActivityStartResponseDto
 import app.masary.core.network.auth.CitiesResponseDto
 import app.masary.core.network.auth.GradesResponseDto
 import app.masary.core.network.auth.SchoolsResponseDto
+import app.masary.core.network.auth.StudentLoginResponseDto
 import app.masary.core.network.auth.StudentLogoutResponseDto
 import app.masary.core.network.auth.StudentMeResponseDto
 import app.masary.core.network.auth.StudentRefreshResponseDto
@@ -12,8 +14,8 @@ import com.google.gson.Gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApiContractFixtureTest {
@@ -50,6 +52,18 @@ class ApiContractFixtureTest {
         assertEquals("الرياضيات", home.data?.subjects?.single()?.name)
         assertEquals(null, home.data?.subjects?.single()?.progressPercent)
         assertEquals("news", home.data?.spotlight?.type)
+
+        val preview = parse(
+            "activity-preview-success.json",
+            ActivityPreparationPreviewResponseDto::class.java,
+        )
+        assertTrue(preview.data?.eligibility?.available == true)
+        assertEquals(3, preview.data?.balances?.hearts)
+        assertEquals("الرياضيات", preview.data?.activity?.subjectName)
+
+        val start = parse("activity-start-success.json", ActivityStartResponseDto::class.java)
+        assertEquals("activity-session-001", start.data?.sessionId)
+        assertEquals(0, start.data?.debit?.heartDebited)
     }
 
     @Test
@@ -61,6 +75,8 @@ class ApiContractFixtureTest {
             gson.fromJson(json, StudentLogoutResponseDto::class.java),
             gson.fromJson(json, StudentMeResponseDto::class.java),
             gson.fromJson(json, StudentHomeResponseDto::class.java),
+            gson.fromJson(json, ActivityPreparationPreviewResponseDto::class.java),
+            gson.fromJson(json, ActivityStartResponseDto::class.java),
         ).forEach { response ->
             val success = response.javaClass.getMethod("getSuccess").invoke(response) as Boolean
             assertFalse(success)
@@ -81,6 +97,5 @@ class ApiContractFixtureTest {
     private fun <T> parse(name: String, type: Class<T>): T = gson.fromJson(resource(name), type)
 
     private fun resource(name: String): String =
-        requireNotNull(javaClass.classLoader?.getResource(name))
-            .readText()
+        requireNotNull(javaClass.classLoader?.getResource(name)).readText()
 }
