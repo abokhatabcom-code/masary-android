@@ -1,5 +1,6 @@
 package app.masary.core.network
 
+import app.masary.core.network.activity.StudentActivityPreparationApi
 import app.masary.core.network.auth.StudentAuthApi
 import app.masary.core.network.home.StudentHomeApi
 import app.masary.core.network.notifications.StudentPushTokenApi
@@ -26,6 +27,12 @@ object MasaryNetwork {
 
     fun studentHomeApi(baseUrl: HttpUrl, client: OkHttpClient = defaultClient()): StudentHomeApi =
         retrofit(baseUrl, client).create(StudentHomeApi::class.java)
+
+    fun studentActivityPreparationApi(
+        baseUrl: String,
+        client: OkHttpClient = defaultClient(),
+    ): StudentActivityPreparationApi =
+        retrofit(validateBaseUrl(baseUrl), client).create(StudentActivityPreparationApi::class.java)
 
     fun studentPushTokenApi(baseUrl: String, client: OkHttpClient = defaultClient()): StudentPushTokenApi =
         retrofit(validateBaseUrl(baseUrl), client).create(StudentPushTokenApi::class.java)
