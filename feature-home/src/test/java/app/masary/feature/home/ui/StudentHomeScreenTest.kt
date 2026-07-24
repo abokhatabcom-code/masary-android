@@ -15,8 +15,22 @@ class StudentHomeScreenTest {
     }
 
     @Test
-    fun `bottom navigation exposes five typed destinations`() {
-        assertEquals(5, studentDestinations.size)
-        assertEquals(5, studentDestinations.map { it::class }.distinct().size)
+    fun `bottom navigation exposes approved five typed destinations in order`() {
+        assertEquals(
+            listOf(
+                StudentDestination.Home,
+                StudentDestination.Guide,
+                StudentDestination.Subjects,
+                StudentDestination.Ranking,
+                StudentDestination.Profile,
+            ),
+            studentDestinations,
+        )
+    }
+
+    @Test
+    fun `unknown external destination falls back to home`() {
+        assertEquals(StudentDestination.Home, externalStudentDestination("../../admin"))
+        assertEquals(StudentDestination.Guide, externalStudentDestination("guide"))
     }
 }
