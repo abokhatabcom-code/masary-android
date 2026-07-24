@@ -1,11 +1,40 @@
 #!/usr/bin/env python3
-"""Dependency-free consistency checks for the checked-in Android/PHP API contract."""
+"""Dependency-free consistency checks for the checked-in Android/PHP API contracts."""
+import copy
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTRACT_TEXT = (ROOT / "api-contract/openapi.json").read_text(encoding="utf-8")
-CONTRACT = json.loads(CONTRACT_TEXT)
+BASE_TEXT = (ROOT / "api-contract/openapi.json").read_text(encoding="utf-8")
+EXTENSION_TEXT = (ROOT / "api-contract/openapi-phase08.json").read_text(encoding="utf-8")
+BASE_CONTRACT = json.loads(BASE_TEXT)
+EXTENSION = json.loads(EXTENSION_TEXT)
+CONTRACT = copy.deepcopy(BASE_CONTRACT)
+
+
+def merge_unique(target: dict, additions: dict, location: str) -> None:
+    duplicates = set(target) & set(additions)
+    if duplicates:
+        raise SystemExit(
+            f"Contract validation failed: duplicate definitions in {location}: {sorted(duplicates)}",
+        )
+    target.update(copy.deepcopy(additions))
+
+
+merge_unique(CONTRACT.setdefault("paths", {}), EXTENSION.get("paths", {}), "paths")
+components = CONTRACT.setdefault("components", {})
+extension_components = EXTENSION.get("components", {})
+merge_unique(
+    components.setdefault("responses", {}),
+    extension_components.get("responses", {}),
+    "components.responses",
+)
+merge_unique(
+    components.setdefault("schemas", {}),
+    extension_components.get("schemas", {}),
+    "components.schemas",
+)
+CONTRACT_TEXT = BASE_TEXT + "\n" + EXTENSION_TEXT
 
 EXPECTED = {
     "/api/v1/health": (("get",), "server-hostinger/public_html/api/v1/health.php"),
@@ -91,6 +120,7 @@ def validate_schema(value: object, schema: dict, location: str) -> None:
         "array": lambda item: isinstance(item, list),
         "string": lambda item: isinstance(item, str),
         "integer": lambda item: isinstance(item, int) and not isinstance(item, bool),
+        "number": lambda item: isinstance(item, (int, float)) and not isinstance(item, bool),
         "boolean": lambda item: isinstance(item, bool),
         "null": lambda item: item is None,
     }
@@ -98,7 +128,7 @@ def validate_schema(value: object, schema: dict, location: str) -> None:
         require(expected_type in type_matches, f"unsupported type {expected_type} at {location}")
         require(type_matches[expected_type](value), f"expected {expected_type} at {location}")
 
-    if isinstance(value, int) and not isinstance(value, bool) and "minimum" in schema:
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and "minimum" in schema:
         require(value >= schema["minimum"], f"value is below minimum at {location}")
     if isinstance(value, str):
         if "minLength" in schema:
@@ -121,7 +151,8 @@ def validate_schema(value: object, schema: dict, location: str) -> None:
             validate_schema(item, schema["items"], f"{location}[{index}]")
 
 
-require(CONTRACT.get("openapi") == "3.1.0", "OpenAPI version must be 3.1.0")
+require(BASE_CONTRACT.get("openapi") == "3.1.0", "base OpenAPI version must be 3.1.0")
+require(EXTENSION.get("openapi") == "3.1.0", "extension OpenAPI version must be 3.1.0")
 require(set(CONTRACT.get("paths", {})) == set(EXPECTED), "endpoint set differs from the supported v1 API")
 
 for route, (methods, php_file) in EXPECTED.items():
@@ -138,18 +169,23 @@ for route, (methods, php_file) in EXPECTED.items():
 
 activity_start = CONTRACT["paths"]["/api/v1/student/activity/start"]["post"]
 require(
-    any(parameter.get("name") == "Idempotency-Key" and parameter.get("required") is True
-        for parameter in activity_start.get("parameters", [])),
+    any(
+        parameter.get("name") == "Idempotency-Key" and parameter.get("required") is True
+        for parameter in activity_start.get("parameters", [])
+    ),
     "activity start must require Idempotency-Key",
 )
 
-servers = CONTRACT.get("servers", [])
+servers = BASE_CONTRACT.get("servers", [])
 server_urls = {item["url"] for item in servers}
-require(server_urls == {
-    "https://development.masary.invalid/",
-    "https://staging.masary.invalid/",
-    "https://masary.app/",
-}, "OpenAPI must use safe placeholders for unconfigured non-production environments")
+require(
+    server_urls == {
+        "https://development.masary.invalid/",
+        "https://staging.masary.invalid/",
+        "https://masary.app/",
+    },
+    "OpenAPI must use safe placeholders for unconfigured non-production environments",
+)
 require(
     all(url.startswith("https://") and url.endswith("/") for url in server_urls),
     "every OpenAPI server must use HTTPS and end with /",
@@ -159,8 +195,8 @@ require(
     "the contract must not assume unprovisioned masary.app subdomains",
 )
 require(
-    "/api/android/v1" in CONTRACT["info"].get("description", ""),
-    "the contract must state that the Android-specific path is not implemented",
+    "/api/android/v1" in BASE_CONTRACT["info"].get("description", ""),
+    "the base contract must state that the Android-specific path is not implemented",
 )
 
 fixture_root = ROOT / "api-contract/fixtures"
@@ -201,4 +237,7 @@ for fixture in response_fixtures:
         fixture.name,
     )
 
-print(f"Validated {len(EXPECTED)} endpoints, {len(REQUEST_FIXTURES)} request fixtures, and {len(response_fixtures)} response fixtures.")
+print(
+    f"Validated {len(EXPECTED)} endpoints, {len(REQUEST_FIXTURES)} request fixtures, "
+    f"and {len(response_fixtures)} response fixtures across base and phase 08 contracts.",
+)
