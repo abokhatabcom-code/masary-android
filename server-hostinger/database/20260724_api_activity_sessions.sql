@@ -1,4 +1,5 @@
 -- Phase 08 review-only migration. Do not execute automatically on production.
+-- A foreign key is intentionally deferred until production app_users.id type is verified.
 CREATE TABLE IF NOT EXISTS `api_activity_sessions` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `public_session_id` CHAR(36) NOT NULL,
@@ -27,7 +28,5 @@ CREATE TABLE IF NOT EXISTS `api_activity_sessions` (
   UNIQUE KEY `uq_activity_public_session` (`public_session_id`),
   UNIQUE KEY `uq_activity_user_idempotency` (`user_id`,`idempotency_key_hash`),
   KEY `idx_activity_user_request_active` (`user_id`,`request_hash`,`status`,`expires_at`),
-  KEY `idx_activity_expiry` (`status`,`expires_at`),
-  CONSTRAINT `fk_activity_session_user`
-    FOREIGN KEY (`user_id`) REFERENCES `app_users` (`id`) ON DELETE CASCADE
+  KEY `idx_activity_expiry` (`status`,`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
