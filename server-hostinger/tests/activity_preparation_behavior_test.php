@@ -50,6 +50,7 @@ function ik_dash_subscription(PDO $pdo, int $studentId): array
 }
 
 require dirname(__DIR__) . '/public_html/api/_activity_preparation.php';
+require dirname(__DIR__) . '/public_html/api/_activity_preparation_guard.php';
 
 function activity_check(bool $condition, string $message): void
 {
@@ -107,17 +108,43 @@ $payload = [
 ];
 
 $countBefore = (int)$pdo->query('SELECT COUNT(*) FROM api_activity_sessions')->fetchColumn();
-$preview = api_activity_preview($pdo, $session, $payload);
-activity_check($preview['eligibility']['available'] === true, 'Eligible activity was rejected.');
+$preview = api_activity_apply_authoritative_policy(
+    api_activity_preview($pdo, $session, $payload),
+);
+activity_check($preview['eligibility']['available'] === true, 'Eligible guide activity was rejected.');
 activity_check((int)$preview['balances']['hearts'] === 3, 'Trusted hearts were not loaded.');
 activity_check(
     (int)$pdo->query('SELECT COUNT(*) FROM api_activity_sessions')->fetchColumn() === $countBefore,
     'Read-only preview mutated activity sessions.',
 );
 
+$unverifiedPayload = array_replace($payload, [
+    'activity_type' => 'unit_test',
+    'activity_mode' => 'test',
+    'source' => 'unit',
+    'guide_step_id' => null,
+]);
+$unverifiedPreview = api_activity_apply_authoritative_policy(
+    api_activity_preview($pdo, $session, $unverifiedPayload),
+);
+activity_check(
+    $unverifiedPreview['eligibility']['available'] === false
+        && $unverifiedPreview['eligibility']['reason_code'] === 'activity_engine_pending',
+    'Unverified unit-test flow was presented as startable.',
+);
+try {
+    api_activity_start_guarded($pdo, $session, $unverifiedPayload, 'phase08-unverified-00000001');
+    throw new RuntimeException('Expected unverified activity rejection was not returned.');
+} catch (ActivityApiTestError $error) {
+    activity_check(
+        $error->apiCode === 'activity_engine_pending' && $error->status === 409,
+        'Wrong unverified activity rejection.',
+    );
+}
+
 $key = 'phase08-test-key-0000000001';
-$first = api_activity_start($pdo, $session, $payload, $key);
-$second = api_activity_start($pdo, $session, $payload, $key);
+$first = api_activity_start_guarded($pdo, $session, $payload, $key);
+$second = api_activity_start_guarded($pdo, $session, $payload, $key);
 activity_check($first['session_id'] === $second['session_id'], 'Idempotent replay created a second session.');
 activity_check($second['replayed'] === true, 'Replayed result was not identified.');
 activity_check(
@@ -131,8 +158,20 @@ activity_check(
 $status = api_activity_start_status($pdo, $session, $key);
 activity_check($status['session_id'] === $first['session_id'], 'Start status returned another session.');
 
+$differentKey = api_activity_start_guarded(
+    $pdo,
+    $session,
+    $payload,
+    'phase08-second-key-00000001',
+);
+activity_check(
+    $differentKey['session_id'] === $first['session_id']
+        && (int)$pdo->query('SELECT COUNT(*) FROM api_activity_sessions')->fetchColumn() === 1,
+    'A second idempotency key created another active session.',
+);
+
 try {
-    api_activity_start(
+    api_activity_start_guarded(
         $pdo,
         $session,
         array_replace($payload, ['activity_mode' => 'practice']),
@@ -147,7 +186,7 @@ try {
 }
 
 $pdo->exec('UPDATE student_subject_state SET hearts=0 WHERE student_id=42 AND subject_version_id=12');
-$blocked = api_activity_preview(
+$blocked = api_activity_apply_authoritative_policy(api_activity_preview(
     $pdo,
     $session,
     array_replace($payload, [
@@ -156,11 +195,40 @@ $blocked = api_activity_preview(
         'source' => 'review',
         'guide_step_id' => null,
     ]),
-);
+));
 activity_check($blocked['eligibility']['available'] === false, 'Review with zero hearts was allowed.');
 activity_check(
     $blocked['eligibility']['reason_code'] === 'insufficient_hearts',
-    'Missing zero-hearts rejection reason.',
+    'A real zero-hearts reason was replaced by the generic policy state.',
 );
+
+// Verify that an insertion failure rolls back the outer guarded transaction completely.
+$pdo->exec('UPDATE student_subject_state SET hearts=3 WHERE student_id=42 AND subject_version_id=12');
+$pdo->exec('DELETE FROM api_activity_sessions');
+$pdo->exec("CREATE TRIGGER fail_activity_insert BEFORE INSERT ON api_activity_sessions BEGIN SELECT RAISE(ABORT, 'forced insert failure'); END");
+try {
+    api_activity_start_guarded($pdo, $session, $payload, 'phase08-rollback-key-000001');
+    throw new RuntimeException('Expected forced insert failure was not raised.');
+} catch (PDOException) {
+    activity_check(!$pdo->inTransaction(), 'Failed activity start left a transaction open.');
+    activity_check(
+        (int)$pdo->query('SELECT COUNT(*) FROM api_activity_sessions')->fetchColumn() === 0,
+        'Failed activity start left a partial session row.',
+    );
+}
+
+try {
+    api_activity_preview(
+        $pdo,
+        $session,
+        array_replace($payload, ['guide_step_id' => 999]),
+    );
+    throw new RuntimeException('Expected invalid guide-step rejection was not returned.');
+} catch (ActivityApiTestError $error) {
+    activity_check(
+        $error->apiCode === 'invalid_guide_step' && $error->status === 409,
+        'Wrong invalid guide-step response.',
+    );
+}
 
 echo "Activity preparation behavioral tests passed.\n";
