@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Masary Android API",
-    "version": "1.0.0",
-    "description": "العقد المرجعي الحالي بين تطبيق Android وواجهة PHP لمسارات /api/v1 الموجودة. لا ينشئ مسارات /api/android/v1 ولا يصف Push V2 أو PWA."
+    "version": "1.1.0",
+    "description": "العقد المرجعي بين تطبيق Android وواجهة PHP لمسارات /api/v1 الموجودة. لا ينشئ مسارات /api/android/v1 ولا يصف Push V2 أو PWA. نماذج المرحلة الثامنة موثقة تفصيليًا، بينما تبقى استجابات V1 السابقة متوافقة مع fixtures وDTOs المعتمدة."
   },
   "servers": [
     {
@@ -22,680 +22,256 @@
   "paths": {
     "/api/v1/health": {
       "get": {
+        "summary": "API health",
         "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
+          "200": { "$ref": "#/components/responses/HealthSuccess" },
+          "500": { "$ref": "#/components/responses/ErrorEnvelope" }
         }
-      }
-    },
-    "/api/v1/auth/student/login": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/refresh": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RefreshResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefreshRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/logout": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LogoutResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LogoutRequest"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/me": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/student/home": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HomeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
       }
     },
     "/api/v1/registration/cities": {
       "get": {
+        "summary": "Registration cities",
         "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CitiesResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
+          "200": { "$ref": "#/components/responses/CitiesSuccess" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" }
         }
       }
     },
     "/api/v1/registration/grades": {
       "get": {
+        "summary": "Registration grades",
         "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GradesResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
+          "200": { "$ref": "#/components/responses/GradesSuccess" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" }
         }
       }
     },
     "/api/v1/registration/schools": {
       "get": {
-        "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SchoolsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
+        "summary": "Registration schools",
         "parameters": [
           {
             "in": "query",
             "name": "city_id",
             "required": true,
-            "schema": {
-              "type": "integer"
-            }
+            "schema": { "type": "integer", "minimum": 1 }
           }
-        ]
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/SchoolsSuccess" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
       }
     },
     "/api/v1/auth/student/register": {
       "post": {
-        "responses": {
-          "200": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Idempotency key conflict or username conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegistrationRequest"
-              }
-            }
-          }
-        },
+        "summary": "Register student",
         "parameters": [
           {
             "in": "header",
             "name": "Idempotency-Key",
             "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 16,
-              "maxLength": 128
+            "schema": { "type": "string", "minLength": 16, "maxLength": 128 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegistrationRequest" }
             }
           }
-        ]
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/LoginSuccess" },
+          "409": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/auth/student/login": {
+      "post": {
+        "summary": "Student login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/LoginSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "summary": "Rotate refresh token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/RefreshSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "Logout current session",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LogoutRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/LogoutSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "summary": "Authenticated student",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/MeSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/student/home": {
+      "get": {
+        "summary": "Student home snapshot",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/HomeSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
       }
     },
     "/api/v1/student/push-token": {
       "put": {
         "summary": "Register Android Notifications V1 token",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AndroidPushTokenRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/AndroidPushTokenRequest" }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Token state updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PushTokenResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
+          "200": { "$ref": "#/components/responses/PushTokenSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" }
         }
       },
       "delete": {
         "summary": "Disable Android Notifications V1 token",
-        "security": [
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AndroidPushTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/PushTokenSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/student/activity/preview": {
+      "post": {
+        "summary": "Read-only activity preparation preview",
+        "description": "يتحقق من المحتوى والأهلية والرصيد والجلسة القابلة للاستئناف دون إنشاء جلسة أو محاولة أو خصم.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ActivityPreparationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ActivityPreviewSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "409": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "429": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "503": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/student/activity/start": {
+      "post": {
+        "summary": "Create one idempotent server activity session",
+        "description": "ينشئ جلسة واحدة فقط. إعادة المفتاح نفسه مع الطلب نفسه تعيد النتيجة السابقة، واستخدامه لطلب مختلف يعيد 409.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
           {
-            "bearerAuth": []
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": { "type": "string", "minLength": 16, "maxLength": 128 }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AndroidPushTokenRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/ActivityPreparationRequest" }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Token state updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PushTokenResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+          "200": { "$ref": "#/components/responses/ActivityStartSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "409": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "429": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "503": { "$ref": "#/components/responses/ErrorEnvelope" }
+        }
+      }
+    },
+    "/api/v1/student/activity/start-status": {
+      "get": {
+        "summary": "Resolve an uncertain activity start",
+        "description": "يستعلم بالمفتاح الأصلي بعد انقطاع الشبكة ولا ينشئ محاولة أخرى.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "idempotency_key",
+            "required": true,
+            "schema": { "type": "string", "minLength": 16, "maxLength": 128 }
           }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ActivityStartSuccess" },
+          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "404": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "422": { "$ref": "#/components/responses/ErrorEnvelope" },
+          "429": { "$ref": "#/components/responses/ErrorEnvelope" }
         }
       }
     }
@@ -704,1336 +280,295 @@
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "bearerFormat": "opaque access token"
+      }
+    },
+    "responses": {
+      "HealthSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } }
+      },
+      "CitiesSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CitiesResponse" } } }
+      },
+      "GradesSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GradesResponse" } } }
+      },
+      "SchoolsSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SchoolsResponse" } } }
+      },
+      "LoginSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } } }
+      },
+      "RefreshSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshResponse" } } }
+      },
+      "LogoutSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LogoutResponse" } } }
+      },
+      "MeSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MeResponse" } } }
+      },
+      "HomeSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HomeResponse" } } }
+      },
+      "PushTokenSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PushTokenResponse" } } }
+      },
+      "ActivityPreviewSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ActivityPreparationPreviewResponse" } } }
+      },
+      "ActivityStartSuccess": {
+        "description": "API envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ActivityStartResponse" } } }
+      },
+      "ErrorEnvelope": {
+        "description": "API error envelope",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
       }
     },
     "schemas": {
       "Error": {
         "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
+        "required": ["code", "message"],
         "properties": {
-          "code": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
+          "code": { "type": "string" },
+          "message": { "type": "string" }
         }
       },
-      "Student": {
+      "GenericSuccessResponse": {
         "type": "object",
-        "required": [
-          "id",
-          "username",
-          "display_name"
-        ],
+        "required": ["success", "data", "error", "request_id"],
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          },
-          "display_name": {
-            "type": "string"
-          }
+          "success": { "const": true },
+          "data": { "type": "object" },
+          "error": { "type": "null" },
+          "request_id": { "type": "string", "minLength": 1 }
+        }
+      },
+      "HealthResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "CitiesResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "GradesResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "SchoolsResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "LoginResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "RefreshResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "LogoutResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "MeResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "HomeResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "PushTokenResponse": { "$ref": "#/components/schemas/GenericSuccessResponse" },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["success", "data", "error", "request_id"],
+        "properties": {
+          "success": { "const": false },
+          "data": { "type": "null" },
+          "error": { "$ref": "#/components/schemas/Error" },
+          "request_id": { "type": "string", "minLength": 1 }
         }
       },
       "LoginRequest": {
         "type": "object",
-        "required": [
-          "username",
-          "password",
-          "device_name"
-        ],
-        "additionalProperties": false,
+        "required": ["username", "password", "device_name"],
         "properties": {
-          "username": {
-            "type": "string",
-            "minLength": 1
-          },
-          "password": {
-            "type": "string",
-            "minLength": 1
-          },
-          "device_name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
-          }
+          "username": { "type": "string" },
+          "password": { "type": "string" },
+          "device_name": { "type": "string" }
         }
       },
       "RefreshRequest": {
         "type": "object",
-        "required": [
-          "refresh_token"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "refresh_token": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
+        "required": ["refresh_token"],
+        "properties": { "refresh_token": { "type": "string" } }
       },
       "LogoutRequest": {
-        "$ref": "#/components/schemas/RefreshRequest"
-      },
-      "LogoutData": {
         "type": "object",
-        "required": [
-          "logged_out"
-        ],
-        "properties": {
-          "logged_out": {
-            "type": "boolean"
-          }
-        }
-      },
-      "MeData": {
-        "type": "object",
-        "required": [
-          "student"
-        ],
-        "properties": {
-          "student": {
-            "$ref": "#/components/schemas/Student"
-          }
-        }
-      },
-      "HealthData": {
-        "type": "object",
-        "required": [
-          "service",
-          "version",
-          "status",
-          "server_time"
-        ],
-        "properties": {
-          "service": {
-            "const": "masary-api"
-          },
-          "version": {
-            "type": "string"
-          },
-          "status": {
-            "const": "ok"
-          },
-          "server_time": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "HomeData": {
-        "type": "object",
-        "required": [
-          "version",
-          "generated_at",
-          "student",
-          "summary",
-          "streak",
-          "today",
-          "subscription",
-          "notifications",
-          "continue_learning",
-          "smart_guide",
-          "indicators",
-          "subjects",
-          "spotlight"
-        ],
-        "properties": {
-          "version": {
-            "type": "string"
-          },
-          "generated_at": {
-            "type": "string"
-          },
-          "student": {
-            "$ref": "#/components/schemas/HomeStudent"
-          },
-          "summary": {
-            "$ref": "#/components/schemas/HomeSummary"
-          },
-          "streak": {
-            "$ref": "#/components/schemas/HomeStreak"
-          },
-          "today": {
-            "$ref": "#/components/schemas/HomeToday"
-          },
-          "subscription": {
-            "$ref": "#/components/schemas/HomeSubscription"
-          },
-          "notifications": {
-            "$ref": "#/components/schemas/HomeNotifications"
-          },
-          "continue_learning": {
-            "$ref": "#/components/schemas/HomeContinueLearning"
-          },
-          "smart_guide": {
-            "$ref": "#/components/schemas/HomeSmartGuide"
-          },
-          "indicators": {
-            "$ref": "#/components/schemas/HomeIndicators"
-          },
-          "subjects": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HomeSubject"
-            }
-          },
-          "spotlight": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/HomeSpotlight"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      },
-      "HealthResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/HealthData"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "LogoutResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/LogoutData"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "MeResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/MeData"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "HomeResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/HomeData"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "type": "null"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "HomeStudent": {
-        "type": "object",
-        "required": [
-          "id",
-          "username",
-          "display_name",
-          "avatar_path"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          },
-          "display_name": {
-            "type": "string"
-          },
-          "avatar_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      },
-      "HomeSummary": {
-        "type": "object",
-        "required": [
-          "global_xp",
-          "gems",
-          "level",
-          "level_percent",
-          "level_next_xp"
-        ],
-        "properties": {
-          "global_xp": {
-            "type": "integer"
-          },
-          "gems": {
-            "type": "integer"
-          },
-          "level": {
-            "type": "integer"
-          },
-          "level_percent": {
-            "type": "integer"
-          },
-          "level_next_xp": {
-            "type": "integer"
-          }
-        }
-      },
-      "HomeStreakGoal": {
-        "type": "object",
-        "required": [
-          "days",
-          "status",
-          "is_completed",
-          "remaining_days",
-          "progress_percent",
-          "gems",
-          "shields",
-          "label"
-        ],
-        "properties": {
-          "days": {
-            "type": "integer"
-          },
-          "status": {
-            "type": "string"
-          },
-          "is_completed": {
-            "type": "boolean"
-          },
-          "remaining_days": {
-            "type": "integer"
-          },
-          "progress_percent": {
-            "type": "integer"
-          },
-          "gems": {
-            "type": "integer"
-          },
-          "shields": {
-            "type": "integer"
-          },
-          "label": {
-            "type": "string"
-          }
-        }
-      },
-      "HomeStreak": {
-        "type": "object",
-        "required": [
-          "current_days",
-          "best_days",
-          "protection_count",
-          "protection_max",
-          "next_milestone",
-          "checkpoint_days",
-          "status",
-          "message",
-          "goal"
-        ],
-        "properties": {
-          "current_days": {
-            "type": "integer"
-          },
-          "best_days": {
-            "type": "integer"
-          },
-          "protection_count": {
-            "type": "integer"
-          },
-          "protection_max": {
-            "type": "integer"
-          },
-          "next_milestone": {
-            "type": "integer"
-          },
-          "checkpoint_days": {
-            "type": "integer"
-          },
-          "status": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "goal": {
-            "$ref": "#/components/schemas/HomeStreakGoal"
-          }
-        }
-      },
-      "HomeToday": {
-        "type": "object",
-        "required": [
-          "xp",
-          "seconds",
-          "minutes",
-          "attempts"
-        ],
-        "properties": {
-          "xp": {
-            "type": "integer"
-          },
-          "seconds": {
-            "type": "integer"
-          },
-          "minutes": {
-            "type": "integer"
-          },
-          "attempts": {
-            "type": "integer"
-          }
-        }
-      },
-      "HomeSubscription": {
-        "type": "object",
-        "required": [
-          "active",
-          "status",
-          "ends_at"
-        ],
-        "properties": {
-          "active": {
-            "type": "boolean"
-          },
-          "status": {
-            "type": "string"
-          },
-          "ends_at": {
-            "type": "string"
-          }
-        }
-      },
-      "HomeNotifications": {
-        "type": "object",
-        "required": [
-          "unread_count"
-        ],
-        "properties": {
-          "unread_count": {
-            "type": "integer"
-          }
-        }
-      },
-      "HomeContinueLearning": {
-        "type": "object",
-        "required": [
-          "available",
-          "subject_version_id",
-          "subject_name",
-          "unit_id",
-          "unit_title",
-          "mode",
-          "label",
-          "hint",
-          "disabled",
-          "disabled_reason",
-          "hearts",
-          "updated_at"
-        ],
-        "properties": {
-          "available": {
-            "type": "boolean"
-          },
-          "subject_version_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "subject_name": {
-            "type": "string"
-          },
-          "unit_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "unit_title": {
-            "type": "string"
-          },
-          "mode": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          },
-          "hint": {
-            "type": "string"
-          },
-          "disabled": {
-            "type": "boolean"
-          },
-          "disabled_reason": {
-            "type": "string"
-          },
-          "hearts": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        }
-      },
-      "HomeSmartGuideStep": {
-        "type": "object",
-        "required": [
-          "id",
-          "sort_order",
-          "subject_version_id",
-          "part",
-          "estimated_minutes",
-          "reward_gems",
-          "subject_name",
-          "action_key",
-          "action_group",
-          "title",
-          "subtitle",
-          "reason_text",
-          "cta_label",
-          "progress_state",
-          "completed_at",
-          "unit_id"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer"
-          },
-          "sort_order": {
-            "type": "integer"
-          },
-          "subject_version_id": {
-            "type": "integer"
-          },
-          "part": {
-            "type": "integer"
-          },
-          "estimated_minutes": {
-            "type": "integer"
-          },
-          "reward_gems": {
-            "type": "integer"
-          },
-          "subject_name": {
-            "type": "string"
-          },
-          "action_key": {
-            "type": "string"
-          },
-          "action_group": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "subtitle": {
-            "type": "string"
-          },
-          "reason_text": {
-            "type": "string"
-          },
-          "cta_label": {
-            "type": "string"
-          },
-          "progress_state": {
-            "type": "string"
-          },
-          "completed_at": {
-            "type": "string"
-          },
-          "unit_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      },
-      "HomeSmartGuide": {
-        "type": "object",
-        "required": [
-          "enabled",
-          "status",
-          "guide_id",
-          "guide_date",
-          "headline",
-          "intro_text",
-          "boost_note",
-          "profile_key",
-          "completion_percent",
-          "completed_steps",
-          "total_steps",
-          "is_complete",
-          "updated_at",
-          "steps"
-        ],
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "status": {
-            "type": "string"
-          },
-          "guide_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "guide_date": {
-            "type": "string"
-          },
-          "headline": {
-            "type": "string"
-          },
-          "intro_text": {
-            "type": "string"
-          },
-          "boost_note": {
-            "type": "string"
-          },
-          "profile_key": {
-            "type": "string"
-          },
-          "completion_percent": {
-            "type": "integer"
-          },
-          "completed_steps": {
-            "type": "integer"
-          },
-          "total_steps": {
-            "type": "integer"
-          },
-          "is_complete": {
-            "type": "boolean"
-          },
-          "updated_at": {
-            "type": "string"
-          },
-          "steps": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HomeSmartGuideStep"
-            }
-          }
-        }
-      },
-      "LoginData": {
-        "type": "object",
-        "required": [
-          "access_token",
-          "refresh_token",
-          "expires_in",
-          "student"
-        ],
-        "properties": {
-          "access_token": {
-            "type": "string"
-          },
-          "refresh_token": {
-            "type": "string"
-          },
-          "expires_in": {
-            "type": "integer"
-          },
-          "student": {
-            "$ref": "#/components/schemas/Student"
-          }
-        }
-      },
-      "RefreshData": {
-        "type": "object",
-        "required": [
-          "access_token",
-          "refresh_token",
-          "expires_in"
-        ],
-        "properties": {
-          "access_token": {
-            "type": "string"
-          },
-          "refresh_token": {
-            "type": "string"
-          },
-          "expires_in": {
-            "type": "integer"
-          },
-          "student": {
-            "$ref": "#/components/schemas/Student"
-          }
-        }
-      },
-      "LoginResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/LoginData"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "RefreshResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/RefreshData"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "AcademicOption": {
-        "type": "object",
-        "required": [
-          "id",
-          "name"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "City": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "requires_school"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          },
-          "requires_school": {
-            "type": "boolean"
-          }
-        },
-        "additionalProperties": false
-      },
-      "CitiesData": {
-        "type": "object",
-        "required": [
-          "cities"
-        ],
-        "properties": {
-          "cities": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/City"
-            }
-          }
-        },
-        "additionalProperties": false
-      },
-      "CitiesResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CitiesData"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "GradesData": {
-        "type": "object",
-        "required": [
-          "grades"
-        ],
-        "properties": {
-          "grades": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AcademicOption"
-            }
-          }
-        },
-        "additionalProperties": false
-      },
-      "GradesResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/GradesData"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "SchoolsData": {
-        "type": "object",
-        "required": [
-          "schools"
-        ],
-        "properties": {
-          "schools": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AcademicOption"
-            }
-          }
-        },
-        "additionalProperties": false
-      },
-      "SchoolsResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SchoolsData"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
+        "required": ["refresh_token"],
+        "properties": { "refresh_token": { "type": "string" } }
       },
       "RegistrationRequest": {
         "type": "object",
-        "required": [
-          "full_name",
-          "username",
-          "password",
-          "password_confirmation",
-          "gender",
-          "city_id",
-          "grade_id",
-          "privacy_accept",
-          "device_name"
-        ],
-        "properties": {
-          "full_name": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          },
-          "phone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "password": {
-            "type": "string"
-          },
-          "password_confirmation": {
-            "type": "string"
-          },
-          "gender": {
-            "type": "string"
-          },
-          "student_personality": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "city_id": {
-            "type": "integer"
-          },
-          "school_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "grade_id": {
-            "type": "integer"
-          },
-          "privacy_accept": {
-            "type": "boolean"
-          },
-          "device_name": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
+        "description": "Native registration fields documented by the Android DTO and registration fixtures.",
+        "additionalProperties": true
       },
       "AndroidPushTokenRequest": {
         "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "installation_id",
-          "app_version",
-          "app_build",
-          "platform",
-          "locale",
-          "timezone",
-          "permission_status"
-        ],
+        "required": ["installation_id", "fcm_token", "app_version", "app_build", "platform", "locale", "timezone", "permission_status"],
         "properties": {
-          "installation_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "fcm_token": {
-            "type": "string",
-            "minLength": 32,
-            "maxLength": 4096
-          },
-          "app_version": {
-            "type": "string",
-            "maxLength": 40
-          },
-          "app_build": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "platform": {
-            "type": "string",
-            "const": "android"
-          },
-          "locale": {
-            "type": "string",
-            "maxLength": 35
-          },
-          "timezone": {
-            "type": "string",
-            "maxLength": 64
-          },
-          "permission_status": {
-            "type": "string",
-            "enum": [
-              "NotRequired",
-              "SystemDisabled",
-              "NotRequested",
-              "Denied",
-              "PermanentlyDenied",
-              "Granted"
-            ]
-          }
+          "installation_id": { "type": "string" },
+          "fcm_token": { "type": "string" },
+          "app_version": { "type": "string" },
+          "app_build": { "type": "integer" },
+          "platform": { "const": "android" },
+          "locale": { "type": "string" },
+          "timezone": { "type": "string" },
+          "permission_status": { "type": "string" }
         }
       },
-      "PushTokenData": {
-        "type": "object",
-        "required": [
-          "registered"
-        ],
-        "properties": {
-          "registered": {
-            "type": "boolean"
-          }
-        }
-      },
-      "PushTokenResponse": {
-        "type": "object",
-        "required": [
-          "success",
-          "data",
-          "error",
-          "request_id"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "data": {
-            "$ref": "#/components/schemas/PushTokenData"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Error"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "request_id": {
-            "type": "string"
-          }
-        }
-      },
-      "HomeIndicators": {
+      "ActivityPreparationRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "total_xp",
-          "gems",
-          "streak_days",
-          "global_rank"
-        ],
+        "required": ["subject_version_id", "activity_type", "activity_mode", "source"],
         "properties": {
-          "total_xp": {
-            "type": "integer"
+          "subject_version_id": { "type": "integer", "minimum": 1 },
+          "unit_id": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+          "lesson_id": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+          "activity_type": {
+            "type": "string",
+            "enum": ["guide_step", "unit_test", "lesson_practice", "review", "smart_review", "speed_test"]
           },
-          "gems": {
-            "type": "integer"
+          "activity_mode": {
+            "type": "string",
+            "enum": ["learn", "practice", "review", "test", "speed"]
           },
-          "streak_days": {
-            "type": "integer"
-          },
-          "global_rank": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "guide_step_id": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+          "source": {
+            "type": "string",
+            "enum": ["home_guide", "guide", "subject", "unit", "lesson", "review"]
           }
         }
       },
-      "HomeSubject": {
+      "ActivityDescriptor": {
         "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "subject_version_id",
-          "name",
-          "hearts",
-          "progress_percent"
-        ],
+        "required": ["subject_version_id", "subject_name", "unit_id", "unit_title", "lesson_id", "lesson_title", "activity_type", "activity_mode", "title", "estimated_minutes", "question_count"],
         "properties": {
-          "subject_version_id": {
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          },
-          "hearts": {
-            "type": "integer"
-          },
-          "progress_percent": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
+          "subject_version_id": { "type": "integer" },
+          "subject_name": { "type": "string" },
+          "unit_id": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "unit_title": { "type": "string" },
+          "lesson_id": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "lesson_title": { "type": "string" },
+          "activity_type": { "type": "string" },
+          "activity_mode": { "type": "string" },
+          "title": { "type": "string" },
+          "estimated_minutes": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "question_count": { "anyOf": [{ "type": "integer" }, { "type": "null" }] }
         }
       },
-      "HomeSpotlight": {
+      "ActivityEligibility": {
         "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "type",
-          "title",
-          "body",
-          "cta_label",
-          "cta_url"
-        ],
+        "required": ["available", "status", "reason", "reason_code"],
         "properties": {
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "body": {
-            "type": "string"
-          },
-          "cta_label": {
-            "type": "string"
-          },
-          "cta_url": {
-            "type": "string"
-          }
+          "available": { "type": "boolean" },
+          "status": { "type": "string" },
+          "reason": { "type": "string" },
+          "reason_code": { "type": "string" }
+        }
+      },
+      "ActivitySubscription": {
+        "type": "object",
+        "required": ["available", "active", "status", "ends_at", "blocking"],
+        "properties": {
+          "available": { "type": "boolean" },
+          "active": { "type": "boolean" },
+          "status": { "type": "string" },
+          "ends_at": { "type": "string" },
+          "blocking": { "type": "boolean" }
+        }
+      },
+      "ActivityBalances": {
+        "type": "object",
+        "required": ["hearts", "gems"],
+        "properties": {
+          "hearts": { "type": "integer", "minimum": 0 },
+          "gems": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ActivityCost": {
+        "type": "object",
+        "required": ["required_hearts", "heart_cost", "gem_cost"],
+        "properties": {
+          "required_hearts": { "type": "integer", "minimum": 0 },
+          "heart_cost": { "type": "integer", "minimum": 0 },
+          "gem_cost": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ActivityAttempts": {
+        "type": "object",
+        "required": ["available", "used", "remaining", "maximum", "reason"],
+        "properties": {
+          "available": { "type": "boolean" },
+          "used": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "remaining": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "maximum": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "reason": { "type": "string" }
+        }
+      },
+      "ActivityResume": {
+        "type": "object",
+        "required": ["available", "session_id", "status", "expires_at", "reason"],
+        "properties": {
+          "available": { "type": "boolean" },
+          "session_id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "status": { "type": "string" },
+          "expires_at": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      },
+      "ActivityPreparationPreviewData": {
+        "type": "object",
+        "required": ["version", "generated_at", "activity", "eligibility", "subscription", "balances", "cost", "attempts", "resume"],
+        "properties": {
+          "version": { "type": "string" },
+          "generated_at": { "type": "string" },
+          "activity": { "$ref": "#/components/schemas/ActivityDescriptor" },
+          "eligibility": { "$ref": "#/components/schemas/ActivityEligibility" },
+          "subscription": { "$ref": "#/components/schemas/ActivitySubscription" },
+          "balances": { "$ref": "#/components/schemas/ActivityBalances" },
+          "cost": { "$ref": "#/components/schemas/ActivityCost" },
+          "attempts": { "$ref": "#/components/schemas/ActivityAttempts" },
+          "resume": { "$ref": "#/components/schemas/ActivityResume" }
+        }
+      },
+      "ActivityPreparationPreviewResponse": {
+        "type": "object",
+        "required": ["success", "data", "error", "request_id"],
+        "properties": {
+          "success": { "const": true },
+          "data": { "$ref": "#/components/schemas/ActivityPreparationPreviewData" },
+          "error": { "type": "null" },
+          "request_id": { "type": "string" }
+        }
+      },
+      "ActivityDebit": {
+        "type": "object",
+        "required": ["heart_debited", "gems_debited"],
+        "properties": {
+          "heart_debited": { "type": "integer", "minimum": 0 },
+          "gems_debited": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ActivityStartData": {
+        "type": "object",
+        "required": ["session_id", "status", "destination", "replayed", "debit", "balances", "expires_at"],
+        "properties": {
+          "session_id": { "type": "string", "minLength": 1 },
+          "status": { "type": "string" },
+          "destination": { "type": "string" },
+          "replayed": { "type": "boolean" },
+          "debit": { "$ref": "#/components/schemas/ActivityDebit" },
+          "balances": { "$ref": "#/components/schemas/ActivityBalances" },
+          "expires_at": { "type": "string" }
+        }
+      },
+      "ActivityStartResponse": {
+        "type": "object",
+        "required": ["success", "data", "error", "request_id"],
+        "properties": {
+          "success": { "const": true },
+          "data": { "$ref": "#/components/schemas/ActivityStartData" },
+          "error": { "type": "null" },
+          "request_id": { "type": "string" }
         }
       }
     }
