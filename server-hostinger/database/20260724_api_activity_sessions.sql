@@ -1,0 +1,33 @@
+-- Phase 08 review-only migration. Do not execute automatically on production.
+CREATE TABLE IF NOT EXISTS `api_activity_sessions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `public_session_id` CHAR(36) NOT NULL,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `subject_version_id` BIGINT UNSIGNED NOT NULL,
+  `unit_id` BIGINT UNSIGNED NULL,
+  `lesson_id` BIGINT UNSIGNED NULL,
+  `activity_type` VARCHAR(40) NOT NULL,
+  `activity_mode` VARCHAR(30) NOT NULL,
+  `source` VARCHAR(30) NOT NULL,
+  `guide_step_id` BIGINT UNSIGNED NULL,
+  `status` VARCHAR(24) NOT NULL DEFAULT 'created',
+  `idempotency_key_hash` CHAR(64) NOT NULL,
+  `request_hash` CHAR(64) NOT NULL,
+  `request_json` LONGTEXT NOT NULL,
+  `response_json` LONGTEXT NOT NULL,
+  `destination` VARCHAR(80) NOT NULL,
+  `heart_debited` INT UNSIGNED NOT NULL DEFAULT 0,
+  `gems_debited` INT UNSIGNED NOT NULL DEFAULT 0,
+  `expires_at` DATETIME NOT NULL,
+  `started_at` DATETIME NULL,
+  `completed_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_activity_public_session` (`public_session_id`),
+  UNIQUE KEY `uq_activity_user_idempotency` (`user_id`,`idempotency_key_hash`),
+  KEY `idx_activity_user_request_active` (`user_id`,`request_hash`,`status`,`expires_at`),
+  KEY `idx_activity_expiry` (`status`,`expires_at`),
+  CONSTRAINT `fk_activity_session_user`
+    FOREIGN KEY (`user_id`) REFERENCES `app_users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
