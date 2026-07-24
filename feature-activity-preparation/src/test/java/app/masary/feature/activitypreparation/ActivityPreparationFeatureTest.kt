@@ -55,12 +55,12 @@ class ActivityPreparationFeatureTest {
     fun `double start creates only one server request with the original key`() = runTest {
         val repository = FakeRepository()
         val pendingStore = MemoryPendingStore()
-        val request = ActivityPreparationRequest.fromGuide(12, 4, "learn", 9)
+        val request = request()
         val viewModel = ActivityPreparationViewModel(
             repository = repository,
             pendingStore = pendingStore,
             request = request,
-            keyFactory = { "12345678-1234-1234-1234-123456789012" },
+            keyFactory = { TEST_KEY },
         )
 
         advanceUntilIdle()
@@ -68,38 +68,146 @@ class ActivityPreparationFeatureTest {
         viewModel.start()
         advanceUntilIdle()
 
-        assertEquals(1, repository.startCalls)
-        assertEquals("12345678-1234-1234-1234-123456789012", repository.lastKey)
+        assertEquals(1, repository.startKeys.size)
+        assertEquals(TEST_KEY, repository.startKeys.single())
         assertTrue(viewModel.state.value is ActivityPreparationUiState.Started)
     }
 
-    private class MemoryPendingStore : ActivityPreparationPendingStore {
-        private var value: PendingActivityStart? = null
-        override suspend fun read(): PendingActivityStart? = value
-        override suspend fun write(value: PendingActivityStart) { this.value = value }
-        override suspend fun clear() { value = null }
+    @Test
+    fun `unknown network result is resolved with the same idempotency key`() = runTest {
+        val repository = FakeRepository(
+            startResults = ArrayDeque(
+                listOf(
+                    Result.failure(ActivityPreparationNetworkException()),
+                    Result.success(startResult()),
+                ),
+            ),
+            statusResults = ArrayDeque(
+                listOf(Result.failure(ActivityPreparationStartNotFoundException())),
+            ),
+        )
+        val pendingStore = MemoryPendingStore()
+        val viewModel = ActivityPreparationViewModel(
+            repository = repository,
+            pendingStore = pendingStore,
+            request = request(),
+            keyFactory = { TEST_KEY },
+        )
+
+        advanceUntilIdle()
+        viewModel.start()
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value is ActivityPreparationUiState.StartUnknown)
+        assertEquals(TEST_KEY, pendingStore.read()?.idempotencyKey)
+
+        viewModel.resolveUnknownStart()
+        advanceUntilIdle()
+
+        assertEquals(listOf(TEST_KEY, TEST_KEY), repository.startKeys)
+        assertEquals(listOf(TEST_KEY), repository.statusKeys)
+        assertTrue(viewModel.state.value is ActivityPreparationUiState.Started)
     }
 
-    private class FakeRepository : ActivityPreparationRepository {
-        var startCalls = 0
-        var lastKey = ""
+    @Test
+    fun `restored pending start checks status before loading preview`() = runTest {
+        val request = request()
+        val pendingStore = MemoryPendingStore(
+            PendingActivityStart(
+                idempotencyKey = TEST_KEY,
+                requestFingerprint = request.fingerprint,
+                createdAtEpochMillis = 1_000L,
+            ),
+        )
+        val repository = FakeRepository(
+            statusResults = ArrayDeque(listOf(Result.success(startResult()))),
+        )
 
-        override suspend fun preview(request: ActivityPreparationRequest): Result<ActivityPreparationPreview> =
-            Result.success(preview())
+        val viewModel = ActivityPreparationViewModel(
+            repository = repository,
+            pendingStore = pendingStore,
+            request = request,
+            now = { 1_500L },
+        )
+        advanceUntilIdle()
+
+        assertEquals(0, repository.previewCalls)
+        assertEquals(listOf(TEST_KEY), repository.statusKeys)
+        assertTrue(viewModel.state.value is ActivityPreparationUiState.Started)
+    }
+
+    @Test
+    fun `expired bearer session moves preparation to session expired state`() = runTest {
+        val repository = FakeRepository(
+            previewResult = Result.failure(ActivityPreparationSessionExpiredException()),
+        )
+        val viewModel = ActivityPreparationViewModel(
+            repository = repository,
+            pendingStore = MemoryPendingStore(),
+            request = request(),
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value is ActivityPreparationUiState.SessionExpired)
+    }
+
+    private class MemoryPendingStore(
+        private var value: PendingActivityStart? = null,
+    ) : ActivityPreparationPendingStore {
+        override suspend fun read(): PendingActivityStart? = value
+        override suspend fun write(value: PendingActivityStart) {
+            this.value = value
+        }
+        override suspend fun clear() {
+            value = null
+        }
+    }
+
+    private class FakeRepository(
+        private val previewResult: Result<ActivityPreparationPreview> = Result.success(preview()),
+        private val startResults: ArrayDeque<Result<ActivityStartResult>> =
+            ArrayDeque(listOf(Result.success(startResult()))),
+        private val statusResults: ArrayDeque<Result<ActivityStartResult>> =
+            ArrayDeque(listOf(Result.failure(ActivityPreparationStartNotFoundException()))),
+    ) : ActivityPreparationRepository {
+        var previewCalls = 0
+        val startKeys = mutableListOf<String>()
+        val statusKeys = mutableListOf<String>()
+
+        override suspend fun preview(request: ActivityPreparationRequest): Result<ActivityPreparationPreview> {
+            previewCalls += 1
+            return previewResult
+        }
 
         override suspend fun start(
             request: ActivityPreparationRequest,
             idempotencyKey: String,
         ): Result<ActivityStartResult> {
-            startCalls += 1
-            lastKey = idempotencyKey
-            return Result.success(startResult())
+            startKeys += idempotencyKey
+            return if (startResults.isEmpty()) {
+                Result.success(startResult())
+            } else {
+                startResults.removeFirst()
+            }
         }
 
-        override suspend fun startStatus(idempotencyKey: String): Result<ActivityStartResult> =
-            Result.failure(ActivityPreparationStartNotFoundException())
+        override suspend fun startStatus(idempotencyKey: String): Result<ActivityStartResult> {
+            statusKeys += idempotencyKey
+            return if (statusResults.isEmpty()) {
+                Result.failure(ActivityPreparationStartNotFoundException())
+            } else {
+                statusResults.removeFirst()
+            }
+        }
+    }
 
-        private fun preview(): ActivityPreparationPreview = ActivityPreparationPreview(
+    private companion object {
+        const val TEST_KEY = "12345678-1234-1234-1234-123456789012"
+
+        fun request(): ActivityPreparationRequest =
+            ActivityPreparationRequest.fromGuide(12, 4, "learn", 9)
+
+        fun preview(): ActivityPreparationPreview = ActivityPreparationPreview(
             version = "v1",
             generatedAt = "now",
             activity = ActivityDescriptor(
@@ -122,7 +230,7 @@ class ActivityPreparationFeatureTest {
             resume = ActivityResume(false, null, "", "", ""),
         )
 
-        private fun startResult(): ActivityStartResult = ActivityStartResult(
+        fun startResult(): ActivityStartResult = ActivityStartResult(
             sessionId = "session-1",
             status = "created",
             destination = "activity_session_pending_ui",
