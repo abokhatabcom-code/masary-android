@@ -62,12 +62,12 @@
     "/api/v1/student/activity/start-status": {
       "get": {
         "summary": "Resolve an uncertain activity start",
-        "description": "يستعلم بالمفتاح الأصلي بعد انقطاع الشبكة ولا ينشئ محاولة أخرى.",
+        "description": "يستعلم بالمفتاح الأصلي بعد انقطاع الشبكة ولا ينشئ محاولة أخرى. يُرسل المفتاح في الترويسة حتى لا يظهر في سجلات العناوين.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
-            "in": "query",
-            "name": "idempotency_key",
+            "in": "header",
+            "name": "Idempotency-Key",
             "required": true,
             "schema": { "type": "string", "minLength": 16, "maxLength": 128 }
           }
