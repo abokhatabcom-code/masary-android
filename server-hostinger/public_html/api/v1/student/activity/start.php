@@ -7,6 +7,7 @@ require_once dirname(__DIR__, 3) . '/_student_home_subjects.php';
 require_once dirname(__DIR__, 3) . '/_activity_preparation.php';
 require_once dirname(__DIR__, 3) . '/_activity_preparation_guard.php';
 require_once dirname(__DIR__, 3) . '/_activity_preparation_compat.php';
+require_once dirname(__DIR__, 3) . '/_activity_preparation_lifecycle.php';
 
 api_require_method('POST');
 $pdo = api_db();
@@ -14,7 +15,7 @@ $session = api_authenticate_access_token($pdo, api_bearer_token());
 api_rate_limit('activity_start', (string)($session['user_id'] ?? '0'), 30, 60);
 api_response(
     true,
-    api_activity_start_compatible_guarded(
+    api_activity_start_lifecycle_guarded(
         $pdo,
         $session,
         api_read_json(),
