@@ -30,12 +30,29 @@ function api_server_secret(): string
 function api_student_home_smart_guide(PDO $pdo, int $studentId): array
 {
     return [
-        'steps' => [[
-            'id' => 91,
-            'subject_version_id' => 12,
-            'unit_id' => 4,
-            'progress_state' => 'pending',
-        ]],
+        'steps' => [
+            [
+                'id' => 91,
+                'subject_version_id' => 12,
+                'unit_id' => 4,
+                'action_key' => 'learn',
+                'progress_state' => 'pending',
+            ],
+            [
+                'id' => 92,
+                'subject_version_id' => 12,
+                'unit_id' => 4,
+                'action_key' => 'review_mistakes',
+                'progress_state' => 'pending',
+            ],
+            [
+                'id' => 93,
+                'subject_version_id' => 12,
+                'unit_id' => 4,
+                'action_key' => 'unit_test',
+                'progress_state' => 'pending',
+            ],
+        ],
     ];
 }
 
@@ -109,6 +126,8 @@ $payload = [
 
 $countBefore = (int)$pdo->query('SELECT COUNT(*) FROM api_activity_sessions')->fetchColumn();
 $preview = api_activity_apply_authoritative_policy(
+    $pdo,
+    42,
     api_activity_preview($pdo, $session, $payload),
 );
 activity_check($preview['eligibility']['available'] === true, 'Eligible guide activity was rejected.');
@@ -118,27 +137,43 @@ activity_check(
     'Read-only preview mutated activity sessions.',
 );
 
-$unverifiedPayload = array_replace($payload, [
-    'activity_type' => 'unit_test',
-    'activity_mode' => 'test',
-    'source' => 'unit',
-    'guide_step_id' => null,
+$reviewPayload = array_replace($payload, [
+    'activity_type' => 'review',
+    'activity_mode' => 'review',
+    'guide_step_id' => 92,
 ]);
-$unverifiedPreview = api_activity_apply_authoritative_policy(
-    api_activity_preview($pdo, $session, $unverifiedPayload),
+$reviewPreview = api_activity_apply_authoritative_policy(
+    $pdo,
+    42,
+    api_activity_preview($pdo, $session, $reviewPayload),
 );
 activity_check(
-    $unverifiedPreview['eligibility']['available'] === false
-        && $unverifiedPreview['eligibility']['reason_code'] === 'activity_engine_pending',
-    'Unverified unit-test flow was presented as startable.',
+    $reviewPreview['eligibility']['available'] === true,
+    'Server-owned review guide action was not accepted.',
+);
+
+$unitTestPayload = array_replace($payload, [
+    'activity_type' => 'unit_test',
+    'activity_mode' => 'test',
+    'guide_step_id' => 93,
+]);
+$unitTestPreview = api_activity_apply_authoritative_policy(
+    $pdo,
+    42,
+    api_activity_preview($pdo, $session, $unitTestPayload),
+);
+activity_check(
+    $unitTestPreview['eligibility']['available'] === false
+        && $unitTestPreview['eligibility']['reason_code'] === 'attempt_engine_pending',
+    'Unit test was presented as startable without authoritative attempts.',
 );
 try {
-    api_activity_start_guarded($pdo, $session, $unverifiedPayload, 'phase08-unverified-00000001');
-    throw new RuntimeException('Expected unverified activity rejection was not returned.');
+    api_activity_start_guarded($pdo, $session, $unitTestPayload, 'phase08-unverified-00000001');
+    throw new RuntimeException('Expected unit-test pending rejection was not returned.');
 } catch (ActivityApiTestError $error) {
     activity_check(
-        $error->apiCode === 'activity_engine_pending' && $error->status === 409,
-        'Wrong unverified activity rejection.',
+        $error->apiCode === 'attempt_engine_pending' && $error->status === 409,
+        'Wrong unit-test pending rejection.',
     );
 }
 
@@ -171,12 +206,7 @@ activity_check(
 );
 
 try {
-    api_activity_start_guarded(
-        $pdo,
-        $session,
-        array_replace($payload, ['activity_mode' => 'practice']),
-        $key,
-    );
+    api_activity_start_guarded($pdo, $session, $reviewPayload, $key);
     throw new RuntimeException('Expected idempotency conflict was not returned.');
 } catch (ActivityApiTestError $error) {
     activity_check(
@@ -186,20 +216,15 @@ try {
 }
 
 $pdo->exec('UPDATE student_subject_state SET hearts=0 WHERE student_id=42 AND subject_version_id=12');
-$blocked = api_activity_apply_authoritative_policy(api_activity_preview(
+$blocked = api_activity_apply_authoritative_policy(
     $pdo,
-    $session,
-    array_replace($payload, [
-        'activity_type' => 'review',
-        'activity_mode' => 'review',
-        'source' => 'review',
-        'guide_step_id' => null,
-    ]),
-));
+    42,
+    api_activity_preview($pdo, $session, $reviewPayload),
+);
 activity_check($blocked['eligibility']['available'] === false, 'Review with zero hearts was allowed.');
 activity_check(
     $blocked['eligibility']['reason_code'] === 'insufficient_hearts',
-    'A real zero-hearts reason was replaced by the generic policy state.',
+    'A real zero-hearts reason was replaced by the guide policy state.',
 );
 
 // Verify that an insertion failure rolls back the outer guarded transaction completely.
