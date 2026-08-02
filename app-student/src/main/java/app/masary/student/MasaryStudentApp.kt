@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,16 +39,17 @@ import app.masary.core.datastore.OnboardingStore
 import app.masary.core.datastore.SessionManager
 import app.masary.core.ui.MasaryBrandLockup
 import app.masary.core.ui.MasaryColors
+import app.masary.feature.activitypreparation.ActivityPreparationPendingStore
+import app.masary.feature.activitypreparation.ActivityPreparationRepository
 import app.masary.feature.auth.domain.AuthRepository
 import app.masary.feature.auth.domain.RegistrationRepository
 import app.masary.feature.auth.ui.AuthRoute
 import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.ui.StudentHomeRoute
+import app.masary.feature.notifications.NotificationDestinationPolicy
 import app.masary.feature.notifications.NotificationPermissionState
 import app.masary.feature.notifications.NotificationSyncCoordinator
-import app.masary.feature.notifications.NotificationDestinationPolicy
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
 
 private enum class AppRoute(val route: String) {
     Preparing("preparing"),
@@ -64,6 +66,8 @@ fun MasaryStudentApp(
     authRepository: AuthRepository,
     registrationRepository: RegistrationRepository,
     homeRepository: HomeRepository,
+    activityPreparationRepository: ActivityPreparationRepository,
+    activityPreparationPendingStore: ActivityPreparationPendingStore,
     deviceName: String,
     notificationPermissionState: NotificationPermissionState = NotificationPermissionState.NotRequired,
     notificationDestination: String? = null,
@@ -80,9 +84,15 @@ fun MasaryStudentApp(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(route) {
-        if (route == AppRoute.Authentication || route == AppRoute.Onboarding) onNotificationDestinationConsumed()
+        if (route == AppRoute.Authentication || route == AppRoute.Onboarding) {
+            onNotificationDestinationConsumed()
+        }
         if (route == AppRoute.Home) {
-            NotificationSyncCoordinator.configure(navController.context, BuildConfig.MASARY_API_BASE_URL, true)
+            NotificationSyncCoordinator.configure(
+                navController.context,
+                BuildConfig.MASARY_API_BASE_URL,
+                true,
+            )
             NotificationSyncCoordinator.scheduleRegistration(navController.context)
         }
         if (navController.currentDestination?.route != route.route) {
@@ -115,6 +125,8 @@ fun MasaryStudentApp(
                 StudentHomeRoute(
                     session = authenticated.session,
                     repository = homeRepository,
+                    activityPreparationRepository = activityPreparationRepository,
+                    activityPreparationPendingStore = activityPreparationPendingStore,
                     onLogout = {
                         scope.launch {
                             val tokens = sessionManager.readTokens()
@@ -126,16 +138,20 @@ fun MasaryStudentApp(
                             if (prepared) {
                                 try {
                                     homeRepository.clearSnapshot()
+                                    activityPreparationPendingStore.clear()
                                 } catch (_: Exception) {
                                     // Local logout must not be blocked by a damaged cache store.
                                 }
                                 startupViewModel.logoutLocally()
+                            } else {
+                                startupViewModel.logoutPreparationFailed()
                             }
-                            else startupViewModel.logoutPreparationFailed()
                         }
                     },
                     externalDestination = notificationDestination?.let {
-                        val testActive = navController.context.getSharedPreferences("notification_runtime_v1", 0).getBoolean("educational_test_active", false)
+                        val testActive = navController.context
+                            .getSharedPreferences("notification_runtime_v1", 0)
+                            .getBoolean("educational_test_active", false)
                         NotificationDestinationPolicy.resolve(it, true, testActive)
                     },
                     onExternalDestinationConsumed = onNotificationDestinationConsumed,

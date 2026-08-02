@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "data": {
+    "session_id": "activity-session-001",
+    "status": "created",
+    "destination": "activity_session_pending_ui",
+    "replayed": false,
+    "debit": {
+      "heart_debited": 0,
+      "gems_debited": 0
+    },
+    "balances": {
+      "hearts": 3,
+      "gems": 10
+    },
+    "expires_at": "2026-07-24 14:00:00"
+  },
+  "error": null,
+  "request_id": "contract-activity-start-001"
+}

@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "app.masary.feature.home"
+    namespace = "app.masary.feature.activitypreparation"
     compileSdk = 35
 
     defaultConfig { minSdk = 26 }
@@ -20,8 +20,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":feature-notifications"))
-    implementation(project(":feature-activity-preparation"))
     implementation(project(":core-models"))
     implementation(project(":core-ui"))
     implementation(project(":core-network"))
@@ -30,12 +28,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.retrofit.core)
-    implementation(libs.androidx.datastore.preferences)
-    implementation(libs.gson)
-    implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
