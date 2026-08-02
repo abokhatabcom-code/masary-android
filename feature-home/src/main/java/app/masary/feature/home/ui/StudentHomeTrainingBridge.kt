@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import app.masary.core.models.auth.StudentSession
 import app.masary.feature.activitypreparation.ActivityPreparationPendingStore
 import app.masary.feature.activitypreparation.ActivityPreparationRepository
-import app.masary.feature.auth.domain.AuthRepository
 import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.notifications.NotificationPermissionState
 import app.masary.feature.subject.domain.SubjectRepository
