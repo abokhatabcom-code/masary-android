@@ -1,3 +1,4 @@
+# One-shot workflow; deletes itself after the focused route patch.
 name: Phase 10 Route Integration
 
 on:
