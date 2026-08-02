@@ -43,6 +43,7 @@ import app.masary.feature.activitypreparation.ActivityPreparationPendingStore
 import app.masary.feature.activitypreparation.ActivityPreparationRepository
 import app.masary.feature.auth.domain.AuthRepository
 import app.masary.feature.auth.domain.RegistrationRepository
+import app.masary.feature.auth.ui.AuthRoute
 import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.ui.StudentHomeRoute
 import app.masary.feature.notifications.NotificationDestinationPolicy
