@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -22,7 +24,6 @@ import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.School
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -63,6 +64,8 @@ import app.masary.feature.subject.domain.StudentSubjectPage
 import app.masary.feature.subject.domain.SubjectContentPart
 import app.masary.feature.subject.domain.SubjectRepository
 import app.masary.feature.subject.domain.SubjectStructureMode
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun StudentSubjectRoute(
@@ -87,18 +90,21 @@ fun StudentSubjectRoute(
             SubjectUiState.Loading,
             SubjectUiState.SessionExpired,
             -> SubjectLoading(onBack)
+
             is SubjectUiState.NotFound -> SubjectMessage(
                 title = stringResource(R.string.subject_not_found),
                 message = current.message,
                 onBack = onBack,
                 onRetry = null,
             )
+
             is SubjectUiState.Error -> SubjectMessage(
                 title = stringResource(R.string.subject_load_error),
                 message = current.message,
                 onBack = onBack,
                 onRetry = subjectViewModel::refresh,
             )
+
             is SubjectUiState.Content -> SubjectContent(
                 data = current.data,
                 isRefreshing = current.isRefreshing,
@@ -130,15 +136,15 @@ private fun SubjectContent(
                 title = {
                     Column {
                         Text(
-                            data.identity.name,
+                            text = data.identity.name,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             fontWeight = FontWeight.Bold,
                             color = MasaryColors.brandNavy,
                         )
-                        data.identity.curriculumLabel.takeIf(String::isNotBlank)?.let {
+                        data.identity.curriculumLabel.takeIf(String::isNotBlank)?.let { curriculum ->
                             Text(
-                                it,
+                                text = curriculum,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MasaryColors.muted,
                                 maxLines = 1,
@@ -149,7 +155,10 @@ private fun SubjectContent(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.subject_back))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = stringResource(R.string.subject_back),
+                        )
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -159,7 +168,9 @@ private fun SubjectContent(
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = onRefresh,
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -167,20 +178,22 @@ private fun SubjectContent(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 item { SubjectIdentityCard(data) }
-                data.snapshot?.let {
-                    item { SubjectBanner(stringResource(R.string.subject_cached)) }
+                data.snapshot?.let { snapshot ->
+                    item {
+                        SubjectBanner(
+                            stringResource(
+                                R.string.subject_cached_at,
+                                formatSnapshotTime(snapshot.savedAtEpochMillis),
+                            ),
+                        )
+                    }
                 }
-                refreshMessage?.takeIf(String::isNotBlank)?.let {
-                    item { SubjectBanner(it) }
+                refreshMessage?.takeIf(String::isNotBlank)?.let { message ->
+                    item { SubjectBanner(message) }
                 }
                 item { SubjectProgressCard(data) }
                 item { SubjectHeartsCard(data) }
-                item {
-                    SubjectTrainingCard(
-                        data = data,
-                        onTrainingCenter = onTrainingCenter,
-                    )
-                }
+                item { SubjectTrainingCard(data, onTrainingCenter) }
                 item { SubjectContentHeader(data) }
                 if (data.content.parts.isEmpty()) {
                     item { SubjectContentPlaceholder(data.content.reason) }
@@ -203,7 +216,9 @@ private fun SubjectIdentityCard(data: StudentSubjectPage) {
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
@@ -211,16 +226,21 @@ private fun SubjectIdentityCard(data: StudentSubjectPage) {
                 color = Color.White.copy(alpha = 0.13f),
             ) {
                 Icon(
-                    Icons.AutoMirrored.Outlined.MenuBook,
-                    null,
-                    modifier = Modifier.padding(16.dp).size(42.dp),
+                    imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .size(42.dp),
                     tint = MasaryColors.brandGoldBright,
                 )
             }
             Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
                 Text(
-                    data.identity.name,
+                    text = data.identity.name,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
@@ -229,10 +249,15 @@ private fun SubjectIdentityCard(data: StudentSubjectPage) {
                 )
                 val label = data.identity.curriculumLabel.ifBlank { data.identity.versionType }
                 if (label.isNotBlank()) {
-                    Text(label, color = Color.White.copy(alpha = 0.78f))
+                    Text(
+                        text = label,
+                        color = Color.White.copy(alpha = 0.78f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
                 Text(
-                    when (data.content.structureMode) {
+                    text = when (data.content.structureMode) {
                         SubjectStructureMode.Units -> stringResource(R.string.subject_units)
                         SubjectStructureMode.Lessons -> stringResource(R.string.subject_lessons)
                         SubjectStructureMode.Unknown -> stringResource(R.string.subject_unavailable)
@@ -249,25 +274,26 @@ private fun SubjectIdentityCard(data: StudentSubjectPage) {
 private fun SubjectProgressCard(data: StudentSubjectPage) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                stringResource(R.string.subject_progress),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MasaryColors.brandNavy,
-            )
+            SectionTitle(stringResource(R.string.subject_progress))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Metric(
                     label = stringResource(R.string.subject_points),
-                    value = data.points.value?.toString().takeIf { data.points.available }
+                    value = data.points.value
+                        ?.takeIf { data.points.available }
+                        ?.toString()
                         ?: stringResource(R.string.subject_unavailable),
                     modifier = Modifier.weight(1f),
                 )
                 Metric(
                     label = stringResource(R.string.subject_level),
-                    value = data.level.value?.toString().takeIf { data.level.available }
+                    value = data.level.value
+                        ?.takeIf { data.level.available }
+                        ?.toString()
                         ?: stringResource(R.string.subject_unavailable),
                     modifier = Modifier.weight(1f),
                 )
@@ -275,13 +301,15 @@ private fun SubjectProgressCard(data: StudentSubjectPage) {
             if (data.progress.available && data.progress.percent != null) {
                 LinearProgressIndicator(
                     progress = { data.progress.percent.coerceIn(0, 100) / 100f },
-                    modifier = Modifier.fillMaxWidth().height(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp),
                     color = MasaryColors.brandGold,
                     trackColor = MasaryColors.border,
                 )
                 Text("${data.progress.percent}%", color = MasaryColors.muted)
             } else {
-                Text(data.progress.reason, color = MasaryColors.muted)
+                SupportingText(data.progress.reason)
             }
         }
     }
@@ -298,9 +326,24 @@ private fun Metric(label: String, value: String, modifier: Modifier) {
         Column(
             modifier = Modifier.padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            Text(value, fontWeight = FontWeight.ExtraBold, color = MasaryColors.brandNavy)
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MasaryColors.muted)
+            Text(
+                text = value,
+                fontWeight = FontWeight.ExtraBold,
+                color = MasaryColors.brandNavy,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MasaryColors.muted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -309,61 +352,75 @@ private fun Metric(label: String, value: String, modifier: Modifier) {
 private fun SubjectHeartsCard(data: StudentSubjectPage) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                stringResource(R.string.subject_hearts),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MasaryColors.brandNavy,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionTitle(stringResource(R.string.subject_hearts))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 repeat(data.hearts.maximum.coerceAtMost(6)) { index ->
                     Icon(
-                        if (index < data.hearts.current) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
-                        null,
+                        imageVector = if (index < data.hearts.current) {
+                            Icons.Outlined.Favorite
+                        } else {
+                            Icons.Outlined.FavoriteBorder
+                        },
+                        contentDescription = null,
                         tint = if (index < data.hearts.current) MasaryColors.error else MasaryColors.muted,
                         modifier = Modifier.size(30.dp),
                     )
                 }
+                if (data.hearts.maximum > 6) {
+                    Text(
+                        text = "${data.hearts.current}/${data.hearts.maximum}",
+                        color = MasaryColors.brandNavy,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
-            Text(
+            SupportingText(
                 if (data.hearts.nextRestore.available && !data.hearts.nextRestore.at.isNullOrBlank()) {
                     data.hearts.nextRestore.at
                 } else {
-                    data.hearts.nextRestore.reason.ifBlank { stringResource(R.string.subject_restore_unknown) }
+                    data.hearts.nextRestore.reason.ifBlank {
+                        stringResource(R.string.subject_restore_unknown)
+                    }
                 },
-                color = MasaryColors.muted,
             )
         }
     }
 }
 
 @Composable
-private fun SubjectTrainingCard(data: StudentSubjectPage, onTrainingCenter: (Int) -> Unit) {
+private fun SubjectTrainingCard(
+    data: StudentSubjectPage,
+    onTrainingCenter: (Int) -> Unit,
+) {
     Card(colors = CardDefaults.cardColors(containerColor = MasaryColors.warmSurface)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.School, null, tint = MasaryColors.brandNavy)
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.subject_training_center),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MasaryColors.brandNavy,
-                )
+                SectionTitle(stringResource(R.string.subject_training_center))
             }
             Button(
                 onClick = { onTrainingCenter(data.subjectVersionId) },
                 enabled = data.actions.trainingCenter.available,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.subject_training_center)) }
+            ) {
+                Text(stringResource(R.string.subject_training_center))
+            }
             if (!data.actions.trainingCenter.available) {
-                Text(data.actions.trainingCenter.reason, color = MasaryColors.muted)
+                SupportingText(data.actions.trainingCenter.reason)
             }
         }
     }
@@ -371,17 +428,36 @@ private fun SubjectTrainingCard(data: StudentSubjectPage, onTrainingCenter: (Int
 
 @Composable
 private fun SubjectContentHeader(data: StudentSubjectPage) {
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            stringResource(R.string.subject_content),
+            text = stringResource(R.string.subject_content),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.ExtraBold,
             color = MasaryColors.brandNavy,
         )
         if (data.content.hasParts && data.content.parts.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                data.content.parts.take(3).forEach { part ->
-                    AssistChip(onClick = {}, label = { Text(part.label) })
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(end = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(data.content.parts, key = SubjectContentPart::partNumber) { part ->
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MasaryColors.iceSurface,
+                        border = BorderStroke(1.dp, MasaryColors.border),
+                    ) {
+                        Text(
+                            text = part.label,
+                            modifier = Modifier
+                                .widthIn(max = 180.dp)
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                            color = MasaryColors.brandNavy,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
@@ -392,15 +468,27 @@ private fun SubjectContentHeader(data: StudentSubjectPage) {
 private fun SubjectPartCard(part: SubjectContentPart) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Icons.AutoMirrored.Outlined.MenuBook, null, tint = MasaryColors.brandGold)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(part.label, fontWeight = FontWeight.Bold, color = MasaryColors.brandNavy)
                 Text(
-                    stringResource(R.string.subject_part_counts, part.unitsCount, part.lessonsCount),
+                    text = part.label,
+                    fontWeight = FontWeight.Bold,
+                    color = MasaryColors.brandNavy,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.subject_part_counts,
+                        part.unitsCount,
+                        part.lessonsCount,
+                    ),
                     color = MasaryColors.muted,
                 )
             }
@@ -417,7 +505,7 @@ private fun SubjectContentPlaceholder(reason: String) {
         border = BorderStroke(1.dp, MasaryColors.border),
     ) {
         Text(
-            reason,
+            text = reason.ifBlank { stringResource(R.string.subject_unavailable) },
             modifier = Modifier.padding(16.dp),
             color = MasaryColors.muted,
             textAlign = TextAlign.Center,
@@ -429,40 +517,69 @@ private fun SubjectContentPlaceholder(reason: String) {
 private fun SubjectLastActivityCard(data: StudentSubjectPage) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.History, null, tint = MasaryColors.brandGold)
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.subject_last_activity),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MasaryColors.brandNavy,
-                )
+                SectionTitle(stringResource(R.string.subject_last_activity))
             }
             if (data.lastActivity.available) {
-                data.lastActivity.unitId?.let {
-                    Text(stringResource(R.string.subject_last_activity_unit, it), color = MasaryColors.brandNavy)
+                data.lastActivity.unitId?.let { unitId ->
+                    Text(
+                        text = stringResource(R.string.subject_last_activity_unit, unitId),
+                        color = MasaryColors.brandNavy,
+                    )
                 }
-                data.lastActivity.mode.takeIf(String::isNotBlank)?.let {
-                    Text(stringResource(R.string.subject_last_activity_mode, it), color = MasaryColors.muted)
+                data.lastActivity.mode.takeIf(String::isNotBlank)?.let { mode ->
+                    Text(
+                        text = stringResource(
+                            R.string.subject_last_activity_mode,
+                            localizedActivityMode(mode),
+                        ),
+                        color = MasaryColors.muted,
+                    )
                 }
-                data.lastActivity.updatedAt.takeIf(String::isNotBlank)?.let {
-                    Text(it, color = MasaryColors.muted, style = MaterialTheme.typography.bodySmall)
+                data.lastActivity.updatedAt.takeIf(String::isNotBlank)?.let { updatedAt ->
+                    Text(
+                        text = updatedAt,
+                        color = MasaryColors.muted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 if (!data.lastActivity.preparation.available) {
-                    Text(data.lastActivity.preparation.reason, color = MasaryColors.muted)
+                    SupportingText(data.lastActivity.preparation.reason)
                 }
             } else {
-                Text(
-                    data.lastActivity.reason.ifBlank { stringResource(R.string.subject_no_last_activity) },
-                    color = MasaryColors.muted,
+                SupportingText(
+                    data.lastActivity.reason.ifBlank {
+                        stringResource(R.string.subject_no_last_activity)
+                    },
                 )
             }
         }
     }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        color = MasaryColors.brandNavy,
+    )
+}
+
+@Composable
+private fun SupportingText(text: String) {
+    Text(
+        text = text.ifBlank { stringResource(R.string.subject_unavailable) },
+        color = MasaryColors.muted,
+    )
 }
 
 @Composable
@@ -473,15 +590,27 @@ private fun SubjectBanner(message: String) {
         color = MasaryColors.iceSurface,
         border = BorderStroke(1.dp, MasaryColors.border),
     ) {
-        Text(message, modifier = Modifier.padding(12.dp), color = MasaryColors.brandNavy)
+        Text(
+            text = message,
+            modifier = Modifier.padding(12.dp),
+            color = MasaryColors.brandNavy,
+        )
     }
 }
 
 @Composable
 private fun SubjectLoading(onBack: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopStart).padding(12.dp)) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.subject_back))
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = stringResource(R.string.subject_back),
+            )
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             MasaryBrandMark(size = 72.dp)
@@ -500,18 +629,34 @@ private fun SubjectMessage(
     onBack: () -> Unit,
     onRetry: (() -> Unit)?,
 ) {
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
         Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 MasaryBrandMark(size = 64.dp)
-                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(message, color = MasaryColors.muted, textAlign = TextAlign.Center)
-                onRetry?.let {
-                    Button(onClick = it, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = message,
+                    color = MasaryColors.muted,
+                    textAlign = TextAlign.Center,
+                )
+                onRetry?.let { retry ->
+                    Button(onClick = retry, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.subject_retry))
                     }
                 }
@@ -521,4 +666,18 @@ private fun SubjectMessage(
             }
         }
     }
+}
+
+private fun formatSnapshotTime(epochMillis: Long): String =
+    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochMillis))
+
+private fun localizedActivityMode(mode: String): String = when (mode.trim().lowercase()) {
+    "learn", "learning" -> "تعلّم"
+    "review" -> "مراجعة"
+    "fill" -> "إكمال"
+    "connect", "match" -> "توصيل"
+    "choose", "mcq" -> "اختيار"
+    "truefalse", "true_false" -> "صح أو خطأ"
+    "speed" -> "سرعة"
+    else -> mode.trim()
 }
