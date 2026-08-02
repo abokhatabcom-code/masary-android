@@ -10,6 +10,7 @@ EXTENSION_PATHS = [
     ROOT / "api-contract/openapi-phase08.json",
     ROOT / "api-contract/openapi-phase09.json",
     ROOT / "api-contract/openapi-phase10.json",
+    ROOT / "api-contract/openapi-phase11.json",
 ]
 
 BASE_TEXT = BASE_PATH.read_text(encoding="utf-8")
@@ -64,6 +65,7 @@ EXPECTED = {
     "/api/v1/student/home": (("get",), "server-hostinger/public_html/api/v1/student/home.php"),
     "/api/v1/student/subjects": (("get",), "server-hostinger/public_html/api/v1/student/subjects.php"),
     "/api/v1/student/subject": (("get",), "server-hostinger/public_html/api/v1/student/subject.php"),
+    "/api/v1/student/subject/training-center": (("get",), "server-hostinger/public_html/api/v1/student/subject/training-center.php"),
     "/api/v1/student/push-token": (("put", "delete"), "server-hostinger/public_html/api/v1/student/push-token.php"),
     "/api/v1/student/activity/preview": (("post",), "server-hostinger/public_html/api/v1/student/activity/preview.php"),
     "/api/v1/student/activity/start": (("post",), "server-hostinger/public_html/api/v1/student/activity/start.php"),
@@ -93,6 +95,7 @@ FIXTURE_SCHEMAS = {
     "home-success.json": "HomeResponse",
     "subjects-success.json": "StudentSubjectsResponse",
     "subject-success.json": "StudentSubjectDetailResponse",
+    "training-center-success.json": "StudentTrainingCenterResponse",
     "push-token-success.json": "PushTokenResponse",
     "activity-preview-success.json": "ActivityPreparationPreviewResponse",
     "activity-start-success.json": "ActivityStartResponse",
@@ -177,6 +180,17 @@ def require_idempotency_header(route: str, method: str) -> None:
     require(matching[0].get("required") is True, f"{method.upper()} {route} must require Idempotency-Key")
 
 
+def require_positive_subject_query(route: str) -> None:
+    parameters = CONTRACT["paths"][route]["get"].get("parameters", [])
+    subject_ids = [
+        parameter
+        for parameter in parameters
+        if parameter.get("in") == "query" and parameter.get("name") == "subject_version_id"
+    ]
+    require(len(subject_ids) == 1 and subject_ids[0].get("required") is True, f"{route} must require subject_version_id")
+    require(subject_ids[0].get("schema", {}).get("minimum") == 1, f"{route} subject_version_id must be positive")
+
+
 require(BASE_CONTRACT.get("openapi") == "3.1.0", "base OpenAPI version must be 3.1.0")
 require(set(CONTRACT.get("paths", {})) == set(EXPECTED), "endpoint set differs from the supported v1 API")
 
@@ -192,10 +206,8 @@ for route, (methods, php_file) in EXPECTED.items():
                 f"{method.upper()} {route} must require bearer auth",
             )
 
-subject_parameters = CONTRACT["paths"]["/api/v1/student/subject"]["get"].get("parameters", [])
-subject_ids = [p for p in subject_parameters if p.get("in") == "query" and p.get("name") == "subject_version_id"]
-require(len(subject_ids) == 1 and subject_ids[0].get("required") is True, "subject detail must require subject_version_id")
-require(subject_ids[0].get("schema", {}).get("minimum") == 1, "subject_version_id must be positive")
+require_positive_subject_query("/api/v1/student/subject")
+require_positive_subject_query("/api/v1/student/subject/training-center")
 
 require_idempotency_header("/api/v1/student/activity/start", "post")
 require_idempotency_header("/api/v1/student/activity/start-status", "get")
@@ -231,5 +243,5 @@ for fixture in response_fixtures:
 
 print(
     f"Validated {len(EXPECTED)} endpoints, {len(REQUEST_FIXTURES)} request fixtures, "
-    f"and {len(response_fixtures)} response fixtures across base and phase 08-10 contracts.",
+    f"and {len(response_fixtures)} response fixtures across base and phase 08-11 contracts.",
 )
