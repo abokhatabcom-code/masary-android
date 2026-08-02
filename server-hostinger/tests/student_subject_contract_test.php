@@ -55,6 +55,12 @@ if (str_contains($payloadSource, "'percent' => 0") || str_contains($payloadSourc
 if (substr_count($payloadSource, 'FROM student_last_activity') !== 1) {
     throw new RuntimeException('Subject detail must load last activity once.');
 }
+if (!str_contains($payloadSource, "' ORDER BY updated_at DESC'")) {
+    throw new RuntimeException('Subject detail must select the latest activity when updated_at is available.');
+}
+if (!str_contains($payloadSource, "' ORDER BY id DESC'")) {
+    throw new RuntimeException('Subject detail must use a deterministic id fallback for legacy activity tables.');
+}
 if (
     str_contains($payloadSource, 'INSERT INTO')
     || str_contains($payloadSource, 'UPDATE ')
