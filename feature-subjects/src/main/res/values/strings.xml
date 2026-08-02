@@ -1,0 +1,22 @@
+<resources>
+    <string name="subjects_title">المواد الدراسية</string>
+    <string name="subjects_subtitle">موادك المرتبطة بمنهجك الدراسي</string>
+    <string name="subjects_loading">نجهّز موادك…</string>
+    <string name="subjects_load_error">تعذر تحميل المواد</string>
+    <string name="subjects_retry">إعادة المحاولة</string>
+    <string name="subjects_empty_title">لا توجد مواد مرتبطة بحسابك</string>
+    <string name="subjects_empty_body">%1$s</string>
+    <string name="subjects_cached">تعرض آخر نسخة مؤكدة محفوظة على الجهاز.</string>
+    <string name="subjects_incomplete">القائمة وصلت إلى حد الحماية؛ قد لا تكون جميع المواد ظاهرة.</string>
+    <string name="subjects_hearts">%1$d قلوب</string>
+    <string name="subjects_progress">التقدم %1$d%%</string>
+    <string name="subjects_progress_unavailable">التقدم غير متاح حاليًا</string>
+    <string name="subjects_last_activity">آخر نشاط محفوظ</string>
+    <string name="subjects_access_available">متاحة</string>
+    <string name="subjects_access_free">مجانية</string>
+    <string name="subjects_access_subscription">تحتاج اشتراكًا</string>
+    <string name="subjects_access_blocked">محجوبة</string>
+    <string name="subjects_access_unknown">تفاصيل الوصول غير متاحة</string>
+    <string name="subjects_open">فتح المادة</string>
+    <string name="subjects_academic_unavailable">السياق الأكاديمي النصي غير متاح، والقائمة ما تزال مبنية من ربط الخادم.</string>
+</resources>

@@ -21,10 +21,12 @@ import app.masary.feature.activitypreparation.ActivityPreparationRepositoryFacto
 import app.masary.feature.auth.data.AuthRepositoryFactory
 import app.masary.feature.home.data.HomeRepositoryFactory
 import app.masary.feature.notifications.*
+import app.masary.feature.subjects.data.SubjectsRepositoryFactory
 
 private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "student_session")
 private val ComponentActivity.onboardingDataStore by preferencesDataStore(name = "student_onboarding")
 private val ComponentActivity.homeSnapshotDataStore by preferencesDataStore(name = "student_home_snapshot")
+private val ComponentActivity.subjectsSnapshotDataStore by preferencesDataStore(name = "student_subjects_snapshot")
 private val ComponentActivity.activityPreparationDataStore by preferencesDataStore(name = "student_activity_preparation")
 
 class MainActivity : ComponentActivity() {
@@ -88,6 +90,11 @@ class MainActivity : ComponentActivity() {
             BuildConfig.MASARY_API_BASE_URL,
             homeSnapshotDataStore,
         )
+        val subjectsRepository = SubjectsRepositoryFactory.create(
+            sessionManager,
+            BuildConfig.MASARY_API_BASE_URL,
+            subjectsSnapshotDataStore,
+        )
         val activityPreparation = ActivityPreparationRepositoryFactory.create(
             sessionManager,
             BuildConfig.MASARY_API_BASE_URL,
@@ -102,6 +109,7 @@ class MainActivity : ComponentActivity() {
                     authRepository = authRepository,
                     registrationRepository = registrationRepository,
                     homeRepository = homeRepository,
+                    subjectsRepository = subjectsRepository,
                     activityPreparationRepository = activityPreparation.repository,
                     activityPreparationPendingStore = activityPreparation.pendingStore,
                     deviceName = Build.MODEL.ifBlank { "Android" },

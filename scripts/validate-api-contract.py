@@ -5,36 +5,54 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_TEXT = (ROOT / "api-contract/openapi.json").read_text(encoding="utf-8")
-EXTENSION_TEXT = (ROOT / "api-contract/openapi-phase08.json").read_text(encoding="utf-8")
+BASE_PATH = ROOT / "api-contract/openapi.json"
+EXTENSION_PATHS = [
+    ROOT / "api-contract/openapi-phase08.json",
+    ROOT / "api-contract/openapi-phase09.json",
+]
+
+BASE_TEXT = BASE_PATH.read_text(encoding="utf-8")
 BASE_CONTRACT = json.loads(BASE_TEXT)
-EXTENSION = json.loads(EXTENSION_TEXT)
 CONTRACT = copy.deepcopy(BASE_CONTRACT)
+CONTRACT_PARTS = [BASE_TEXT]
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(f"Contract validation failed: {message}")
 
 
 def merge_unique(target: dict, additions: dict, location: str) -> None:
     duplicates = set(target) & set(additions)
-    if duplicates:
-        raise SystemExit(
-            f"Contract validation failed: duplicate definitions in {location}: {sorted(duplicates)}",
-        )
+    require(not duplicates, f"duplicate definitions in {location}: {sorted(duplicates)}")
     target.update(copy.deepcopy(additions))
 
 
-merge_unique(CONTRACT.setdefault("paths", {}), EXTENSION.get("paths", {}), "paths")
-components = CONTRACT.setdefault("components", {})
-extension_components = EXTENSION.get("components", {})
-merge_unique(
-    components.setdefault("responses", {}),
-    extension_components.get("responses", {}),
-    "components.responses",
-)
-merge_unique(
-    components.setdefault("schemas", {}),
-    extension_components.get("schemas", {}),
-    "components.schemas",
-)
-CONTRACT_TEXT = BASE_TEXT + "\n" + EXTENSION_TEXT
+for extension_path in EXTENSION_PATHS:
+    require(extension_path.is_file(), f"contract extension is missing: {extension_path.name}")
+    text = extension_path.read_text(encoding="utf-8")
+    extension = json.loads(text)
+    require(extension.get("openapi") == "3.1.0", f"{extension_path.name} must use OpenAPI 3.1.0")
+    merge_unique(
+        CONTRACT.setdefault("paths", {}),
+        extension.get("paths", {}),
+        f"{extension_path.name}.paths",
+    )
+    components = CONTRACT.setdefault("components", {})
+    extension_components = extension.get("components", {})
+    merge_unique(
+        components.setdefault("responses", {}),
+        extension_components.get("responses", {}),
+        f"{extension_path.name}.components.responses",
+    )
+    merge_unique(
+        components.setdefault("schemas", {}),
+        extension_components.get("schemas", {}),
+        f"{extension_path.name}.components.schemas",
+    )
+    CONTRACT_PARTS.append(text)
+
+CONTRACT_TEXT = "\n".join(CONTRACT_PARTS)
 
 EXPECTED = {
     "/api/v1/health": (("get",), "server-hostinger/public_html/api/v1/health.php"),
@@ -47,6 +65,7 @@ EXPECTED = {
     "/api/v1/auth/logout": (("post",), "server-hostinger/public_html/api/v1/auth/logout.php"),
     "/api/v1/me": (("get",), "server-hostinger/public_html/api/v1/me.php"),
     "/api/v1/student/home": (("get",), "server-hostinger/public_html/api/v1/student/home.php"),
+    "/api/v1/student/subjects": (("get",), "server-hostinger/public_html/api/v1/student/subjects.php"),
     "/api/v1/student/push-token": (("put", "delete"), "server-hostinger/public_html/api/v1/student/push-token.php"),
     "/api/v1/student/activity/preview": (("post",), "server-hostinger/public_html/api/v1/student/activity/preview.php"),
     "/api/v1/student/activity/start": (("post",), "server-hostinger/public_html/api/v1/student/activity/start.php"),
@@ -74,6 +93,7 @@ FIXTURE_SCHEMAS = {
     "logout-success.json": "LogoutResponse",
     "me-success.json": "MeResponse",
     "home-success.json": "HomeResponse",
+    "subjects-success.json": "StudentSubjectsResponse",
     "push-token-success.json": "PushTokenResponse",
     "activity-preview-success.json": "ActivityPreparationPreviewResponse",
     "activity-start-success.json": "ActivityStartResponse",
@@ -86,16 +106,12 @@ REQUEST_FIXTURES = {
 }
 
 
-def require(condition: bool, message: str) -> None:
-    if not condition:
-        raise SystemExit(f"Contract validation failed: {message}")
-
-
 def validate_schema(value: object, schema: dict, location: str) -> None:
     if "$ref" in schema:
         prefix = "#/components/schemas/"
-        require(schema["$ref"].startswith(prefix), f"unsupported reference at {location}")
-        name = schema["$ref"][len(prefix):]
+        reference = schema["$ref"]
+        require(reference.startswith(prefix), f"unsupported reference at {location}")
+        name = reference[len(prefix):]
         require(name in CONTRACT["components"]["schemas"], f"unknown schema {name} at {location}")
         validate_schema(value, CONTRACT["components"]["schemas"][name], location)
         return
@@ -163,7 +179,6 @@ def require_idempotency_header(route: str, method: str) -> None:
 
 
 require(BASE_CONTRACT.get("openapi") == "3.1.0", "base OpenAPI version must be 3.1.0")
-require(EXTENSION.get("openapi") == "3.1.0", "extension OpenAPI version must be 3.1.0")
 require(set(CONTRACT.get("paths", {})) == set(EXPECTED), "endpoint set differs from the supported v1 API")
 
 for route, (methods, php_file) in EXPECTED.items():
@@ -244,5 +259,5 @@ for fixture in response_fixtures:
 
 print(
     f"Validated {len(EXPECTED)} endpoints, {len(REQUEST_FIXTURES)} request fixtures, "
-    f"and {len(response_fixtures)} response fixtures across base and phase 08 contracts.",
+    f"and {len(response_fixtures)} response fixtures across base, phase 08, and phase 09 contracts.",
 )

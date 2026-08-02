@@ -26,6 +26,7 @@ include(
     ":core-datastore",
     ":feature-auth",
     ":feature-home",
+    ":feature-subjects",
     ":feature-activity-preparation",
     ":feature-notifications",
 )

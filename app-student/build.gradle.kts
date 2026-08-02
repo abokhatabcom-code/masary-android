@@ -132,6 +132,7 @@ dependencies {
     implementation(project(":core-ui"))
     implementation(project(":feature-auth"))
     implementation(project(":feature-home"))
+    implementation(project(":feature-subjects"))
     implementation(project(":feature-activity-preparation"))
     implementation(project(":feature-notifications"))
     implementation(project(":core-datastore"))
@@ -156,6 +157,7 @@ tasks.matching { it.name == "testDebugUnitTest" }.configureEach {
     dependsOn(
         ":feature-auth:testDebugUnitTest",
         ":feature-home:testDebugUnitTest",
+        ":feature-subjects:testDebugUnitTest",
         ":feature-activity-preparation:testDebugUnitTest",
         ":core-network:testDebugUnitTest",
         ":core-datastore:testDebugUnitTest",
