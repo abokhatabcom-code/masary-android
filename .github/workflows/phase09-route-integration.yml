@@ -1,0 +1,103 @@
+name: Phase 09 Subjects Route Integration
+
+on:
+  push:
+    branches:
+      - phase-09-subjects-implementation
+    paths:
+      - .github/workflows/phase09-route-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-subjects-route:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase-09-subjects-implementation
+          fetch-depth: 0
+
+      - name: Connect the real subjects destination
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          route_path = Path('feature-home/src/main/java/app/masary/feature/home/ui/StudentHomePreparationRoute.kt')
+          text = route_path.read_text(encoding='utf-8')
+
+          notification_import = 'import app.masary.feature.notifications.NotificationPermissionState\n'
+          subjects_imports = (
+              'import app.masary.feature.notifications.NotificationPermissionState\n'
+              'import app.masary.feature.subjects.domain.SubjectsRepository\n'
+              'import app.masary.feature.subjects.ui.StudentSubjectsRoute\n'
+          )
+          if 'import app.masary.feature.subjects.ui.StudentSubjectsRoute' not in text:
+              if notification_import not in text:
+                  raise SystemExit('Notification import anchor is missing')
+              text = text.replace(notification_import, subjects_imports, 1)
+
+          repository_parameter = (
+              '    repository: app.masary.feature.home.domain.HomeRepository,\n'
+              '    activityPreparationRepository: ActivityPreparationRepository,\n'
+          )
+          repository_with_subjects = (
+              '    repository: app.masary.feature.home.domain.HomeRepository,\n'
+              '    subjectsRepository: SubjectsRepository,\n'
+              '    activityPreparationRepository: ActivityPreparationRepository,\n'
+          )
+          if '    subjectsRepository: SubjectsRepository,\n' not in text:
+              if repository_parameter not in text:
+                  raise SystemExit('Repository parameter anchor is missing')
+              text = text.replace(repository_parameter, repository_with_subjects, 1)
+
+          temporary_subjects = '''                composable<StudentDestination.Subjects> {
+                    PreparationDataDestination(data) { snapshot ->
+                        SubjectList(snapshot.subjects) {
+                            navigate(StudentDestination.SubjectDetails(it))
+                        }
+                    }
+                }
+'''
+          real_subjects = '''                composable<StudentDestination.Subjects> {
+                    StudentSubjectsRoute(
+                        repository = subjectsRepository,
+                        onSubject = { subjectVersionId ->
+                            if (subjectVersionId > 0) {
+                                navigate(StudentDestination.SubjectDetails(subjectVersionId))
+                            }
+                        },
+                        onSessionExpired = onLogout,
+                    )
+                }
+'''
+          if 'repository = subjectsRepository' not in text:
+              if temporary_subjects not in text:
+                  raise SystemExit('Temporary subjects destination anchor is missing')
+              text = text.replace(temporary_subjects, real_subjects, 1)
+
+          route_path.write_text(text, encoding='utf-8')
+
+          bridge = Path('feature-home/src/main/java/app/masary/feature/home/ui/StudentHomeSubjectsBridge.kt')
+          if bridge.exists():
+              bridge.unlink()
+
+          workflow = Path('.github/workflows/phase09-route-integration.yml')
+          workflow.unlink()
+          PY
+
+      - name: Commit integrated destination
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add feature-home/src/main/java/app/masary/feature/home/ui/StudentHomePreparationRoute.kt
+          git add -u feature-home/src/main/java/app/masary/feature/home/ui/StudentHomeSubjectsBridge.kt
+          git add -u .github/workflows/phase09-route-integration.yml
+          git diff --cached --check
+          git commit -m "subjects: connect real subjects destination"
+          git push origin HEAD:phase-09-subjects-implementation
