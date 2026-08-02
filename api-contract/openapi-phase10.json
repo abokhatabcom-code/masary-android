@@ -157,7 +157,7 @@
           "reason": { "type": "string" }
         }
       },
-      "SubjectLastActivity": {
+      "SubjectDetailLastActivity": {
         "type": "object",
         "additionalProperties": false,
         "required": ["available", "unit_id", "mode", "updated_at", "preparation", "reason"],
@@ -207,7 +207,7 @@
           "hearts": { "$ref": "#/components/schemas/SubjectDetailHearts" },
           "access": { "$ref": "#/components/schemas/SubjectDetailAccess" },
           "content": { "$ref": "#/components/schemas/SubjectDetailContent" },
-          "last_activity": { "$ref": "#/components/schemas/SubjectLastActivity" },
+          "last_activity": { "$ref": "#/components/schemas/SubjectDetailLastActivity" },
           "actions": { "$ref": "#/components/schemas/SubjectDetailActions" },
           "version": { "type": "string", "minLength": 1 }
         }
