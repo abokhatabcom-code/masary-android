@@ -27,6 +27,7 @@ include(
     ":feature-auth",
     ":feature-home",
     ":feature-subjects",
+    ":feature-subject",
     ":feature-activity-preparation",
     ":feature-notifications",
 )

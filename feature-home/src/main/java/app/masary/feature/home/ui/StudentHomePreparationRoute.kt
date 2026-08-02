@@ -87,6 +87,8 @@ import app.masary.feature.home.domain.HomeSmartGuideStep
 import app.masary.feature.home.domain.HomeSubject
 import app.masary.feature.home.domain.StudentHomeData
 import app.masary.feature.notifications.NotificationPermissionState
+import app.masary.feature.subject.domain.SubjectRepository
+import app.masary.feature.subject.ui.StudentSubjectRoute
 import app.masary.feature.subjects.domain.SubjectsRepository
 import app.masary.feature.subjects.ui.StudentSubjectsRoute
 
@@ -105,6 +107,7 @@ fun StudentHomeRoute(
     session: StudentSession,
     repository: app.masary.feature.home.domain.HomeRepository,
     subjectsRepository: SubjectsRepository,
+    subjectRepository: SubjectRepository,
     activityPreparationRepository: ActivityPreparationRepository,
     activityPreparationPendingStore: ActivityPreparationPendingStore,
     onLogout: () -> Unit,
@@ -252,18 +255,15 @@ fun StudentHomeRoute(
                     ProfileSection(session, data, onLogout)
                 }
                 composable<StudentDestination.SubjectDetails> { entry ->
-                    val destination = entry.toRoute<StudentDestination.SubjectDetails>()
-                    PreparationDataDestination(data) { snapshot ->
-                        val subject = snapshot.subjects.firstOrNull {
-                            it.subjectVersionId == destination.subjectVersionId
-                        }
-                        SimpleSection(
-                            title = subject?.name ?: "المادة الدراسية",
-                            body = "ستُستكمل الوحدات والدروس ومركز التدريب في مراحلها المخصصة. بدء أي نشاط يمر عبر شاشة التجهيز.",
-                            icon = Icons.AutoMirrored.Outlined.MenuBook,
-                        )
-                    }
-                }
+            val destination = entry.toRoute<StudentDestination.SubjectDetails>()
+            StudentSubjectRoute(
+                subjectVersionId = destination.subjectVersionId,
+                repository = subjectRepository,
+                onBack = { navController.popBackStack() },
+                onSessionExpired = onLogout,
+                onTrainingCenter = { /* Phase 11 owns this destination. */ },
+            )
+        }
                 composable<ActivityPreparationDestination> { entry ->
                     ActivityPreparationRoute(
                         destination = entry.toRoute(),

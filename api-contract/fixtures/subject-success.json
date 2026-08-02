@@ -1,0 +1,87 @@
+{
+  "success": true,
+  "data": {
+    "student_id": "42",
+    "subject_version_id": 12,
+    "generated_at": "2026-08-02T21:10:00+00:00",
+    "identity": {
+      "name": "الرياضيات",
+      "curriculum_label": "منهج عدن",
+      "version_type": "gov",
+      "media": {
+        "available": false,
+        "key": null,
+        "reason": "لم يُربط مفتاح وسائط دلالي مؤكد بهذه المادة بعد."
+      }
+    },
+    "points": {
+      "available": true,
+      "value": 120,
+      "reason": ""
+    },
+    "level": {
+      "available": false,
+      "value": null,
+      "reason": "لم تُثبت بعد معادلة مستوى المادة وحدوده في خدمة أندرويد."
+    },
+    "progress": {
+      "available": false,
+      "percent": null,
+      "reason": "تقدم محتوى المادة التفصيلي سيُربط بمصدره المعتمد في مرحلة الوحدات والدروس."
+    },
+    "hearts": {
+      "current": 2,
+      "maximum": 3,
+      "next_restore": {
+        "available": false,
+        "at": null,
+        "reason": "وقت الاستعادة التاريخي لا يثبت عدًا تنازليًا دقيقًا لقاعدة الثماني ساعات."
+      }
+    },
+    "access": {
+      "available": false,
+      "status": "unknown",
+      "reason": "ارتباط المادة بالسياق مؤكد، أما سياسة الاشتراك التفصيلية فليست مربوطة بهذه الخدمة بعد."
+    },
+    "content": {
+      "structure_mode": "units",
+      "has_parts": true,
+      "parts": [
+        {
+          "part_number": 1,
+          "label": "الجزء 1",
+          "units_count": 6,
+          "lessons_count": 24
+        },
+        {
+          "part_number": 2,
+          "label": "الجزء 2",
+          "units_count": 5,
+          "lessons_count": 20
+        }
+      ],
+      "details_available": false,
+      "reason": "بطاقات الوحدات والدروس وحالات الفتح ستُنفذ داخل هذه الصفحة في المرحلة الثانية عشرة."
+    },
+    "last_activity": {
+      "available": true,
+      "unit_id": 4,
+      "mode": "learn",
+      "updated_at": "2026-08-01 17:45:00",
+      "preparation": {
+        "available": false,
+        "reason": "السجل الحالي لا يحتوي نوع نشاط ومصدرًا كافيين لبناء شاشة التهيئة بأمان."
+      },
+      "reason": ""
+    },
+    "actions": {
+      "training_center": {
+        "available": false,
+        "reason": "مركز تدريب المادة سيُفعّل في المرحلة الحادية عشرة."
+      }
+    },
+    "version": "subject-detail-contract-v1"
+  },
+  "error": null,
+  "request_id": "contract-subject-detail-001"
+}
