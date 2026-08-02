@@ -52,6 +52,28 @@ class ActivityPreparationFeatureTest {
     }
 
     @Test
+    fun `typed subject training activities are accepted by preparation contract`() {
+        listOf(
+            Triple("choose_test", "practice", "subject"),
+            Triple("true_false_test", "practice", "subject"),
+            Triple("connect_test", "practice", "subject"),
+            Triple("fill_test", "practice", "subject"),
+            Triple("speed_test", "speed", "subject"),
+            Triple("smart_review", "review", "review"),
+        ).forEach { (type, mode, source) ->
+            val request = ActivityPreparationRequest(
+                subjectVersionId = 12,
+                activityType = type,
+                activityMode = mode,
+                source = source,
+            )
+            assertEquals(type, request.activityType)
+            assertEquals(mode, request.activityMode)
+            assertEquals(source, request.source)
+        }
+    }
+
+    @Test
     fun `double start creates only one server request with the original key`() = runTest {
         val repository = FakeRepository()
         val pendingStore = MemoryPendingStore()
@@ -71,6 +93,40 @@ class ActivityPreparationFeatureTest {
         assertEquals(1, repository.startKeys.size)
         assertEquals(TEST_KEY, repository.startKeys.single())
         assertTrue(viewModel.state.value is ActivityPreparationUiState.Started)
+    }
+
+    @Test
+    fun `unavailable preview cannot create a start request`() = runTest {
+        val repository = FakeRepository(
+            previewResult = Result.success(
+                preview().copy(
+                    eligibility = ActivityEligibility(
+                        available = false,
+                        status = "unavailable",
+                        reason = "لا توجد أسئلة مؤكدة لهذا النوع في المادة الآن.",
+                        reasonCode = "training_empty",
+                    ),
+                ),
+            ),
+        )
+        val viewModel = ActivityPreparationViewModel(
+            repository = repository,
+            pendingStore = MemoryPendingStore(),
+            request = ActivityPreparationRequest(
+                subjectVersionId = 12,
+                activityType = "choose_test",
+                activityMode = "practice",
+                source = "subject",
+            ),
+        )
+
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value is ActivityPreparationUiState.Unavailable)
+        viewModel.start()
+        advanceUntilIdle()
+
+        assertTrue(repository.startKeys.isEmpty())
+        assertTrue(viewModel.state.value is ActivityPreparationUiState.Unavailable)
     }
 
     @Test
