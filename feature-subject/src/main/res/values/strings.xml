@@ -6,6 +6,7 @@
     <string name="subject_not_found">المادة غير متاحة</string>
     <string name="subject_retry">إعادة المحاولة</string>
     <string name="subject_cached">تُعرض آخر نسخة مؤكدة، ويجري تحديثها.</string>
+    <string name="subject_cached_at">تُعرض آخر نسخة مؤكدة المحفوظة في %1$s، ويجري تحديثها.</string>
     <string name="subject_points">نقاط المادة</string>
     <string name="subject_level">مستوى المادة</string>
     <string name="subject_progress">التقدم</string>
