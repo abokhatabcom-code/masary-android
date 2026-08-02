@@ -27,7 +27,7 @@ foreach ([
     'api_authenticate_access_token',
     "api_rate_limit('student_subject'",
     'api_student_subject_payload($pdo, $session, $subjectVersionId)',
-    "$_GET['subject_version_id']",
+    "\$_GET['subject_version_id']",
 ] as $required) {
     if (!str_contains($endpointSource, $required)) {
         throw new RuntimeException("Subject detail endpoint is missing: {$required}");
@@ -35,7 +35,10 @@ foreach ([
 }
 
 foreach (['user_id', 'student_id', 'grade_id', 'curriculum_id', 'city_id'] as $forbiddenKey) {
-    if (str_contains($endpointSource, "$_GET['{$forbiddenKey}']") || str_contains($endpointSource, "$_POST['{$forbiddenKey}']")) {
+    if (
+        str_contains($endpointSource, "\$_GET['{$forbiddenKey}']")
+        || str_contains($endpointSource, "\$_POST['{$forbiddenKey}']")
+    ) {
         throw new RuntimeException("Subject detail endpoint must not trust external scope: {$forbiddenKey}");
     }
 }
@@ -52,7 +55,11 @@ if (str_contains($payloadSource, "'percent' => 0") || str_contains($payloadSourc
 if (substr_count($payloadSource, 'FROM student_last_activity') !== 1) {
     throw new RuntimeException('Subject detail must load last activity once.');
 }
-if (str_contains($payloadSource, 'INSERT INTO') || str_contains($payloadSource, 'UPDATE ') || str_contains($payloadSource, 'DELETE FROM')) {
+if (
+    str_contains($payloadSource, 'INSERT INTO')
+    || str_contains($payloadSource, 'UPDATE ')
+    || str_contains($payloadSource, 'DELETE FROM')
+) {
     throw new RuntimeException('Opening the subject page must remain read-only.');
 }
 
