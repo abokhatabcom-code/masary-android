@@ -2,9 +2,10 @@
 name: Phase 10 Route Integration
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches:
-      - phase-10-subject-page-implementation
+      - official/phase-10-subject-page
     paths:
       - .github/workflows/phase10-route-integration.yml
 
@@ -13,6 +14,7 @@ permissions:
 
 jobs:
   integrate:
+    if: github.head_ref == 'phase-10-subject-page-implementation'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
