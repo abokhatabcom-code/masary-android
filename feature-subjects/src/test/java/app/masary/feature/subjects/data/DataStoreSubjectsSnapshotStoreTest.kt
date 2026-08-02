@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DataStoreSubjectsSnapshotStoreTest {
@@ -48,9 +48,13 @@ class DataStoreSubjectsSnapshotStoreTest {
     @Test
     fun `owner mismatch cannot be written`() = runTest {
         val store = DataStoreSubjectsSnapshotStore(MemorySubjectsPreferencesDataStore())
-        assertThrows(IllegalArgumentException::class.java) {
-            runTest { store.write("7", subjects("42")) }
+        var rejected = false
+        try {
+            store.write("7", subjects("42"))
+        } catch (_: IllegalArgumentException) {
+            rejected = true
         }
+        assertTrue(rejected)
     }
 
     private fun subjects(studentId: String) = StudentSubjectsData(
