@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 $payloadSource = file_get_contents(__DIR__ . '/../public_html/api/_student_training_center.php');
 $endpointSource = file_get_contents(__DIR__ . '/../public_html/api/v1/student/subject/training-center.php');
-if ($payloadSource === false || $endpointSource === false) {
+$activitySource = file_get_contents(__DIR__ . '/../public_html/api/_activity_preparation.php');
+if ($payloadSource === false || $endpointSource === false || $activitySource === false) {
     throw new RuntimeException('Unable to read training center sources.');
 }
 
@@ -65,6 +66,41 @@ if (
 }
 if (substr_count($payloadSource, "'key' =>") !== 7) {
     throw new RuntimeException('Training center must keep exactly six public tool definitions.');
+}
+
+foreach ([
+    "require_once __DIR__ . '/_student_training_center.php'",
+    "'choose_test'",
+    "'true_false_test'",
+    "'connect_test'",
+    "'fill_test'",
+    'api_activity_training_tool',
+    'api_training_center_tool_payload',
+    "'training_source_unavailable'",
+    "'training_empty'",
+    "'question_count' => \$confirmedCount",
+    "\$preview = api_activity_preview(\$pdo, \$session, \$request)",
+    "if (empty(\$preview['eligibility']['available']))",
+] as $required) {
+    if (!str_contains($activitySource, $required)) {
+        throw new RuntimeException("Activity preparation is missing training protection: {$required}");
+    }
+}
+
+foreach ([
+    "(string)(\$definition['activity_mode'] ?? '') === (string)\$request['activity_mode']",
+    "(string)(\$definition['source'] ?? '') === (string)\$request['source']",
+    "\$request['unit_id'] === null",
+    "\$request['lesson_id'] === null",
+    "\$request['guide_step_id'] === null",
+] as $required) {
+    if (!str_contains($activitySource, $required)) {
+        throw new RuntimeException("Activity preparation does not validate the canonical tool contract: {$required}");
+    }
+}
+
+if (str_contains($activitySource, 'SELECT question') || str_contains($activitySource, 'SELECT answer')) {
+    throw new RuntimeException('Preparation must use availability counts without loading question content.');
 }
 
 echo "Student training center contract tests passed.\n";
