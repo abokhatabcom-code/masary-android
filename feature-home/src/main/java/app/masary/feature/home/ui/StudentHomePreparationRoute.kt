@@ -87,6 +87,8 @@ import app.masary.feature.home.domain.HomeSmartGuideStep
 import app.masary.feature.home.domain.HomeSubject
 import app.masary.feature.home.domain.StudentHomeData
 import app.masary.feature.notifications.NotificationPermissionState
+import app.masary.feature.subjects.domain.SubjectsRepository
+import app.masary.feature.subjects.ui.StudentSubjectsRoute
 
 private val StudentDestination.preparationIcon: ImageVector
     get() = when (this) {
@@ -102,6 +104,7 @@ private val StudentDestination.preparationIcon: ImageVector
 fun StudentHomeRoute(
     session: StudentSession,
     repository: app.masary.feature.home.domain.HomeRepository,
+    subjectsRepository: SubjectsRepository,
     activityPreparationRepository: ActivityPreparationRepository,
     activityPreparationPendingStore: ActivityPreparationPendingStore,
     onLogout: () -> Unit,
@@ -225,11 +228,15 @@ fun StudentHomeRoute(
                     }
                 }
                 composable<StudentDestination.Subjects> {
-                    PreparationDataDestination(data) { snapshot ->
-                        SubjectList(snapshot.subjects) {
-                            navigate(StudentDestination.SubjectDetails(it))
-                        }
-                    }
+                    StudentSubjectsRoute(
+                        repository = subjectsRepository,
+                        onSubject = { subjectVersionId ->
+                            if (subjectVersionId > 0) {
+                                navigate(StudentDestination.SubjectDetails(subjectVersionId))
+                            }
+                        },
+                        onSessionExpired = onLogout,
+                    )
                 }
                 composable<StudentDestination.Ranking> {
                     PreparationDataDestination(data) { snapshot ->
