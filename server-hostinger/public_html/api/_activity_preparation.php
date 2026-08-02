@@ -1,17 +1,32 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/_student_training_center.php';
+
 const API_ACTIVITY_TYPES = [
     'guide_step',
     'unit_test',
     'lesson_practice',
+    'choose_test',
+    'true_false_test',
+    'connect_test',
+    'fill_test',
     'review',
     'smart_review',
     'speed_test',
 ];
 const API_ACTIVITY_MODES = ['learn', 'practice', 'review', 'test', 'speed'];
 const API_ACTIVITY_SOURCES = ['home_guide', 'guide', 'subject', 'unit', 'lesson', 'review'];
-const API_ACTIVITY_HEART_REQUIRED_TYPES = ['unit_test', 'review', 'smart_review', 'speed_test'];
+const API_ACTIVITY_HEART_REQUIRED_TYPES = [
+    'unit_test',
+    'choose_test',
+    'true_false_test',
+    'connect_test',
+    'fill_test',
+    'review',
+    'smart_review',
+    'speed_test',
+];
 
 final class ApiActivityRejected extends RuntimeException
 {
@@ -251,6 +266,36 @@ function api_activity_validate_guide(PDO $pdo, int $studentId, array $request): 
     api_error('invalid_guide_step', 'خطوة الموجّه لم تعد صالحة للبدء.', 409);
 }
 
+function api_activity_training_tool(
+    PDO $pdo,
+    int $studentId,
+    array $request,
+): ?array {
+    if (!in_array($request['source'], ['subject', 'review'], true)) {
+        return null;
+    }
+    foreach (API_TRAINING_CENTER_TOOL_DEFINITIONS as $definition) {
+        if ((string)($definition['activity_type'] ?? '') !== (string)$request['activity_type']) {
+            continue;
+        }
+        $validContract = (string)($definition['activity_mode'] ?? '') === (string)$request['activity_mode']
+            && (string)($definition['source'] ?? '') === (string)$request['source']
+            && $request['unit_id'] === null
+            && $request['lesson_id'] === null
+            && $request['guide_step_id'] === null;
+        if (!$validContract) {
+            api_error('invalid_training_tool', 'عقد أداة التدريب غير صالح.', 422);
+        }
+        return api_training_center_tool_payload(
+            $pdo,
+            $studentId,
+            (int)$request['subject_version_id'],
+            $definition,
+        );
+    }
+    return null;
+}
+
 function api_activity_balances(PDO $pdo, int $studentId, array $subject): array
 {
     $gems = 0;
@@ -312,6 +357,10 @@ function api_activity_title(string $type): string
     return match ($type) {
         'unit_test' => 'اختبار الوحدة',
         'lesson_practice' => 'تدريب الدرس',
+        'choose_test' => 'الاختيار من متعدد',
+        'true_false_test' => 'صح أو خطأ',
+        'connect_test' => 'التوصيل',
+        'fill_test' => 'الإكمال',
         'review' => 'مراجعة الأخطاء',
         'smart_review' => 'مراجعة ذكية',
         'speed_test' => 'اختبار السرعة',
@@ -343,19 +392,37 @@ function api_activity_preview(PDO $pdo, array $session, array $payload): array
     $unit = api_activity_unit($pdo, (int)$request['subject_version_id'], $request['unit_id']);
     $lesson = api_activity_lesson($pdo, $request['unit_id'], $request['lesson_id']);
     api_activity_validate_guide($pdo, $studentId, $request);
+    $trainingTool = api_activity_training_tool($pdo, $studentId, $request);
 
     $balances = api_activity_balances($pdo, $studentId, $subject);
     $requiredHearts = in_array($request['activity_type'], API_ACTIVITY_HEART_REQUIRED_TYPES, true) ? 1 : 0;
-    $available = $requiredHearts === 0 || $balances['hearts'] >= $requiredHearts;
-    $reasonCode = $available ? '' : 'insufficient_hearts';
-    $reason = $available ? '' : 'لا توجد قلوب كافية لبدء هذا النشاط.';
+    $toolAvailable = $trainingTool === null || !empty($trainingTool['available']);
+    $heartsAvailable = $requiredHearts === 0 || $balances['hearts'] >= $requiredHearts;
+    $available = $toolAvailable && $heartsAvailable;
+    if (!$toolAvailable) {
+        $reasonCode = (string)($trainingTool['status'] ?? '') === 'source_unavailable'
+            ? 'training_source_unavailable'
+            : 'training_empty';
+        $reason = trim((string)($trainingTool['reason'] ?? ''));
+        if ($reason === '') {
+            $reason = 'أداة التدريب غير متاحة الآن.';
+        }
+    } elseif (!$heartsAvailable) {
+        $reasonCode = 'insufficient_hearts';
+        $reason = 'لا توجد قلوب كافية لبدء هذا النشاط.';
+    } else {
+        $reasonCode = '';
+        $reason = '';
+    }
     $requestHash = api_activity_request_hash($request);
     $active = api_activity_find_active($pdo, $studentId, $requestHash);
+    $confirmedCount = $trainingTool === null ? null : ($trainingTool['item_count'] ?? null);
 
     return [
         'version' => hash(
             'sha256',
-            $studentId . '|' . $requestHash . '|' . $balances['hearts'] . '|' . $balances['gems'],
+            $studentId . '|' . $requestHash . '|' . $balances['hearts'] . '|' . $balances['gems']
+                . '|' . ($confirmedCount ?? -1),
         ),
         'generated_at' => gmdate(DATE_ATOM),
         'activity' => array_merge($subject, $unit, $lesson, [
@@ -363,7 +430,7 @@ function api_activity_preview(PDO $pdo, array $session, array $payload): array
             'activity_mode' => $request['activity_mode'],
             'title' => api_activity_title($request['activity_type']),
             'estimated_minutes' => null,
-            'question_count' => null,
+            'question_count' => $confirmedCount,
         ]),
         'eligibility' => [
             'available' => $available,
