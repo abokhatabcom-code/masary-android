@@ -9,6 +9,7 @@ BASE_PATH = ROOT / "api-contract/openapi.json"
 EXTENSION_PATHS = [
     ROOT / "api-contract/openapi-phase08.json",
     ROOT / "api-contract/openapi-phase09.json",
+    ROOT / "api-contract/openapi-phase10.json",
 ]
 
 BASE_TEXT = BASE_PATH.read_text(encoding="utf-8")
@@ -33,11 +34,7 @@ for extension_path in EXTENSION_PATHS:
     text = extension_path.read_text(encoding="utf-8")
     extension = json.loads(text)
     require(extension.get("openapi") == "3.1.0", f"{extension_path.name} must use OpenAPI 3.1.0")
-    merge_unique(
-        CONTRACT.setdefault("paths", {}),
-        extension.get("paths", {}),
-        f"{extension_path.name}.paths",
-    )
+    merge_unique(CONTRACT.setdefault("paths", {}), extension.get("paths", {}), f"{extension_path.name}.paths")
     components = CONTRACT.setdefault("components", {})
     extension_components = extension.get("components", {})
     merge_unique(
@@ -66,6 +63,7 @@ EXPECTED = {
     "/api/v1/me": (("get",), "server-hostinger/public_html/api/v1/me.php"),
     "/api/v1/student/home": (("get",), "server-hostinger/public_html/api/v1/student/home.php"),
     "/api/v1/student/subjects": (("get",), "server-hostinger/public_html/api/v1/student/subjects.php"),
+    "/api/v1/student/subject": (("get",), "server-hostinger/public_html/api/v1/student/subject.php"),
     "/api/v1/student/push-token": (("put", "delete"), "server-hostinger/public_html/api/v1/student/push-token.php"),
     "/api/v1/student/activity/preview": (("post",), "server-hostinger/public_html/api/v1/student/activity/preview.php"),
     "/api/v1/student/activity/start": (("post",), "server-hostinger/public_html/api/v1/student/activity/start.php"),
@@ -94,6 +92,7 @@ FIXTURE_SCHEMAS = {
     "me-success.json": "MeResponse",
     "home-success.json": "HomeResponse",
     "subjects-success.json": "StudentSubjectsResponse",
+    "subject-success.json": "StudentSubjectDetailResponse",
     "push-token-success.json": "PushTokenResponse",
     "activity-preview-success.json": "ActivityPreparationPreviewResponse",
     "activity-start-success.json": "ActivityStartResponse",
@@ -193,11 +192,15 @@ for route, (methods, php_file) in EXPECTED.items():
                 f"{method.upper()} {route} must require bearer auth",
             )
 
+subject_parameters = CONTRACT["paths"]["/api/v1/student/subject"]["get"].get("parameters", [])
+subject_ids = [p for p in subject_parameters if p.get("in") == "query" and p.get("name") == "subject_version_id"]
+require(len(subject_ids) == 1 and subject_ids[0].get("required") is True, "subject detail must require subject_version_id")
+require(subject_ids[0].get("schema", {}).get("minimum") == 1, "subject_version_id must be positive")
+
 require_idempotency_header("/api/v1/student/activity/start", "post")
 require_idempotency_header("/api/v1/student/activity/start-status", "get")
 
-servers = BASE_CONTRACT.get("servers", [])
-server_urls = {item["url"] for item in servers}
+server_urls = {item["url"] for item in BASE_CONTRACT.get("servers", [])}
 require(
     server_urls == {
         "https://development.masary.invalid/",
@@ -206,58 +209,27 @@ require(
     },
     "OpenAPI must use safe placeholders for unconfigured non-production environments",
 )
-require(
-    all(url.startswith("https://") and url.endswith("/") for url in server_urls),
-    "every OpenAPI server must use HTTPS and end with /",
-)
-require(
-    "dev.masary.app" not in CONTRACT_TEXT and "staging.masary.app" not in CONTRACT_TEXT,
-    "the contract must not assume unprovisioned masary.app subdomains",
-)
-require(
-    "/api/android/v1" in BASE_CONTRACT["info"].get("description", ""),
-    "the base contract must state that the Android-specific path is not implemented",
-)
+require(all(url.startswith("https://") and url.endswith("/") for url in server_urls), "every OpenAPI server must use HTTPS and end with /")
+require("dev.masary.app" not in CONTRACT_TEXT and "staging.masary.app" not in CONTRACT_TEXT, "contract must not assume unprovisioned subdomains")
+require("/api/android/v1" in BASE_CONTRACT["info"].get("description", ""), "base contract must state Android-specific path is not implemented")
 
 fixture_root = ROOT / "api-contract/fixtures"
 for name, schema_name in REQUEST_FIXTURES.items():
     fixture = fixture_root / name
     require(fixture.is_file(), f"request fixture is missing: {name}")
-    validate_schema(
-        json.loads(fixture.read_text(encoding="utf-8")),
-        {"$ref": f"#/components/schemas/{schema_name}"},
-        name,
-    )
+    validate_schema(json.loads(fixture.read_text(encoding="utf-8")), {"$ref": f"#/components/schemas/{schema_name}"}, name)
 
-response_fixtures = sorted(
-    item for item in fixture_root.glob("*.json") if item.name not in REQUEST_FIXTURES
-)
-require(
-    {item.name for item in response_fixtures} == set(FIXTURE_SCHEMAS),
-    "fixture set changed unexpectedly",
-)
+response_fixtures = sorted(item for item in fixture_root.glob("*.json") if item.name not in REQUEST_FIXTURES)
+require({item.name for item in response_fixtures} == set(FIXTURE_SCHEMAS), "fixture set changed unexpectedly")
 for fixture in response_fixtures:
     payload = json.loads(fixture.read_text(encoding="utf-8"))
-    require(
-        set(payload) == {"success", "data", "error", "request_id"},
-        f"invalid envelope in {fixture.name}",
-    )
+    require(set(payload) == {"success", "data", "error", "request_id"}, f"invalid envelope in {fixture.name}")
     require(isinstance(payload["success"], bool), f"success is not boolean in {fixture.name}")
-    require(
-        isinstance(payload["request_id"], str) and payload["request_id"],
-        f"request_id missing in {fixture.name}",
-    )
-    require(
-        (payload["data"] is None) != (payload["error"] is None),
-        f"exactly one of data/error is required in {fixture.name}",
-    )
-    validate_schema(
-        payload,
-        {"$ref": f"#/components/schemas/{FIXTURE_SCHEMAS[fixture.name]}"},
-        fixture.name,
-    )
+    require(isinstance(payload["request_id"], str) and payload["request_id"], f"request_id missing in {fixture.name}")
+    require((payload["data"] is None) != (payload["error"] is None), f"exactly one of data/error is required in {fixture.name}")
+    validate_schema(payload, {"$ref": f"#/components/schemas/{FIXTURE_SCHEMAS[fixture.name]}"}, fixture.name)
 
 print(
     f"Validated {len(EXPECTED)} endpoints, {len(REQUEST_FIXTURES)} request fixtures, "
-    f"and {len(response_fixtures)} response fixtures across base, phase 08, and phase 09 contracts.",
+    f"and {len(response_fixtures)} response fixtures across base and phase 08-10 contracts.",
 )
