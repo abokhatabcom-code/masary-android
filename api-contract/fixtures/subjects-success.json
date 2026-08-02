@@ -1,0 +1,53 @@
+{
+  "success": true,
+  "data": {
+    "student_id": "42",
+    "version": "subjects-v1",
+    "generated_at": "2026-08-02T13:40:00+00:00",
+    "complete": true,
+    "academic": {
+      "available": true,
+      "grade_name": "الصف الثالث الثانوي",
+      "department_name": "القسم العلمي",
+      "city_name": "تعز",
+      "curriculum_name": "منهج عدن",
+      "reason": ""
+    },
+    "subjects": [
+      {
+        "subject_version_id": 12,
+        "name": "الرياضيات",
+        "hearts": 3,
+        "curriculum_label": "منهج عدن",
+        "progress": {
+          "available": false,
+          "percent": null,
+          "reason": "لم يتوفر مصدر تقدم مؤكد لقائمة المواد."
+        },
+        "media": {
+          "available": false,
+          "key": null,
+          "reason": "لم يُربط مفتاح وسائط مؤكد بالمادة بعد."
+        },
+        "access": {
+          "available": false,
+          "status": "unknown",
+          "reason": "تظهر المادة لأنها مرتبطة بالسياق الأكاديمي، لكن سياسة الوصول التفصيلية غير مربوطة بهذه القائمة بعد."
+        },
+        "last_activity": {
+          "available": true,
+          "unit_id": 4,
+          "mode": "learn",
+          "updated_at": "2026-08-02 12:15:00",
+          "reason": ""
+        }
+      }
+    ],
+    "empty": {
+      "is_empty": false,
+      "reason": ""
+    }
+  },
+  "error": null,
+  "request_id": "req-subjects-fixture"
+}
