@@ -120,7 +120,18 @@
           "lesson_id": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
           "activity_type": {
             "type": "string",
-            "enum": ["guide_step", "unit_test", "lesson_practice", "review", "smart_review", "speed_test"]
+            "enum": [
+              "guide_step",
+              "unit_test",
+              "lesson_practice",
+              "choose_test",
+              "true_false_test",
+              "connect_test",
+              "fill_test",
+              "review",
+              "smart_review",
+              "speed_test"
+            ]
           },
           "activity_mode": {
             "type": "string",
