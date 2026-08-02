@@ -10,6 +10,7 @@ import app.masary.core.network.auth.StudentLogoutResponseDto
 import app.masary.core.network.auth.StudentMeResponseDto
 import app.masary.core.network.auth.StudentRefreshResponseDto
 import app.masary.core.network.home.StudentHomeResponseDto
+import app.masary.core.network.subject.StudentSubjectDetailResponseDto
 import app.masary.core.network.subjects.StudentSubjectsResponseDto
 import com.google.gson.Gson
 import org.junit.Assert.assertEquals
@@ -63,6 +64,17 @@ class ApiContractFixtureTest {
         assertEquals(null, subjects.data?.subjects?.single()?.media?.key)
         assertTrue(subjects.data?.subjects?.single()?.lastActivity?.available == true)
 
+        val subject = parse("subject-success.json", StudentSubjectDetailResponseDto::class.java)
+        assertTrue(subject.success)
+        assertEquals("42", subject.data?.studentId)
+        assertEquals(12, subject.data?.subjectVersionId)
+        assertEquals("الرياضيات", subject.data?.identity?.name)
+        assertEquals(120, subject.data?.points?.value)
+        assertFalse(subject.data?.level?.available == true)
+        assertEquals(2, subject.data?.hearts?.current)
+        assertEquals(2, subject.data?.content?.parts?.size)
+        assertFalse(subject.data?.lastActivity?.preparation?.available == true)
+
         val preview = parse(
             "activity-preview-success.json",
             ActivityPreparationPreviewResponseDto::class.java,
@@ -86,6 +98,7 @@ class ApiContractFixtureTest {
             gson.fromJson(json, StudentMeResponseDto::class.java),
             gson.fromJson(json, StudentHomeResponseDto::class.java),
             gson.fromJson(json, StudentSubjectsResponseDto::class.java),
+            gson.fromJson(json, StudentSubjectDetailResponseDto::class.java),
             gson.fromJson(json, ActivityPreparationPreviewResponseDto::class.java),
             gson.fromJson(json, ActivityStartResponseDto::class.java),
         ).forEach { response ->
