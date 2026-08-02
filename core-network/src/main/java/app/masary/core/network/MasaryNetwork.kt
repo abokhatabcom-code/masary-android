@@ -4,6 +4,7 @@ import app.masary.core.network.activity.StudentActivityPreparationApi
 import app.masary.core.network.auth.StudentAuthApi
 import app.masary.core.network.home.StudentHomeApi
 import app.masary.core.network.notifications.StudentPushTokenApi
+import app.masary.core.network.subjects.StudentSubjectsApi
 import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -27,6 +28,14 @@ object MasaryNetwork {
 
     fun studentHomeApi(baseUrl: HttpUrl, client: OkHttpClient = defaultClient()): StudentHomeApi =
         retrofit(baseUrl, client).create(StudentHomeApi::class.java)
+
+    fun studentSubjectsApi(
+        baseUrl: String,
+        client: OkHttpClient = defaultClient(),
+    ): StudentSubjectsApi = studentSubjectsApi(validateBaseUrl(baseUrl), client)
+
+    fun studentSubjectsApi(baseUrl: HttpUrl, client: OkHttpClient = defaultClient()): StudentSubjectsApi =
+        retrofit(baseUrl, client).create(StudentSubjectsApi::class.java)
 
     fun studentActivityPreparationApi(
         baseUrl: String,
