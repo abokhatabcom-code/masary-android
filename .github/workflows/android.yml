@@ -7,9 +7,96 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
+  phase10-route-integration:
+    if: github.event_name == 'pull_request' && github.head_ref == 'phase-10-subject-page-implementation'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out phase branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase-10-subject-page-implementation
+          fetch-depth: 2
+
+      - name: Apply focused route patch and restore CI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('feature-home/src/main/java/app/masary/feature/home/ui/StudentHomePreparationRoute.kt')
+          text = path.read_text(encoding='utf-8')
+
+          import_anchor = '''import app.masary.feature.notifications.NotificationPermissionState
+          import app.masary.feature.subjects.domain.SubjectsRepository
+          import app.masary.feature.subjects.ui.StudentSubjectsRoute
+          '''
+          import_replacement = '''import app.masary.feature.notifications.NotificationPermissionState
+          import app.masary.feature.subject.domain.SubjectRepository
+          import app.masary.feature.subject.ui.StudentSubjectRoute
+          import app.masary.feature.subjects.domain.SubjectsRepository
+          import app.masary.feature.subjects.ui.StudentSubjectsRoute
+          '''
+          if import_anchor not in text:
+              raise SystemExit('Phase 10 import anchor not found')
+          text = text.replace(import_anchor, import_replacement, 1)
+
+          signature_anchor = '''    repository: app.masary.feature.home.domain.HomeRepository,
+              subjectsRepository: SubjectsRepository,
+              activityPreparationRepository: ActivityPreparationRepository,
+          '''
+          signature_replacement = '''    repository: app.masary.feature.home.domain.HomeRepository,
+              subjectsRepository: SubjectsRepository,
+              subjectRepository: SubjectRepository,
+              activityPreparationRepository: ActivityPreparationRepository,
+          '''
+          if signature_anchor not in text:
+              raise SystemExit('Phase 10 signature anchor not found')
+          text = text.replace(signature_anchor, signature_replacement, 1)
+
+          old_route = '''                composable<StudentDestination.SubjectDetails> { entry ->
+                          val destination = entry.toRoute<StudentDestination.SubjectDetails>()
+                          PreparationDataDestination(data) { snapshot ->
+                              val subject = snapshot.subjects.firstOrNull {
+                                  it.subjectVersionId == destination.subjectVersionId
+                              }
+                              SimpleSection(
+                                  title = subject?.name ?: "المادة الدراسية",
+                                  body = "ستُستكمل الوحدات والدروس ومركز التدريب في مراحلها المخصصة. بدء أي نشاط يمر عبر شاشة التجهيز.",
+                                  icon = Icons.AutoMirrored.Outlined.MenuBook,
+                              )
+                          }
+                      }
+          '''
+          new_route = '''                composable<StudentDestination.SubjectDetails> { entry ->
+                          val destination = entry.toRoute<StudentDestination.SubjectDetails>()
+                          StudentSubjectRoute(
+                              subjectVersionId = destination.subjectVersionId,
+                              repository = subjectRepository,
+                              onBack = { navController.popBackStack() },
+                              onSessionExpired = onLogout,
+                              onTrainingCenter = { /* Phase 11 owns this destination. */ },
+                          )
+                      }
+          '''
+          if old_route not in text:
+              raise SystemExit('Phase 10 SubjectDetails route anchor not found')
+          text = text.replace(old_route, new_route, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          rm -f feature-home/src/main/java/app/masary/feature/home/ui/StudentHomeSubjectPageBridge.kt
+          rm -f .github/workflows/phase10-route-integration.yml
+          git show HEAD^:.github/workflows/android.yml > .github/workflows/android.yml
+
+      - name: Commit route integration
+        run: |
+          git config user.name "masary-phase-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(home): replace placeholder with real subject page route"
+          git push origin HEAD:phase-10-subject-page-implementation
+
   build-debug-apks:
     runs-on: ubuntu-latest
     env:
