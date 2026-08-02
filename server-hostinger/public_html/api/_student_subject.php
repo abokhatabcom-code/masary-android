@@ -212,10 +212,15 @@ function api_student_subject_last_activity(PDO $pdo, int $studentId, int $subjec
             $select[] = $column;
         }
     }
+    $orderBy = isset($columns['updated_at'])
+        ? ' ORDER BY updated_at DESC'
+        : (isset($columns['id']) ? ' ORDER BY id DESC' : '');
     try {
         $statement = $pdo->prepare(
             'SELECT ' . ($select !== [] ? implode(',', $select) : 'subject_version_id')
-            . ' FROM student_last_activity WHERE student_id=? AND subject_version_id=? LIMIT 1'
+            . ' FROM student_last_activity WHERE student_id=? AND subject_version_id=?'
+            . $orderBy
+            . ' LIMIT 1'
         );
         $statement->execute([$studentId, $subjectVersionId]);
         $row = $statement->fetch(PDO::FETCH_ASSOC) ?: null;
