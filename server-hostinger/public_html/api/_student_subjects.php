@@ -147,8 +147,10 @@ function api_student_subjects_payload(PDO $pdo, array $session): array
         api_error('unauthorized', 'جلسة الدخول غير صالحة.', 401);
     }
 
-    $academic = api_student_subjects_academic_context($pdo, $studentId);
+    // Resolve materials first so the official curriculum helper is loaded
+    // before the grade/city/curriculum labels are assembled.
     $rawSubjects = api_student_home_curriculum_subjects($pdo, $studentId, 100);
+    $academic = api_student_subjects_academic_context($pdo, $studentId);
     $lastActivity = api_student_subjects_last_activity($pdo, $studentId);
     $subjects = [];
 
