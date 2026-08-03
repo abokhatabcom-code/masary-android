@@ -9,13 +9,26 @@ DirectoryIndex index.php
   RewriteCond %{HTTP:Authorization} .
   RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+  # Public health and registration/authentication routes.
   RewriteRule ^v1/health/?$ v1/health.php [L,QSA]
+  RewriteRule ^v1/registration/cities/?$ v1/registration/cities.php [L,QSA]
+  RewriteRule ^v1/registration/grades/?$ v1/registration/grades.php [L,QSA]
+  RewriteRule ^v1/registration/schools/?$ v1/registration/schools.php [L,QSA]
+  RewriteRule ^v1/auth/student/register/?$ v1/auth/student/register.php [L,QSA]
   RewriteRule ^v1/auth/student/login/?$ v1/auth/student/login.php [L,QSA]
   RewriteRule ^v1/auth/refresh/?$ v1/auth/refresh.php [L,QSA]
   RewriteRule ^v1/auth/logout/?$ v1/auth/logout.php [L,QSA]
-  RewriteRule ^v1/student/home/?$ v1/student/home.php [L,QSA]
-  RewriteRule ^v1/student/push-token/?$ v1/student/push-token.php [L,QSA]
+
+  # Authenticated student routes.
   RewriteRule ^v1/me/?$ v1/me.php [L,QSA]
+  RewriteRule ^v1/student/home/?$ v1/student/home.php [L,QSA]
+  RewriteRule ^v1/student/subjects/?$ v1/student/subjects.php [L,QSA]
+  RewriteRule ^v1/student/subject/?$ v1/student/subject.php [L,QSA]
+  RewriteRule ^v1/student/subject/training-center/?$ v1/student/subject/training-center.php [L,QSA]
+  RewriteRule ^v1/student/activity/preview/?$ v1/student/activity/preview.php [L,QSA]
+  RewriteRule ^v1/student/activity/start/?$ v1/student/activity/start.php [L,QSA]
+  RewriteRule ^v1/student/activity/start-status/?$ v1/student/activity/start-status.php [L,QSA]
+  RewriteRule ^v1/student/push-token/?$ v1/student/push-token.php [L,QSA]
 </IfModule>
 
 <IfModule mod_headers.c>
