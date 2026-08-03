@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 3) . '/_student_training_center.php';
+$apiRoot = dirname(__DIR__, 3);
+require_once $apiRoot . '/_tokens.php';
+require_once $apiRoot . '/_student_training_center.php';
 
 api_require_method('GET');
 
