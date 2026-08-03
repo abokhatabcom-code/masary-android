@@ -28,6 +28,8 @@ foreach ([
 }
 
 foreach ([
+    "require_once \$apiRoot . '/_tokens.php'",
+    "require_once \$apiRoot . '/_student_training_center.php'",
     'api_authenticate_access_token',
     "api_rate_limit('student_training_center'",
     'api_student_training_center_payload($pdo, $session, $subjectVersionId)',
@@ -36,6 +38,19 @@ foreach ([
     if (!str_contains($endpointSource, $required)) {
         throw new RuntimeException("Training center endpoint is missing: {$required}");
     }
+}
+
+$tokensPosition = strpos($endpointSource, "require_once \$apiRoot . '/_tokens.php'");
+$trainingPosition = strpos($endpointSource, "require_once \$apiRoot . '/_student_training_center.php'");
+$methodPosition = strpos($endpointSource, "api_require_method('GET')");
+if (
+    $tokensPosition === false
+    || $trainingPosition === false
+    || $methodPosition === false
+    || $tokensPosition > $trainingPosition
+    || $trainingPosition > $methodPosition
+) {
+    throw new RuntimeException('Training center endpoint must bootstrap tokens before invoking API helpers.');
 }
 
 foreach (['user_id', 'student_id', 'grade_id', 'curriculum_id', 'city_id'] as $forbiddenKey) {
