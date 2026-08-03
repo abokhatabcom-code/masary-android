@@ -77,7 +77,7 @@ jobs:
           if-no-files-found: error
 
   build-signed-production-student-apk:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       MASARY_DEVELOPMENT_BASE_URL: ${{ vars.MASARY_DEVELOPMENT_BASE_URL }}
