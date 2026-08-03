@@ -76,8 +76,8 @@ jobs:
           path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
           if-no-files-found: error
 
-  build-signed-debug-apks:
-    if: github.event_name == 'workflow_dispatch'
+  build-signed-production-student-apk:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     env:
       MASARY_DEVELOPMENT_BASE_URL: ${{ vars.MASARY_DEVELOPMENT_BASE_URL }}
@@ -143,31 +143,23 @@ jobs:
       - name: Validate API contract
         run: python3 scripts/validate-api-contract.py
 
-      - name: Run unit tests and Android lint
-        run: ./gradlew --no-daemon test lint
+      - name: Run student unit tests and lint
+        run: ./gradlew --no-daemon :app-student:test :app-student:lint
 
-      - name: Build signed debug APKs
-        run: ./gradlew --no-daemon :app-student:assembleDebug :app-admin:assembleDebug :app-pos:assembleDebug
+      - name: Build signed production student APK
+        run: ./gradlew --no-daemon :app-student:assembleRelease
 
-      - name: Upload signed student debug APK
+      - name: Verify production API target
+        shell: bash
+        run: |
+          grep -R --fixed-strings 'MASARY_API_BASE_URL = "https://masary.app/"' \
+            app-student/build/generated/source/buildConfig/release
+
+      - name: Upload signed production student APK
         uses: actions/upload-artifact@v4
         with:
-          name: masary-student-signed-debug-apk
-          path: app-student/build/outputs/apk/debug/app-student-debug.apk
-          if-no-files-found: error
-
-      - name: Upload signed admin debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: masary-admin-signed-debug-apk
-          path: app-admin/build/outputs/apk/debug/app-admin-debug.apk
-          if-no-files-found: error
-
-      - name: Upload signed POS debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: masary-pos-signed-debug-apk
-          path: app-pos/build/outputs/apk/debug/app-pos-debug.apk
+          name: masary-student-signed-production-apk
+          path: app-student/build/outputs/apk/release/app-student-release.apk
           if-no-files-found: error
 
       - name: Remove temporary keystore
