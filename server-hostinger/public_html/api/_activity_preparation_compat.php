@@ -133,12 +133,31 @@ function api_activity_preview_compatible(PDO $pdo, array $session, array $payloa
     );
     $lesson = api_activity_lesson($pdo, $request['unit_id'], $request['lesson_id']);
     api_activity_validate_guide($pdo, $studentId, $request);
+    $trainingTool = api_activity_training_tool($pdo, $studentId, $request);
 
     $balances = api_activity_balances_compatible($pdo, $studentId, $subject);
     $requiredHearts = in_array($request['activity_type'], API_ACTIVITY_HEART_REQUIRED_TYPES, true) ? 1 : 0;
-    $available = $requiredHearts === 0 || $balances['hearts'] >= $requiredHearts;
-    $reasonCode = $available ? '' : 'insufficient_hearts';
-    $reason = $available ? '' : 'لا توجد قلوب كافية لبدء هذا النشاط.';
+    $toolAvailable = $trainingTool === null || !empty($trainingTool['available']);
+    $heartsAvailable = $requiredHearts === 0 || $balances['hearts'] >= $requiredHearts;
+    $available = $toolAvailable && $heartsAvailable;
+    if (!$toolAvailable) {
+        $reasonCode = (string)($trainingTool['status'] ?? '') === 'source_unavailable'
+            ? 'training_source_unavailable'
+            : 'training_empty';
+        $reason = trim((string)($trainingTool['reason'] ?? ''));
+        if ($reason === '') {
+            $reason = 'أداة التدريب غير متاحة الآن.';
+        }
+    } elseif (!$heartsAvailable) {
+        $reasonCode = 'insufficient_hearts';
+        $reason = 'لا توجد قلوب كافية لبدء هذا النشاط.';
+    } else {
+        $reasonCode = '';
+        $reason = '';
+    }
+    $confirmedCount = $trainingTool !== null && isset($trainingTool['item_count'])
+        ? max(0, (int)$trainingTool['item_count'])
+        : null;
     $requestHash = api_activity_request_hash($request);
     $active = api_activity_find_active($pdo, $studentId, $requestHash);
 
@@ -153,7 +172,7 @@ function api_activity_preview_compatible(PDO $pdo, array $session, array $payloa
             'activity_mode' => $request['activity_mode'],
             'title' => api_activity_title($request['activity_type']),
             'estimated_minutes' => null,
-            'question_count' => null,
+            'question_count' => $confirmedCount,
         ]),
         'eligibility' => [
             'available' => $available,
