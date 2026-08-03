@@ -6,6 +6,7 @@ on:
       - "server-hostinger/**"
       - "api-contract/**"
       - "scripts/validate-api-contract.py"
+      - "scripts/validate-hostinger-routes.py"
       - ".github/workflows/server-api.yml"
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - "server-hostinger/**"
       - "api-contract/**"
       - "scripts/validate-api-contract.py"
+      - "scripts/validate-hostinger-routes.py"
       - ".github/workflows/server-api.yml"
   workflow_dispatch:
 
@@ -41,6 +43,9 @@ jobs:
 
       - name: Validate Android/PHP API contract
         run: python3 scripts/validate-api-contract.py
+
+      - name: Validate Hostinger rewrite routes
+        run: python3 scripts/validate-hostinger-routes.py
 
       - name: Run isolated PHP behavioral tests
         shell: bash
