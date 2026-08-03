@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/_student_subject.php';
-
 const API_TRAINING_CENTER_TOOL_DEFINITIONS = [
     [
         'key' => 'choose',
@@ -304,6 +302,8 @@ function api_training_center_tool_payload(
 
 function api_student_training_center_payload(PDO $pdo, array $session, int $subjectVersionId): array
 {
+    require_once __DIR__ . '/_student_subject.php';
+
     $studentId = (int)($session['user_id'] ?? 0);
     if ($studentId <= 0) {
         api_error('unauthorized', 'جلسة الدخول غير صالحة.', 401);
