@@ -3,35 +3,139 @@ declare(strict_types=1);
 
 /**
  * Shared read-only subject selection used by Home preview and the full
- * subjects page. The limit is always normalized before being interpolated.
+ * subjects page. The limit is always normalized before being applied.
  */
-function api_student_home_table_columns(PDO $pdo, string $table): array
+function api_student_home_subject_limit(int $limit): int
 {
-    static $cache = [];
-    if (isset($cache[$table])) {
-        return $cache[$table];
-    }
+    return max(1, min(100, $limit));
+}
 
-    $allowed = ['app_users', 'cities', 'subject_versions', 'subjects'];
-    if (!in_array($table, $allowed, true)) {
+/** @return array{school_id:int,grade_id:int,city_id:int}|null */
+function api_student_home_student_scope(PDO $pdo, int $studentId): ?array
+{
+    if ($studentId <= 0) {
+        return null;
+    }
+    try {
+        $statement = $pdo->prepare(
+            "SELECT COALESCE(school_id,0) AS school_id, COALESCE(grade_id,0) AS grade_id, "
+            . "COALESCE(city_id,0) AS city_id FROM app_users "
+            . "WHERE id=? AND role='student' LIMIT 1"
+        );
+        $statement->execute([$studentId]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$row) {
+            return null;
+        }
+        return [
+            'school_id' => max(0, (int)($row['school_id'] ?? 0)),
+            'grade_id' => max(0, (int)($row['grade_id'] ?? 0)),
+            'city_id' => max(0, (int)($row['city_id'] ?? 0)),
+        ];
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+/** @return array<int,int> */
+function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjectVersionIds): array
+{
+    $ids = array_values(array_unique(array_filter(
+        array_map('intval', $subjectVersionIds),
+        static fn(int $id): bool => $id > 0,
+    )));
+    if ($studentId <= 0 || $ids === []) {
         return [];
     }
 
     try {
-        $rows = $pdo->query("SHOW COLUMNS FROM `{$table}`")->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        $cache[$table] = array_fill_keys(
-            array_map(static fn(array $row): string => (string)($row['Field'] ?? ''), $rows),
-            true,
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $statement = $pdo->prepare(
+            "SELECT subject_version_id, hearts FROM student_subject_state "
+            . "WHERE student_id=? AND subject_version_id IN ({$placeholders})"
         );
+        $statement->execute(array_merge([$studentId], $ids));
+        $out = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $subjectVersionId = (int)($row['subject_version_id'] ?? 0);
+            if ($subjectVersionId > 0) {
+                $out[$subjectVersionId] = max(0, (int)($row['hearts'] ?? 3));
+            }
+        }
+        return $out;
     } catch (Throwable) {
-        $cache[$table] = [];
+        return [];
     }
-    return $cache[$table];
 }
 
-function api_student_home_subject_limit(int $limit): int
+/**
+ * Resolve the exact material versions through the same business resolver used
+ * by the smart study guide and the legacy student experience. A null result
+ * means that the resolver is unavailable and allows the compatibility fallback;
+ * an empty array is an authoritative empty curriculum and must stay empty.
+ *
+ * @return list<array{subject_version_id:int,name:string,hearts:int,progress_percent:null}>|null
+ */
+function api_student_home_effective_subjects(PDO $pdo, int $studentId, int $limit): ?array
 {
-    return max(1, min(100, $limit));
+    $limit = api_student_home_subject_limit($limit);
+
+    if (!function_exists('curriculum_effective_subjects') && defined('IKHTABIRNI_PUBLIC_ROOT')) {
+        $helper = IKHTABIRNI_PUBLIC_ROOT . '/includes/curriculum_effective.php';
+        if (is_file($helper)) {
+            require_once $helper;
+        }
+    }
+    if (!function_exists('curriculum_effective_subjects')) {
+        return null;
+    }
+
+    $scope = api_student_home_student_scope($pdo, $studentId);
+    if (!$scope || $scope['grade_id'] <= 0) {
+        return null;
+    }
+
+    try {
+        $resolved = curriculum_effective_subjects(
+            $pdo,
+            $scope['school_id'],
+            $scope['grade_id'],
+            $scope['city_id'] > 0 ? $scope['city_id'] : null,
+        );
+    } catch (Throwable) {
+        return null;
+    }
+
+    $subjectVersionIds = [];
+    foreach ($resolved as $row) {
+        $subjectVersionId = (int)($row['sv_id'] ?? 0);
+        if ($subjectVersionId > 0) {
+            $subjectVersionIds[] = $subjectVersionId;
+        }
+    }
+    $hearts = api_student_home_subject_hearts($pdo, $studentId, $subjectVersionIds);
+
+    $subjects = [];
+    $seen = [];
+    foreach ($resolved as $row) {
+        $subjectVersionId = (int)($row['sv_id'] ?? 0);
+        $name = trim((string)($row['subject_name'] ?? ''));
+        if ($subjectVersionId <= 0 || $name === '' || isset($seen[$subjectVersionId])) {
+            continue;
+        }
+        $seen[$subjectVersionId] = true;
+        $subjects[] = [
+            'subject_version_id' => $subjectVersionId,
+            'name' => $name,
+            'hearts' => $hearts[$subjectVersionId] ?? 3,
+            'progress_percent' => null,
+        ];
+        if (count($subjects) >= $limit) {
+            break;
+        }
+    }
+
+    return $subjects;
 }
 
 function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit): array
@@ -63,76 +167,16 @@ function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit):
 /**
  * Return curriculum subjects available to the authenticated student.
  *
- * The production database has evolved over time, so this adapter detects the
- * optional ordering and activation columns before composing the read-only
- * query. It falls back to the legacy state-backed list when the curriculum
- * relationship is unavailable in an older installation.
+ * The official resolver applies city curriculum, school curriculum overrides,
+ * active versions and student visibility exactly as the existing guide does.
+ * The legacy state-backed list is used only when that resolver cannot be loaded
+ * or the old account has no academic scope at all.
  */
 function api_student_home_curriculum_subjects(PDO $pdo, int $studentId, int $limit = 12): array
 {
-    $limit = api_student_home_subject_limit($limit);
-    $userColumns = api_student_home_table_columns($pdo, 'app_users');
-    $cityColumns = api_student_home_table_columns($pdo, 'cities');
-    $versionColumns = api_student_home_table_columns($pdo, 'subject_versions');
-    $subjectColumns = api_student_home_table_columns($pdo, 'subjects');
-
-    if (!isset($userColumns['grade_id'], $userColumns['city_id'], $cityColumns['curriculum_id'])) {
-        return api_student_home_legacy_subjects($pdo, $studentId, $limit);
+    $resolved = api_student_home_effective_subjects($pdo, $studentId, $limit);
+    if ($resolved !== null) {
+        return $resolved;
     }
-    if (!isset($versionColumns['subject_id'], $versionColumns['grade_id'], $versionColumns['curriculum_id'])) {
-        return api_student_home_legacy_subjects($pdo, $studentId, $limit);
-    }
-
-    try {
-        $student = $pdo->prepare(
-            'SELECT u.grade_id, c.curriculum_id '
-            . 'FROM app_users u JOIN cities c ON c.id=u.city_id '
-            . 'WHERE u.id=? AND u.role=\'student\' LIMIT 1'
-        );
-        $student->execute([$studentId]);
-        $scope = $student->fetch(PDO::FETCH_ASSOC) ?: null;
-        $gradeId = (int)($scope['grade_id'] ?? 0);
-        $curriculumId = (int)($scope['curriculum_id'] ?? 0);
-        if ($gradeId <= 0 || $curriculumId <= 0) {
-            return api_student_home_legacy_subjects($pdo, $studentId, $limit);
-        }
-
-        $filters = ['sv.grade_id=?', 'sv.curriculum_id=?'];
-        if (isset($versionColumns['is_active'])) {
-            $filters[] = 'sv.is_active=1';
-        }
-        if (isset($subjectColumns['is_active'])) {
-            $filters[] = 's.is_active=1';
-        }
-
-        $order = match (true) {
-            isset($versionColumns['sort_order']) => 'sv.sort_order ASC, s.name ASC, sv.id ASC',
-            isset($subjectColumns['sort_order']) => 's.sort_order ASC, s.name ASC, sv.id ASC',
-            isset($subjectColumns['display_order']) => 's.display_order ASC, s.name ASC, sv.id ASC',
-            default => 's.name ASC, sv.id ASC',
-        };
-
-        $statement = $pdo->prepare(
-            'SELECT sv.id AS subject_version_id, s.name, COALESCE(ss.hearts,3) AS hearts '
-            . 'FROM subject_versions sv '
-            . 'JOIN subjects s ON s.id=sv.subject_id '
-            . 'LEFT JOIN student_subject_state ss ON ss.student_id=? AND ss.subject_version_id=sv.id '
-            . 'WHERE ' . implode(' AND ', $filters) . ' '
-            . "ORDER BY {$order} LIMIT {$limit}"
-        );
-        $statement->execute([$studentId, $gradeId, $curriculumId]);
-
-        return array_map(
-            static fn(array $row): array => [
-                'subject_version_id' => max(0, (int)($row['subject_version_id'] ?? 0)),
-                'name' => trim((string)($row['name'] ?? '')),
-                'hearts' => max(0, (int)($row['hearts'] ?? 3)),
-                // No authoritative completion source is confirmed for this list.
-                'progress_percent' => null,
-            ],
-            $statement->fetchAll(PDO::FETCH_ASSOC) ?: [],
-        );
-    } catch (Throwable) {
-        return api_student_home_legacy_subjects($pdo, $studentId, $limit);
-    }
+    return api_student_home_legacy_subjects($pdo, $studentId, $limit);
 }
