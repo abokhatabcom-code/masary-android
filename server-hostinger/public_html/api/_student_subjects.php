@@ -32,12 +32,53 @@ function api_student_subjects_academic_context(PDO $pdo, int $studentId): array
         'city_name' => api_student_subjects_profile_value($profile, ['city_name', 'city']),
         'curriculum_name' => api_student_subjects_profile_value($profile, ['curriculum_name', 'curriculum']),
     ];
+
+    $scope = api_student_home_student_scope($pdo, $studentId);
+    if ($scope) {
+        try {
+            $statement = $pdo->prepare(
+                'SELECT COALESCE(g.name,\'\') AS grade_name, COALESCE(c.name,\'\') AS city_name '
+                . 'FROM app_users u '
+                . 'LEFT JOIN grades g ON g.id=u.grade_id '
+                . 'LEFT JOIN cities c ON c.id=u.city_id '
+                . "WHERE u.id=? AND u.role='student' LIMIT 1"
+            );
+            $statement->execute([$studentId]);
+            $labels = $statement->fetch(PDO::FETCH_ASSOC) ?: [];
+            if ($context['grade_name'] === '') {
+                $context['grade_name'] = trim((string)($labels['grade_name'] ?? ''));
+            }
+            if ($context['city_name'] === '') {
+                $context['city_name'] = trim((string)($labels['city_name'] ?? ''));
+            }
+        } catch (Throwable) {
+            // Keep any textual profile values already obtained.
+        }
+
+        if ($context['curriculum_name'] === ''
+            && function_exists('curriculum_resolve_profile_id')
+            && function_exists('curriculum_profile_label')) {
+            try {
+                $profileId = curriculum_resolve_profile_id(
+                    $pdo,
+                    $scope['school_id'],
+                    $scope['city_id'] > 0 ? $scope['city_id'] : null,
+                );
+                if ($profileId > 0) {
+                    $context['curriculum_name'] = trim((string)curriculum_profile_label($pdo, $profileId));
+                }
+            } catch (Throwable) {
+                // The material list can still be returned even if labels fail.
+            }
+        }
+    }
+
     $available = implode('', $context) !== '';
 
     return [
         'available' => $available,
         ...$context,
-        'reason' => $available ? '' : 'لم يتوفر سياق أكاديمي نصي مؤكد لهذا الحساب في المصدر الحالي.',
+        'reason' => $available ? '' : 'تعذر قراءة أسماء الصف والمدينة والمنهج لهذا الحساب.',
     ];
 }
 
