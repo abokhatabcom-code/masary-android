@@ -14,7 +14,15 @@ foreach (['indicators', 'subjects', 'spotlight', 'global_rank', 'subject_version
     }
 }
 
-foreach (['sv.grade_id=?', 'sv.curriculum_id=?', 'LEFT JOIN student_subject_state', 'ORDER BY'] as $required) {
+foreach ([
+    'api_student_home_effective_subjects',
+    'api_student_home_student_scope',
+    'api_student_home_subject_hearts',
+    'curriculum_effective_subjects',
+    "'school_id'",
+    "'grade_id'",
+    "'city_id'",
+] as $required) {
     if (!str_contains($subjectSource, $required)) {
         throw new RuntimeException("Curriculum subject adapter is missing: {$required}");
     }
@@ -24,6 +32,9 @@ if (!str_contains($endpointSource, 'api_student_home_curriculum_subjects($pdo, $
 }
 if (str_contains($endpointSource, '$_GET') || str_contains($endpointSource, '$_POST')) {
     throw new RuntimeException('Home endpoint must derive the student only from the Bearer session.');
+}
+if (str_contains($subjectSource, 'sv.grade_id=?') || str_contains($subjectSource, 'sv.curriculum_id=?')) {
+    throw new RuntimeException('Home subject selection must not bypass the official curriculum resolver.');
 }
 if (preg_match('/foreach\s*\([^)]*student/i', $baseSource . $subjectSource)) {
     throw new RuntimeException('Student home must not iterate over students.');
