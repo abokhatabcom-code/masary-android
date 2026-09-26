@@ -21,6 +21,8 @@ import app.masary.feature.subject.domain.SubjectUnit
 import app.masary.feature.subject.domain.SubjectLesson
 import app.masary.feature.subject.domain.SubjectLearningStatus
 import app.masary.feature.subject.domain.SubjectLearningState
+import app.masary.feature.subject.domain.SubjectProgressSettings
+import app.masary.feature.subject.domain.SubjectLearningProgress
 import app.masary.feature.subject.domain.SubjectMedia
 import app.masary.feature.subject.domain.SubjectPageNetworkException
 import app.masary.feature.subject.domain.SubjectPageNotFoundException
@@ -221,6 +223,7 @@ internal fun StudentSubjectDetailDataDto.toDomain(): StudentSubjectPage = Studen
                     title = unit.title.trim().ifBlank { "وحدة ${unit.id}" },
                     position = unit.position.coerceAtLeast(0),
                     state = unit.state.toDomainLearningState(),
+                    progress = unit.progress.toDomainLearningProgress(),
                     lessons = unit.lessons
                         .filter { it.id > 0 }
                         .map { lesson -> lesson.toDomainLesson() },
@@ -229,6 +232,12 @@ internal fun StudentSubjectDetailDataDto.toDomain(): StudentSubjectPage = Studen
         lessons = content.lessons
             .filter { it.id > 0 }
             .map { lesson -> lesson.toDomainLesson() },
+        progressSettings = SubjectProgressSettings(
+            progressMode = content.progressSettings.progressMode.trim().ifBlank { "unit" },
+            unlockMode = content.progressSettings.unlockMode.trim().ifBlank { "sequential" },
+            unlockThresholdPercent = content.progressSettings.unlockThresholdPercent.coerceIn(0.0, 100.0),
+            reviewProgressCapPoints = content.progressSettings.reviewProgressCapPoints.coerceAtLeast(1.0),
+        ),
         reason = content.reason,
     ),
     lastActivity = SubjectLastActivity(
@@ -250,6 +259,7 @@ internal fun StudentSubjectDetailDataDto.toDomain(): StudentSubjectPage = Studen
 private fun app.masary.core.network.subject.SubjectLearningStateDto.toDomainLearningState(): SubjectLearningState =
     SubjectLearningState(
         status = when (status.trim().lowercase()) {
+            "ready" -> SubjectLearningStatus.Ready
             "in_progress" -> SubjectLearningStatus.InProgress
             "completed" -> SubjectLearningStatus.Completed
             "locked" -> SubjectLearningStatus.Locked
@@ -271,4 +281,5 @@ private fun app.masary.core.network.subject.SubjectLessonDto.toDomainLesson(): S
             available = preparation.available,
             reason = preparation.reason.trim(),
         ),
+        progress = progress.toDomainLearningProgress(),
     )
