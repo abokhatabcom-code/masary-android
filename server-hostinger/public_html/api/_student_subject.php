@@ -193,6 +193,200 @@ function api_student_subject_parts(PDO $pdo, int $subjectVersionId, bool $hasPar
     return array_values($parts);
 }
 
+function api_student_subject_order_column(array $columns): string
+{
+    foreach (['sort_order', 'position', 'order_index', 'display_order', 'sequence', 'id'] as $column) {
+        if (isset($columns[$column])) {
+            return $column;
+        }
+    }
+    return '';
+}
+
+function api_student_subject_content_label(array $row, string $fallback): string
+{
+    foreach (['title', 'name', 'unit_name', 'lesson_name', 'display_name'] as $key) {
+        $value = trim((string)($row[$key] ?? ''));
+        if ($value !== '') {
+            return $value;
+        }
+    }
+    return $fallback;
+}
+
+function api_student_subject_learning_state(bool $active, bool $inProgress): array
+{
+    if (!$active) {
+        return [
+            'status' => 'unavailable',
+            'reason' => 'هذا المحتوى غير منشور للطالب.',
+        ];
+    }
+    if ($inProgress) {
+        return [
+            'status' => 'in_progress',
+            'reason' => '',
+        ];
+    }
+    return [
+        'status' => 'unknown',
+        'reason' => 'لم يُثبت بعد مصدر خادمي موحد لحالة الفتح أو الإكمال لهذا المحتوى.',
+    ];
+}
+
+function api_student_subject_content_details(
+    PDO $pdo,
+    int $subjectVersionId,
+    array $identity,
+    array $lastActivity,
+): array {
+    $unitColumns = api_student_subject_columns($pdo, 'units');
+    $lessonColumns = api_student_subject_columns($pdo, 'lessons');
+    $canReadUnits = isset($unitColumns['id'], $unitColumns['subject_version_id']);
+    $canReadLessons = isset($lessonColumns['id'])
+        && (isset($lessonColumns['subject_version_id']) || isset($lessonColumns['unit_id']));
+
+    if (!$canReadUnits && !$canReadLessons) {
+        return [
+            'details_available' => false,
+            'units' => [],
+            'lessons' => [],
+            'reason' => 'جداول الوحدات والدروس غير متاحة بعقد يمكن قراءته بأمان.',
+        ];
+    }
+
+    $units = [];
+    $unitIndex = [];
+    $unitParts = [];
+    if ($canReadUnits) {
+        $where = ['subject_version_id=?'];
+        if (isset($unitColumns['is_active'])) {
+            $where[] = 'is_active=1';
+        }
+        $orderColumn = api_student_subject_order_column($unitColumns);
+        $orderBy = $orderColumn !== '' ? " ORDER BY `{$orderColumn}` ASC, id ASC" : ' ORDER BY id ASC';
+        try {
+            $statement = $pdo->prepare(
+                'SELECT * FROM units WHERE ' . implode(' AND ', $where) . $orderBy
+            );
+            $statement->execute([$subjectVersionId]);
+            foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                $unitId = max(0, (int)($row['id'] ?? 0));
+                if ($unitId <= 0) {
+                    continue;
+                }
+                $part = isset($unitColumns['part']) ? max(0, (int)($row['part'] ?? 0)) : 0;
+                $active = !isset($unitColumns['is_active']) || (int)($row['is_active'] ?? 0) === 1;
+                $state = api_student_subject_learning_state(
+                    $active,
+                    $unitId === (int)($lastActivity['unit_id'] ?? 0),
+                );
+                $unitIndex[$unitId] = count($units);
+                $unitParts[$unitId] = $part;
+                $units[] = [
+                    'id' => $unitId,
+                    'part_number' => $part,
+                    'title' => api_student_subject_content_label($row, 'وحدة ' . $unitId),
+                    'position' => $orderColumn !== '' ? max(0, (int)($row[$orderColumn] ?? 0)) : $unitId,
+                    'state' => $state,
+                    'lessons' => [],
+                ];
+            }
+        } catch (Throwable) {
+            $units = [];
+            $unitIndex = [];
+            $unitParts = [];
+        }
+    }
+
+    $standaloneLessons = [];
+    if ($canReadLessons) {
+        $params = [$subjectVersionId];
+        $lessonAlias = 'l';
+        $where = [];
+        $joins = '';
+        if (isset($lessonColumns['subject_version_id'])) {
+            $where[] = 'l.subject_version_id=?';
+        } elseif (isset($lessonColumns['unit_id'])) {
+            $joins = ' JOIN units u ON u.id=l.unit_id';
+            $where[] = 'u.subject_version_id=?';
+            if (isset($unitColumns['is_active'])) {
+                $where[] = 'u.is_active=1';
+            }
+        }
+        if (isset($lessonColumns['is_active'])) {
+            $where[] = 'l.is_active=1';
+        }
+        $lessonOrderColumn = api_student_subject_order_column($lessonColumns);
+        $orderParts = [];
+        if (isset($lessonColumns['unit_id'])) {
+            $orderParts[] = 'l.unit_id ASC';
+        }
+        $orderParts[] = $lessonOrderColumn !== '' ? "l.`{$lessonOrderColumn}` ASC" : 'l.id ASC';
+        if ($lessonOrderColumn !== 'id') {
+            $orderParts[] = 'l.id ASC';
+        }
+
+        try {
+            $statement = $pdo->prepare(
+                'SELECT l.* FROM lessons l' . $joins
+                . ' WHERE ' . implode(' AND ', $where)
+                . ' ORDER BY ' . implode(', ', $orderParts)
+            );
+            $statement->execute($params);
+            foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                $lessonId = max(0, (int)($row['id'] ?? 0));
+                if ($lessonId <= 0) {
+                    continue;
+                }
+                $unitId = isset($lessonColumns['unit_id']) ? max(0, (int)($row['unit_id'] ?? 0)) : 0;
+                $part = isset($lessonColumns['part'])
+                    ? max(0, (int)($row['part'] ?? 0))
+                    : (int)($unitParts[$unitId] ?? 0);
+                $active = !isset($lessonColumns['is_active']) || (int)($row['is_active'] ?? 0) === 1;
+                $state = api_student_subject_learning_state(
+                    $active,
+                    $lessonId === (int)($lastActivity['lesson_id'] ?? 0),
+                );
+                $lesson = [
+                    'id' => $lessonId,
+                    'unit_id' => $unitId > 0 ? $unitId : null,
+                    'part_number' => $part,
+                    'title' => api_student_subject_content_label($row, 'درس ' . $lessonId),
+                    'position' => $lessonOrderColumn !== ''
+                        ? max(0, (int)($row[$lessonOrderColumn] ?? 0))
+                        : $lessonId,
+                    'state' => $state,
+                    'preparation' => [
+                        'available' => false,
+                        'reason' => 'سيُفعّل بدء الدرس بعد تثبيت مصدر قواعد الفتح الخادمية.',
+                    ],
+                ];
+                if ($unitId > 0 && isset($unitIndex[$unitId])) {
+                    $units[$unitIndex[$unitId]]['lessons'][] = $lesson;
+                } else {
+                    $standaloneLessons[] = $lesson;
+                }
+            }
+        } catch (Throwable) {
+            $standaloneLessons = [];
+            foreach ($units as $index => $unit) {
+                $units[$index]['lessons'] = [];
+            }
+        }
+    }
+
+    $hasContent = $units !== [] || $standaloneLessons !== [];
+    return [
+        'details_available' => true,
+        'units' => $units,
+        'lessons' => $standaloneLessons,
+        'reason' => $hasContent
+            ? 'حالات الفتح غير المؤكدة تبقى ظاهرة بصفتها غير محسومة حتى يثبت مصدرها الخادمي.'
+            : 'لا توجد وحدات أو دروس منشورة لهذه المادة حاليًا.',
+    ];
+}
+
 function api_student_subject_last_activity(PDO $pdo, int $studentId, int $subjectVersionId): array
 {
     $columns = api_student_subject_columns($pdo, 'student_last_activity');
@@ -200,6 +394,7 @@ function api_student_subject_last_activity(PDO $pdo, int $studentId, int $subjec
         return [
             'available' => false,
             'unit_id' => null,
+            'lesson_id' => null,
             'mode' => '',
             'updated_at' => '',
             'preparation' => ['available' => false, 'reason' => 'مصدر النشاط السابق غير متاح.'],
@@ -207,7 +402,7 @@ function api_student_subject_last_activity(PDO $pdo, int $studentId, int $subjec
         ];
     }
     $select = [];
-    foreach (['unit_id', 'mode', 'updated_at'] as $column) {
+    foreach (['unit_id', 'lesson_id', 'mode', 'updated_at'] as $column) {
         if (isset($columns[$column])) {
             $select[] = $column;
         }
@@ -238,9 +433,11 @@ function api_student_subject_last_activity(PDO $pdo, int $studentId, int $subjec
         ];
     }
     $unitId = max(0, (int)($row['unit_id'] ?? 0));
+    $lessonId = max(0, (int)($row['lesson_id'] ?? 0));
     return [
         'available' => true,
         'unit_id' => $unitId > 0 ? $unitId : null,
+        'lesson_id' => $lessonId > 0 ? $lessonId : null,
         'mode' => trim((string)($row['mode'] ?? '')),
         'updated_at' => trim((string)($row['updated_at'] ?? '')),
         'preparation' => [
@@ -269,6 +466,7 @@ function api_student_subject_payload(PDO $pdo, array $session, int $subjectVersi
     $state = api_student_subject_state($pdo, $studentId, $subjectVersionId, $authorized);
     $parts = api_student_subject_parts($pdo, $subjectVersionId, (bool)$identity['has_parts']);
     $lastActivity = api_student_subject_last_activity($pdo, $studentId, $subjectVersionId);
+    $contentDetails = api_student_subject_content_details($pdo, $subjectVersionId, $identity, $lastActivity);
     $academic = api_student_subjects_academic_context($pdo, $studentId);
     $curriculumLabel = $identity['curriculum_label'] !== ''
         ? $identity['curriculum_label']
@@ -301,8 +499,10 @@ function api_student_subject_payload(PDO $pdo, array $session, int $subjectVersi
             'structure_mode' => $identity['structure_mode'],
             'has_parts' => (bool)$identity['has_parts'] || count($parts) > 1,
             'parts' => $parts,
-            'details_available' => false,
-            'reason' => 'بطاقات الوحدات والدروس وحالات الفتح ستُنفذ داخل هذه الصفحة في المرحلة الثانية عشرة.',
+            'details_available' => (bool)$contentDetails['details_available'],
+            'units' => $contentDetails['units'],
+            'lessons' => $contentDetails['lessons'],
+            'reason' => $contentDetails['reason'],
         ],
         'last_activity' => $lastActivity,
         'actions' => [
