@@ -219,7 +219,7 @@ function api_student_subject_progress_locked_reason(float $threshold, string $mo
     return "يفتح بإكمال {$label}% من {$previous}.";
 }
 
-function api_student_subject_order_column(array $columns): string
+function api_student_subject_progress_order_column(array $columns): string
 {
     foreach (['unit_order', 'lesson_order', 'sort_order', 'position', 'order_index', 'display_order', 'sequence', 'id'] as $column) {
         if (isset($columns[$column])) {
@@ -256,8 +256,8 @@ function api_student_subject_lesson_access_state(
     }
 
     $unitPartColumn = isset($unitColumns['part']) ? 'part' : null;
-    $unitOrder = api_student_subject_order_column($unitColumns);
-    $lessonOrder = api_student_subject_order_column($lessonColumns);
+    $unitOrder = api_student_subject_progress_order_column($unitColumns);
+    $lessonOrder = api_student_subject_progress_order_column($lessonColumns);
 
     $unitSelect = ['id'];
     if ($unitPartColumn !== null) {
