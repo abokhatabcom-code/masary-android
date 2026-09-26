@@ -184,7 +184,14 @@ private fun StudentHomeDataDto.toDomain(): StudentHomeData = StudentHomeData(
         globalRank = indicators.globalRank?.takeIf { it > 0 },
     ),
     subjects = subjects.filter { it.subjectVersionId > 0 }.map {
-        HomeSubject(it.subjectVersionId, it.name, it.hearts.coerceAtLeast(0), it.progressPercent?.coerceIn(0, 100))
+        HomeSubject(
+            subjectVersionId = it.subjectVersionId,
+            name = it.name,
+            hearts = it.hearts.coerceAtLeast(0),
+            progressPercent = it.progressPercent?.coerceIn(0, 100),
+            points = it.points?.coerceAtLeast(0),
+            level = it.level?.coerceIn(1, 10),
+        )
     },
     spotlight = spotlight?.takeIf { it.title.isNotBlank() }?.let {
         HomeSpotlight(it.type, it.title, it.body, it.ctaLabel, it.ctaUrl)
