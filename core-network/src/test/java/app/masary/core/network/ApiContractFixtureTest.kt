@@ -61,7 +61,11 @@ class ApiContractFixtureTest {
         assertEquals("42", subjects.data?.studentId)
         assertEquals("منهج عدن", subjects.data?.academic?.curriculumName)
         assertEquals("الرياضيات", subjects.data?.subjects?.single()?.name)
-        assertFalse(subjects.data?.subjects?.single()?.progress?.available == true)
+        assertEquals(120, subjects.data?.subjects?.single()?.points)
+        assertEquals(2, subjects.data?.subjects?.single()?.level)
+        assertTrue(subjects.data?.subjects?.single()?.progress?.available == true)
+        assertEquals(20, subjects.data?.subjects?.single()?.progress?.percent)
+        assertEquals("available", subjects.data?.subjects?.single()?.access?.status)
         assertEquals(null, subjects.data?.subjects?.single()?.media?.key)
         assertTrue(subjects.data?.subjects?.single()?.lastActivity?.available == true)
 
