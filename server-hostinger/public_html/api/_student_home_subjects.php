@@ -70,8 +70,30 @@ function api_student_home_student_scope(PDO $pdo, int $studentId): ?array
     }
 }
 
-/** @return array<int,int> */
-function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjectVersionIds): array
+function api_student_home_subject_level_state(float $xp): array
+{
+    $xp = max(0.0, $xp);
+    if (function_exists('calc_level')) {
+        $state = (array)calc_level($xp, 100);
+        $level = max(1, min(10, (int)($state['level'] ?? 1)));
+        $progress = max(0.0, min(1.0, (float)($state['progress'] ?? 0.0)));
+        return [
+            'level' => $level,
+            'progress_percent' => $level >= 10 ? 100 : (int)round($progress * 100),
+        ];
+    }
+
+    $level = max(1, min(10, (int)floor($xp / 100.0) + 1));
+    $base = ($level - 1) * 100.0;
+    $progress = $level >= 10 ? 1.0 : max(0.0, min(1.0, ($xp - $base) / 100.0));
+    return [
+        'level' => $level,
+        'progress_percent' => (int)round($progress * 100),
+    ];
+}
+
+/** @return array<int,array{hearts:int,points:?int,level:?int,progress_percent:?int}> */
+function api_student_home_subject_states(PDO $pdo, int $studentId, array $subjectVersionIds): array
 {
     $ids = array_values(array_unique(array_filter(
         array_map('intval', $subjectVersionIds),
@@ -85,26 +107,55 @@ function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjec
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $columns = api_student_home_subject_state_columns($pdo);
         $hasRefillDate = isset($columns['hearts_refill_date']);
-        $select = 'subject_version_id, hearts' . ($hasRefillDate ? ', hearts_refill_date' : '');
+        $hasSubjectXp = isset($columns['subject_xp']);
+        $select = ['subject_version_id', 'hearts'];
+        if ($hasRefillDate) {
+            $select[] = 'hearts_refill_date';
+        }
+        if ($hasSubjectXp) {
+            $select[] = 'subject_xp';
+        }
         $statement = $pdo->prepare(
-            "SELECT {$select} FROM student_subject_state "
+            'SELECT ' . implode(',', $select) . " FROM student_subject_state "
             . "WHERE student_id=? AND subject_version_id IN ({$placeholders})"
         );
         $statement->execute(array_merge([$studentId], $ids));
         $out = [];
         foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
             $subjectVersionId = (int)($row['subject_version_id'] ?? 0);
-            if ($subjectVersionId > 0) {
-                $out[$subjectVersionId] = api_student_home_subject_effective_hearts(
+            if ($subjectVersionId <= 0) {
+                continue;
+            }
+            $points = $hasSubjectXp && is_numeric($row['subject_xp'] ?? null)
+                ? max(0, (int)round((float)$row['subject_xp']))
+                : null;
+            $levelState = $points !== null
+                ? api_student_home_subject_level_state((float)$points)
+                : ['level' => null, 'progress_percent' => null];
+            $out[$subjectVersionId] = [
+                'hearts' => api_student_home_subject_effective_hearts(
                     (int)($row['hearts'] ?? 3),
                     $hasRefillDate ? (string)($row['hearts_refill_date'] ?? '') : '',
-                );
-            }
+                ),
+                'points' => $points,
+                'level' => $levelState['level'],
+                'progress_percent' => $levelState['progress_percent'],
+            ];
         }
         return $out;
     } catch (Throwable) {
         return [];
     }
+}
+
+/** @return array<int,int> */
+function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjectVersionIds): array
+{
+    $out = [];
+    foreach (api_student_home_subject_states($pdo, $studentId, $subjectVersionIds) as $subjectVersionId => $state) {
+        $out[(int)$subjectVersionId] = (int)$state['hearts'];
+    }
+    return $out;
 }
 
 /**
@@ -113,7 +164,7 @@ function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjec
  * means that the resolver is unavailable and allows the compatibility fallback;
  * an empty array is an authoritative empty curriculum and must stay empty.
  *
- * @return list<array{subject_version_id:int,name:string,hearts:int,progress_percent:null}>|null
+ * @return list<array{subject_version_id:int,name:string,hearts:int,points:?int,level:?int,progress_percent:?int}>|null
  */
 function api_student_home_effective_subjects(PDO $pdo, int $studentId, int $limit): ?array
 {
@@ -152,7 +203,7 @@ function api_student_home_effective_subjects(PDO $pdo, int $studentId, int $limi
             $subjectVersionIds[] = $subjectVersionId;
         }
     }
-    $hearts = api_student_home_subject_hearts($pdo, $studentId, $subjectVersionIds);
+    $states = api_student_home_subject_states($pdo, $studentId, $subjectVersionIds);
 
     $subjects = [];
     $seen = [];
@@ -163,11 +214,19 @@ function api_student_home_effective_subjects(PDO $pdo, int $studentId, int $limi
             continue;
         }
         $seen[$subjectVersionId] = true;
+        $state = $states[$subjectVersionId] ?? [
+            'hearts' => 3,
+            'points' => null,
+            'level' => null,
+            'progress_percent' => null,
+        ];
         $subjects[] = [
             'subject_version_id' => $subjectVersionId,
             'name' => $name,
-            'hearts' => $hearts[$subjectVersionId] ?? 3,
-            'progress_percent' => null,
+            'hearts' => (int)$state['hearts'],
+            'points' => $state['points'],
+            'level' => $state['level'],
+            'progress_percent' => $state['progress_percent'],
         ];
         if (count($subjects) >= $limit) {
             break;
@@ -183,9 +242,11 @@ function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit):
     try {
         $columns = api_student_home_subject_state_columns($pdo);
         $hasRefillDate = isset($columns['hearts_refill_date']);
-        $refillSelect = $hasRefillDate ? ', ss.hearts_refill_date' : '';
+        $hasSubjectXp = isset($columns['subject_xp']);
+        $extraSelect = ($hasRefillDate ? ', ss.hearts_refill_date' : '')
+            . ($hasSubjectXp ? ', ss.subject_xp' : '');
         $stmt = $pdo->prepare(
-            "SELECT ss.subject_version_id, s.name, ss.hearts{$refillSelect} "
+            "SELECT ss.subject_version_id, s.name, ss.hearts{$extraSelect} "
             . "FROM student_subject_state ss "
             . "JOIN subject_versions sv ON sv.id=ss.subject_version_id "
             . "JOIN subjects s ON s.id=sv.subject_id "
@@ -193,15 +254,25 @@ function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit):
         );
         $stmt->execute([$studentId]);
         return array_map(
-            static fn(array $row): array => [
-                'subject_version_id' => max(0, (int)($row['subject_version_id'] ?? 0)),
-                'name' => trim((string)($row['name'] ?? '')),
-                'hearts' => api_student_home_subject_effective_hearts(
-                    (int)($row['hearts'] ?? 3),
-                    $hasRefillDate ? (string)($row['hearts_refill_date'] ?? '') : '',
-                ),
-                'progress_percent' => null,
-            ],
+            static function (array $row) use ($hasRefillDate, $hasSubjectXp): array {
+                $points = $hasSubjectXp && is_numeric($row['subject_xp'] ?? null)
+                    ? max(0, (int)round((float)$row['subject_xp']))
+                    : null;
+                $levelState = $points !== null
+                    ? api_student_home_subject_level_state((float)$points)
+                    : ['level' => null, 'progress_percent' => null];
+                return [
+                    'subject_version_id' => max(0, (int)($row['subject_version_id'] ?? 0)),
+                    'name' => trim((string)($row['name'] ?? '')),
+                    'hearts' => api_student_home_subject_effective_hearts(
+                        (int)($row['hearts'] ?? 3),
+                        $hasRefillDate ? (string)($row['hearts_refill_date'] ?? '') : '',
+                    ),
+                    'points' => $points,
+                    'level' => $levelState['level'],
+                    'progress_percent' => $levelState['progress_percent'],
+                ];
+            },
             $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
         );
     } catch (Throwable) {
