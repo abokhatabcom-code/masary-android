@@ -60,8 +60,53 @@
           "lessons_count": 20
         }
       ],
-      "details_available": false,
-      "reason": "بطاقات الوحدات والدروس وحالات الفتح ستُنفذ داخل هذه الصفحة في المرحلة الثانية عشرة."
+      "details_available": true,
+      "reason": "حالات الفتح غير المؤكدة تبقى ظاهرة بصفتها غير محسومة حتى يثبت مصدرها الخادمي.",
+      "units": [
+        {
+          "id": 101,
+          "part_number": 1,
+          "title": "الوحدة الأولى",
+          "position": 1,
+          "state": {
+            "status": "in_progress",
+            "reason": ""
+          },
+          "lessons": [
+            {
+              "id": 1001,
+              "unit_id": 101,
+              "part_number": 1,
+              "title": "الدرس الأول",
+              "position": 1,
+              "state": {
+                "status": "in_progress",
+                "reason": ""
+              },
+              "preparation": {
+                "available": false,
+                "reason": "سيُفعّل بدء الدرس بعد تثبيت مصدر قواعد الفتح الخادمية."
+              }
+            },
+            {
+              "id": 1002,
+              "unit_id": 101,
+              "part_number": 1,
+              "title": "الدرس الثاني",
+              "position": 2,
+              "state": {
+                "status": "unknown",
+                "reason": "لم يُثبت بعد مصدر خادمي موحد لحالة الفتح أو الإكمال لهذا المحتوى."
+              },
+              "preparation": {
+                "available": false,
+                "reason": "سيُفعّل بدء الدرس بعد تثبيت مصدر قواعد الفتح الخادمية."
+              }
+            }
+          ]
+        }
+      ],
+      "lessons": []
     },
     "last_activity": {
       "available": true,
@@ -72,12 +117,13 @@
         "available": false,
         "reason": "السجل الحالي لا يحتوي نوع نشاط ومصدرًا كافيين لبناء شاشة التهيئة بأمان."
       },
-      "reason": ""
+      "reason": "",
+      "lesson_id": 1001
     },
     "actions": {
       "training_center": {
-        "available": false,
-        "reason": "مركز تدريب المادة سيُفعّل في المرحلة الحادية عشرة."
+        "available": true,
+        "reason": ""
       }
     },
     "version": "subject-detail-contract-v1"
