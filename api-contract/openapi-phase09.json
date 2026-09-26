@@ -9,12 +9,24 @@
       "get": {
         "summary": "List subjects assigned to the authenticated student",
         "description": "يعيد قائمة قراءة فقط مبنية من سياق الطالب الأكاديمي المخزن في الخادم. لا يقبل معرف طالب أو صف أو منهج من العميل.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
-          "200": { "$ref": "#/components/responses/StudentSubjectsSuccess" },
-          "401": { "$ref": "#/components/responses/ErrorEnvelope" },
-          "429": { "$ref": "#/components/responses/ErrorEnvelope" },
-          "503": { "$ref": "#/components/responses/ErrorEnvelope" }
+          "200": {
+            "$ref": "#/components/responses/StudentSubjectsSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorEnvelope"
+          },
+          "429": {
+            "$ref": "#/components/responses/ErrorEnvelope"
+          },
+          "503": {
+            "$ref": "#/components/responses/ErrorEnvelope"
+          }
         }
       }
     }
@@ -25,7 +37,9 @@
         "description": "API envelope",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/StudentSubjectsResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/StudentSubjectsResponse"
+            }
           }
         }
       }
@@ -34,111 +48,303 @@
       "SubjectsAcademicContext": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["available", "grade_name", "department_name", "city_name", "curriculum_name", "reason"],
+        "required": [
+          "available",
+          "grade_name",
+          "department_name",
+          "city_name",
+          "curriculum_name",
+          "reason"
+        ],
         "properties": {
-          "available": { "type": "boolean" },
-          "grade_name": { "type": "string" },
-          "department_name": { "type": "string" },
-          "city_name": { "type": "string" },
-          "curriculum_name": { "type": "string" },
-          "reason": { "type": "string" }
+          "available": {
+            "type": "boolean"
+          },
+          "grade_name": {
+            "type": "string"
+          },
+          "department_name": {
+            "type": "string"
+          },
+          "city_name": {
+            "type": "string"
+          },
+          "curriculum_name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
         }
       },
       "SubjectProgress": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["available", "percent", "reason"],
+        "required": [
+          "available",
+          "percent",
+          "reason"
+        ],
         "properties": {
-          "available": { "type": "boolean" },
-          "percent": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
-          "reason": { "type": "string" }
+          "available": {
+            "type": "boolean"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
         }
       },
       "SubjectMedia": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["available", "key", "reason"],
+        "required": [
+          "available",
+          "key",
+          "reason"
+        ],
         "properties": {
-          "available": { "type": "boolean" },
-          "key": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
-          "reason": { "type": "string" }
+          "available": {
+            "type": "boolean"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
         }
       },
       "SubjectAccess": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["available", "status", "reason"],
+        "required": [
+          "available",
+          "status",
+          "reason"
+        ],
         "properties": {
-          "available": { "type": "boolean" },
+          "available": {
+            "type": "boolean"
+          },
           "status": {
             "type": "string",
-            "enum": ["unknown", "available", "free", "requires_subscription", "blocked"]
+            "enum": [
+              "unknown",
+              "available",
+              "free",
+              "requires_subscription",
+              "blocked"
+            ]
           },
-          "reason": { "type": "string" }
+          "reason": {
+            "type": "string"
+          }
         }
       },
       "SubjectLastActivity": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["available", "unit_id", "mode", "updated_at", "reason"],
+        "required": [
+          "available",
+          "unit_id",
+          "mode",
+          "updated_at",
+          "reason"
+        ],
         "properties": {
-          "available": { "type": "boolean" },
-          "unit_id": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
-          "mode": { "type": "string" },
-          "updated_at": { "type": "string" },
-          "reason": { "type": "string" }
+          "available": {
+            "type": "boolean"
+          },
+          "unit_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
         }
       },
       "StudentSubjectSummary": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["subject_version_id", "name", "hearts", "curriculum_label", "progress", "media", "access", "last_activity"],
+        "required": [
+          "subject_version_id",
+          "name",
+          "hearts",
+          "points",
+          "level",
+          "curriculum_label",
+          "progress",
+          "media",
+          "access",
+          "last_activity"
+        ],
         "properties": {
-          "subject_version_id": { "type": "integer", "minimum": 1 },
-          "name": { "type": "string", "minLength": 1 },
-          "hearts": { "type": "integer", "minimum": 0 },
-          "curriculum_label": { "type": "string" },
-          "progress": { "$ref": "#/components/schemas/SubjectProgress" },
-          "media": { "$ref": "#/components/schemas/SubjectMedia" },
-          "access": { "$ref": "#/components/schemas/SubjectAccess" },
-          "last_activity": { "$ref": "#/components/schemas/SubjectLastActivity" }
+          "subject_version_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hearts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "curriculum_label": {
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/SubjectProgress"
+          },
+          "media": {
+            "$ref": "#/components/schemas/SubjectMedia"
+          },
+          "access": {
+            "$ref": "#/components/schemas/SubjectAccess"
+          },
+          "last_activity": {
+            "$ref": "#/components/schemas/SubjectLastActivity"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
         }
       },
       "SubjectsEmptyState": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["is_empty", "reason"],
+        "required": [
+          "is_empty",
+          "reason"
+        ],
         "properties": {
-          "is_empty": { "type": "boolean" },
-          "reason": { "type": "string" }
+          "is_empty": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
         }
       },
       "StudentSubjectsData": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["student_id", "version", "generated_at", "complete", "academic", "subjects", "empty"],
+        "required": [
+          "student_id",
+          "version",
+          "generated_at",
+          "complete",
+          "academic",
+          "subjects",
+          "empty"
+        ],
         "properties": {
-          "student_id": { "type": "string", "minLength": 1 },
-          "version": { "type": "string", "minLength": 1 },
-          "generated_at": { "type": "string", "minLength": 1 },
-          "complete": { "type": "boolean" },
-          "academic": { "$ref": "#/components/schemas/SubjectsAcademicContext" },
+          "student_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "generated_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "academic": {
+            "$ref": "#/components/schemas/SubjectsAcademicContext"
+          },
           "subjects": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/StudentSubjectSummary" }
+            "items": {
+              "$ref": "#/components/schemas/StudentSubjectSummary"
+            }
           },
-          "empty": { "$ref": "#/components/schemas/SubjectsEmptyState" }
+          "empty": {
+            "$ref": "#/components/schemas/SubjectsEmptyState"
+          }
         }
       },
       "StudentSubjectsResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["success", "data", "error", "request_id"],
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
         "properties": {
-          "success": { "const": true },
-          "data": { "$ref": "#/components/schemas/StudentSubjectsData" },
-          "error": { "type": "null" },
-          "request_id": { "type": "string", "minLength": 1 }
+          "success": {
+            "const": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/StudentSubjectsData"
+          },
+          "error": {
+            "type": "null"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }
