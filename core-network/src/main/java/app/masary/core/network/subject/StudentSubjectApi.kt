@@ -82,11 +82,37 @@ data class SubjectContentPartDto(
     @SerializedName("lessons_count") val lessonsCount: Int = 0,
 )
 
+data class SubjectLearningStateDto(
+    val status: String = "unknown",
+    val reason: String = "",
+)
+
+data class SubjectLessonDto(
+    val id: Int = 0,
+    @SerializedName("unit_id") val unitId: Int? = null,
+    @SerializedName("part_number") val partNumber: Int = 0,
+    val title: String = "",
+    val position: Int = 0,
+    val state: SubjectLearningStateDto = SubjectLearningStateDto(),
+    val preparation: SubjectActionAvailabilityDto = SubjectActionAvailabilityDto(),
+)
+
+data class SubjectUnitDto(
+    val id: Int = 0,
+    @SerializedName("part_number") val partNumber: Int = 0,
+    val title: String = "",
+    val position: Int = 0,
+    val state: SubjectLearningStateDto = SubjectLearningStateDto(),
+    val lessons: List<SubjectLessonDto> = emptyList(),
+)
+
 data class SubjectDetailContentDto(
     @SerializedName("structure_mode") val structureMode: String = "unknown",
     @SerializedName("has_parts") val hasParts: Boolean = false,
     val parts: List<SubjectContentPartDto> = emptyList(),
     @SerializedName("details_available") val detailsAvailable: Boolean = false,
+    val units: List<SubjectUnitDto> = emptyList(),
+    val lessons: List<SubjectLessonDto> = emptyList(),
     val reason: String = "",
 )
 
@@ -98,6 +124,7 @@ data class SubjectActionAvailabilityDto(
 data class SubjectDetailLastActivityDto(
     val available: Boolean = false,
     @SerializedName("unit_id") val unitId: Int? = null,
+    @SerializedName("lesson_id") val lessonId: Int? = null,
     val mode: String = "",
     @SerializedName("updated_at") val updatedAt: String = "",
     val preparation: SubjectActionAvailabilityDto = SubjectActionAvailabilityDto(),
