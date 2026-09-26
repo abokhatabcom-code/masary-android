@@ -13,7 +13,7 @@ foreach ([
     "'hearts_refill_date'",
     "status='active'",
     'ends_at>=?',
-    "calc_level($globalXp, (int)$levelStep)",
+    'calc_level($globalXp, (int)$levelStep)',
 ] as $required) {
     if (!str_contains($homeSource, $required)) {
         throw new RuntimeException("Home data foundation is missing: {$required}");
@@ -26,7 +26,7 @@ if (str_contains($homeSource, "function_exists('ik_dash_subscription')")) {
 
 foreach ([
     'api_student_subject_level_state',
-    "calc_level($xp, 100)",
+    'calc_level($xp, 100)',
     "'progress_percent'",
     "'hearts_refill_date'",
     "new DateTimeZone('Asia/Aden')",
