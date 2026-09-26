@@ -52,14 +52,21 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Build debug APKs
-        run: ./gradlew --no-daemon :app-student:assembleDebug :app-admin:assembleDebug :app-pos:assembleDebug
+      - name: Build debug APKs and student preview APK
+        run: ./gradlew --no-daemon :app-student:assembleDebug :app-student:assemblePreview :app-admin:assembleDebug :app-pos:assembleDebug
 
       - name: Upload student debug APK
         uses: actions/upload-artifact@v4
         with:
           name: masary-student-debug-apk
           path: app-student/build/outputs/apk/debug/app-student-debug.apk
+          if-no-files-found: error
+
+      - name: Upload student production-preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-student-preview-apk
+          path: app-student/build/outputs/apk/preview/app-student-preview.apk
           if-no-files-found: error
 
       - name: Upload admin debug APK
