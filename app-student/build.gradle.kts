@@ -102,6 +102,21 @@ android {
                 signingConfig = signingConfigs.getByName("masary")
             }
         }
+        create("preview") {
+            isDebuggable = true
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            buildConfigField("String", "MASARY_ENVIRONMENT", "\"production\"")
+            buildConfigField("String", "MASARY_API_BASE_URL", "\"$productionUrl\"")
+            firebase.getValue("production").forEach { (key, value) ->
+                buildConfigField(
+                    "String",
+                    "FIREBASE_${key.replace(Regex("([a-z])([A-Z])"), "$1_$2").uppercase()}",
+                    "\"$value\"",
+                )
+            }
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             val environment = requestedEnvironment ?: "production"
             require(environment != "development") {
