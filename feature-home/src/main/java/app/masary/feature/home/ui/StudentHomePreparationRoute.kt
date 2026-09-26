@@ -448,6 +448,9 @@ private fun HomeContent(
                         Text(it, color = MasaryColors.muted, style = MaterialTheme.typography.bodySmall)
                     }
                     GuideCard(data.smartGuide, onGuide, onStep)
+                    TodayDetailsCard(data)
+                    StreakDetailsCard(data)
+                    SubscriptionCard(data)
                     ContinueLearningCard(data, onSubject)
                     SubjectPreview(data.subjects, onSubjects, onSubject)
                     data.spotlight?.let { spotlight ->
@@ -573,6 +576,161 @@ private fun Indicator(icon: ImageVector, label: String, value: String, modifier:
             Icon(icon, null, tint = MasaryColors.brandGold)
             Text(value, fontWeight = FontWeight.Bold)
             Text(label, color = MasaryColors.muted, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun TodayDetailsCard(data: StudentHomeData) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "نشاط اليوم",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MasaryColors.brandNavy,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HomeMiniMetric(
+                    label = "دقائق التعلّم",
+                    value = data.today.minutes.coerceAtLeast(0).toString(),
+                    modifier = Modifier.weight(1f),
+                )
+                HomeMiniMetric(
+                    label = "نقاط اليوم",
+                    value = data.today.xp.coerceAtLeast(0).toString(),
+                    modifier = Modifier.weight(1f),
+                )
+                HomeMiniMetric(
+                    label = "المحاولات",
+                    value = data.today.attempts.coerceAtLeast(0).toString(),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StreakDetailsCard(data: StudentHomeData) {
+    val streak = data.streak
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.LocalFireDepartment, null, tint = MasaryColors.brandGold)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "السلسلة",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MasaryColors.brandNavy,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HomeMiniMetric(
+                    label = "الحالية",
+                    value = streak.currentDays.coerceAtLeast(0).toString(),
+                    modifier = Modifier.weight(1f),
+                )
+                HomeMiniMetric(
+                    label = "الأفضل",
+                    value = streak.bestDays.coerceAtLeast(0).toString(),
+                    modifier = Modifier.weight(1f),
+                )
+                HomeMiniMetric(
+                    label = "الحماية",
+                    value = "${streak.protectionCount.coerceAtLeast(0)}/${streak.protectionMax.coerceAtLeast(0)}",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            streak.message.takeIf(String::isNotBlank)?.let {
+                Text(it, color = MasaryColors.muted)
+            }
+            val goal = streak.goal
+            if (goal.days > 0) {
+                val progress = goal.progressPercent.coerceIn(0, 100)
+                Text(
+                    goal.label.ifBlank { "هدف السلسلة: ${goal.days} أيام" },
+                    color = MasaryColors.brandNavy,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                LinearProgressIndicator(
+                    progress = { progress / 100f },
+                    modifier = Modifier.fillMaxWidth().height(7.dp),
+                    color = MasaryColors.brandGold,
+                    trackColor = MasaryColors.border,
+                )
+                val details = buildList {
+                    if (!goal.isCompleted && goal.remainingDays > 0) add("${goal.remainingDays} أيام متبقية")
+                    if (goal.gems > 0) add("${goal.gems} جوهرة")
+                    if (goal.shields > 0) add("${goal.shields} حماية")
+                }.joinToString(" • ")
+                if (details.isNotBlank()) {
+                    Text(details, color = MasaryColors.muted, style = MaterialTheme.typography.labelMedium)
+                }
+            } else if (streak.nextMilestone > 0) {
+                Text(
+                    "المحطة التالية: ${streak.nextMilestone} أيام",
+                    color = MasaryColors.muted,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionCard(data: StudentHomeData) {
+    val subscription = data.subscription
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                "الاشتراك",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MasaryColors.brandNavy,
+            )
+            Text(
+                if (subscription.active) "الاشتراك نشط" else subscription.status.ifBlank { "الاشتراك غير نشط" },
+                color = if (subscription.active) MasaryColors.success else MasaryColors.muted,
+                fontWeight = FontWeight.SemiBold,
+            )
+            subscription.endsAt.takeIf(String::isNotBlank)?.let {
+                Text("ينتهي في: $it", color = MasaryColors.muted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeMiniMetric(label: String, value: String, modifier: Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = MasaryColors.iceSurface,
+        border = BorderStroke(1.dp, MasaryColors.border),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(value, fontWeight = FontWeight.ExtraBold, color = MasaryColors.brandNavy)
+            Text(
+                label,
+                color = MasaryColors.muted,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
