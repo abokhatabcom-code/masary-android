@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_student_subjects.php';
+require_once __DIR__ . '/_student_subject_progress.php';
 
 function api_student_subject_columns(PDO $pdo, string $table): array
 {
@@ -236,6 +237,7 @@ function api_student_subject_learning_state(bool $active, bool $inProgress): arr
 
 function api_student_subject_content_details(
     PDO $pdo,
+    int $studentId,
     int $subjectVersionId,
     array $identity,
     array $lastActivity,
@@ -251,6 +253,12 @@ function api_student_subject_content_details(
             'details_available' => false,
             'units' => [],
             'lessons' => [],
+            'progress_settings' => [
+                'progress_mode' => 'unit',
+                'unlock_mode' => 'sequential',
+                'unlock_threshold_percent' => 30.0,
+                'review_progress_cap_points' => 150.0,
+            ],
             'reason' => 'جداول الوحدات والدروس غير متاحة بعقد يمكن قراءته بأمان.',
         ];
     }
@@ -359,6 +367,9 @@ function api_student_subject_content_details(
                     'position' => $lessonOrderColumn !== ''
                         ? max(0, (int)($row[$lessonOrderColumn] ?? 0))
                         : $lessonId,
+                    '_content_node_id' => isset($lessonColumns['content_node_id'])
+                        ? max(0, (int)($row['content_node_id'] ?? 0))
+                        : 0,
                     'state' => $state,
                     'preparation' => [
                         'available' => false,
@@ -380,13 +391,20 @@ function api_student_subject_content_details(
     }
 
     $hasContent = $units !== [] || $standaloneLessons !== [];
+    $projected = api_student_subject_apply_progress_states(
+        $pdo,
+        $studentId,
+        $subjectVersionId,
+        $units,
+        $standaloneLessons,
+        $lastActivity,
+    );
     return [
         'details_available' => true,
-        'units' => $units,
-        'lessons' => $standaloneLessons,
-        'reason' => $hasContent
-            ? 'حالات الفتح غير المؤكدة تبقى ظاهرة بصفتها غير محسومة حتى يثبت مصدرها الخادمي.'
-            : 'لا توجد وحدات أو دروس منشورة لهذه المادة حاليًا.',
+        'units' => $projected['units'],
+        'lessons' => $projected['lessons'],
+        'progress_settings' => $projected['settings'],
+        'reason' => $hasContent ? '' : 'لا توجد وحدات أو دروس منشورة لهذه المادة حاليًا.',
     ];
 }
 
@@ -470,7 +488,7 @@ function api_student_subject_payload(PDO $pdo, array $session, int $subjectVersi
     $state = api_student_subject_state($pdo, $studentId, $subjectVersionId, $authorized);
     $parts = api_student_subject_parts($pdo, $subjectVersionId, (bool)$identity['has_parts']);
     $lastActivity = api_student_subject_last_activity($pdo, $studentId, $subjectVersionId);
-    $contentDetails = api_student_subject_content_details($pdo, $subjectVersionId, $identity, $lastActivity);
+    $contentDetails = api_student_subject_content_details($pdo, $studentId, $subjectVersionId, $identity, $lastActivity);
     $academic = api_student_subjects_academic_context($pdo, $studentId);
     $curriculumLabel = $identity['curriculum_label'] !== ''
         ? $identity['curriculum_label']
@@ -506,6 +524,7 @@ function api_student_subject_payload(PDO $pdo, array $session, int $subjectVersi
             'details_available' => (bool)$contentDetails['details_available'],
             'units' => $contentDetails['units'],
             'lessons' => $contentDetails['lessons'],
+            'progress_settings' => $contentDetails['progress_settings'],
             'reason' => $contentDetails['reason'],
         ],
         'last_activity' => $lastActivity,
