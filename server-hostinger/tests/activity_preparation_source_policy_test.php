@@ -143,7 +143,7 @@ foreach ([
 }
 foreach ([
     '$nativeLessonRequest',
-    "source = 'lesson'",
+    "=== 'lesson'",
     'api_activity_validate_lesson_access',
 ] as $required) {
     source_policy_check(
