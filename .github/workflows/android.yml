@@ -2,7 +2,9 @@ name: Android CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - release/student-phase12-update
   pull_request:
   workflow_dispatch:
 
@@ -84,7 +86,7 @@ jobs:
           if-no-files-found: error
 
   build-signed-production-student-apk:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/release/student-phase12-update'
     runs-on: ubuntu-latest
     env:
       MASARY_DEVELOPMENT_BASE_URL: ${{ vars.MASARY_DEVELOPMENT_BASE_URL }}
