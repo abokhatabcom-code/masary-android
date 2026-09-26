@@ -283,3 +283,11 @@ private fun app.masary.core.network.subject.SubjectLessonDto.toDomainLesson(): S
         ),
         progress = progress.toDomainLearningProgress(),
     )
+
+
+private fun app.masary.core.network.subject.SubjectLearningProgressDto.toDomainLearningProgress():
+    SubjectLearningProgress = SubjectLearningProgress(
+        reviewPercent = reviewPercent.coerceIn(0.0, 100.0),
+        unlockThresholdPercent = unlockThresholdPercent.coerceIn(0.0, 100.0),
+        learnCompleted = learnCompleted,
+    )
