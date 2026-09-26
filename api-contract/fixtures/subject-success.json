@@ -30,7 +30,7 @@
       "reason": ""
     },
     "hearts": {
-      "current": 2,
+      "current": 3,
       "maximum": 3,
       "next_restore": {
         "available": false,
@@ -39,9 +39,9 @@
       }
     },
     "access": {
-      "available": false,
-      "status": "unknown",
-      "reason": "ارتباط المادة بالسياق مؤكد، أما سياسة الاشتراك التفصيلية فليست مربوطة بهذه الخدمة بعد."
+      "available": true,
+      "status": "available",
+      "reason": ""
     },
     "content": {
       "structure_mode": "units",
