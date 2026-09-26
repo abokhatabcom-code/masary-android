@@ -9,6 +9,14 @@ if (!is_file($dashboardHelpers)) {
 }
 require_once $dashboardHelpers;
 
+function api_student_home_effective_hearts(int $hearts, ?string $refillDate): int
+{
+    $hearts = max(0, min(3, $hearts));
+    $refillDate = trim((string)$refillDate);
+    $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Aden')))->format('Y-m-d');
+    return $refillDate !== '' && $refillDate !== $today ? 3 : $hearts;
+}
+
 function api_student_home_unread_count(PDO $pdo, int $studentId): int
 {
     try {
@@ -50,7 +58,7 @@ function api_student_home_subjects(PDO $pdo, int $studentId): array
 {
     try {
         $stmt = $pdo->prepare(
-            "SELECT ss.subject_version_id, s.name, ss.hearts "
+            "SELECT ss.subject_version_id, s.name, ss.hearts, ss.hearts_refill_date "
             . "FROM student_subject_state ss "
             . "JOIN subject_versions sv ON sv.id=ss.subject_version_id "
             . "JOIN subjects s ON s.id=sv.subject_id "
@@ -63,7 +71,10 @@ function api_student_home_subjects(PDO $pdo, int $studentId): array
             $items[] = [
                 'subject_version_id' => $subjectVersionId,
                 'name' => trim((string)($row['name'] ?? '')),
-                'hearts' => max(0, (int)($row['hearts'] ?? 0)),
+                'hearts' => api_student_home_effective_hearts(
+                    (int)($row['hearts'] ?? 3),
+                    (string)($row['hearts_refill_date'] ?? ''),
+                ),
                 // This table has no authoritative completion percentage. Do not invent one.
                 'progress_percent' => null,
             ];
@@ -142,7 +153,7 @@ function api_student_home_continue(PDO $pdo, int $studentId): array
     try {
         $stmt = $pdo->prepare(
             "SELECT la.subject_version_id, la.unit_id, la.mode, la.updated_at, "
-            . "s.name AS subject_name, u.title AS unit_title, ss.hearts "
+            . "s.name AS subject_name, u.title AS unit_title, ss.hearts, ss.hearts_refill_date "
             . "FROM student_last_activity la "
             . "JOIN subject_versions sv ON sv.id=la.subject_version_id "
             . "JOIN subjects s ON s.id=sv.subject_id "
@@ -165,7 +176,10 @@ function api_student_home_continue(PDO $pdo, int $studentId): array
         $mode = (string)($row['mode'] ?? 'learn');
         $subjectName = trim((string)($row['subject_name'] ?? ''));
         $unitTitle = trim((string)($row['unit_title'] ?? ''));
-        $hearts = $row['hearts'] !== null ? max(0, (int)$row['hearts']) : 3;
+        $hearts = api_student_home_effective_hearts(
+            $row['hearts'] !== null ? (int)$row['hearts'] : 3,
+            (string)($row['hearts_refill_date'] ?? ''),
+        );
         $label = 'تابع المادة';
         $hint = $subjectName !== '' ? ('آخر مادة: ' . $subjectName) : 'آخر مادة';
         $disabled = false;
