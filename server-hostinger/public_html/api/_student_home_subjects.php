@@ -13,6 +13,31 @@ function api_student_home_subject_effective_hearts(int $hearts, ?string $refillD
     return $refillDate !== '' && $refillDate !== $today ? 3 : $hearts;
 }
 
+function api_student_home_subject_state_columns(PDO $pdo): array
+{
+    static $cache = [];
+    $driver = strtolower((string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+    if (isset($cache[$driver])) {
+        return $cache[$driver];
+    }
+    try {
+        if ($driver === 'sqlite') {
+            $rows = $pdo->query('PRAGMA table_info(student_subject_state)')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            return $cache[$driver] = array_fill_keys(
+                array_filter(array_map(static fn(array $row): string => (string)($row['name'] ?? ''), $rows)),
+                true,
+            );
+        }
+        $rows = $pdo->query('SHOW COLUMNS FROM student_subject_state')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return $cache[$driver] = array_fill_keys(
+            array_filter(array_map(static fn(array $row): string => (string)($row['Field'] ?? ''), $rows)),
+            true,
+        );
+    } catch (Throwable) {
+        return $cache[$driver] = [];
+    }
+}
+
 function api_student_home_subject_limit(int $limit): int
 {
     return max(1, min(100, $limit));
@@ -58,8 +83,11 @@ function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjec
 
     try {
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $columns = api_student_home_subject_state_columns($pdo);
+        $hasRefillDate = isset($columns['hearts_refill_date']);
+        $select = 'subject_version_id, hearts' . ($hasRefillDate ? ', hearts_refill_date' : '');
         $statement = $pdo->prepare(
-            "SELECT subject_version_id, hearts, hearts_refill_date FROM student_subject_state "
+            "SELECT {$select} FROM student_subject_state "
             . "WHERE student_id=? AND subject_version_id IN ({$placeholders})"
         );
         $statement->execute(array_merge([$studentId], $ids));
@@ -69,7 +97,7 @@ function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjec
             if ($subjectVersionId > 0) {
                 $out[$subjectVersionId] = api_student_home_subject_effective_hearts(
                     (int)($row['hearts'] ?? 3),
-                    (string)($row['hearts_refill_date'] ?? ''),
+                    $hasRefillDate ? (string)($row['hearts_refill_date'] ?? '') : '',
                 );
             }
         }
@@ -153,8 +181,11 @@ function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit):
 {
     $limit = api_student_home_subject_limit($limit);
     try {
+        $columns = api_student_home_subject_state_columns($pdo);
+        $hasRefillDate = isset($columns['hearts_refill_date']);
+        $refillSelect = $hasRefillDate ? ', ss.hearts_refill_date' : '';
         $stmt = $pdo->prepare(
-            "SELECT ss.subject_version_id, s.name, ss.hearts, ss.hearts_refill_date "
+            "SELECT ss.subject_version_id, s.name, ss.hearts{$refillSelect} "
             . "FROM student_subject_state ss "
             . "JOIN subject_versions sv ON sv.id=ss.subject_version_id "
             . "JOIN subjects s ON s.id=sv.subject_id "
@@ -167,7 +198,7 @@ function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit):
                 'name' => trim((string)($row['name'] ?? '')),
                 'hearts' => api_student_home_subject_effective_hearts(
                     (int)($row['hearts'] ?? 3),
-                    (string)($row['hearts_refill_date'] ?? ''),
+                    $hasRefillDate ? (string)($row['hearts_refill_date'] ?? '') : '',
                 ),
                 'progress_percent' => null,
             ],
