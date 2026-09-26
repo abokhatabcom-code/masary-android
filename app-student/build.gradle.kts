@@ -84,6 +84,8 @@ android {
 
     buildTypes {
         debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
             val environment = requestedEnvironment ?: "development"
             val environmentUrl = environmentUrls.getValue(environment)
             require(
