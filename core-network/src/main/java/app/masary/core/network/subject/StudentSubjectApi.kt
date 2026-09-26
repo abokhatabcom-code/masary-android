@@ -87,6 +87,19 @@ data class SubjectLearningStateDto(
     val reason: String = "",
 )
 
+data class SubjectLearningProgressDto(
+    @SerializedName("review_percent") val reviewPercent: Double = 0.0,
+    @SerializedName("unlock_threshold_percent") val unlockThresholdPercent: Double = 0.0,
+    @SerializedName("learn_completed") val learnCompleted: Boolean = false,
+)
+
+data class SubjectProgressSettingsDto(
+    @SerializedName("progress_mode") val progressMode: String = "unit",
+    @SerializedName("unlock_mode") val unlockMode: String = "sequential",
+    @SerializedName("unlock_threshold_percent") val unlockThresholdPercent: Double = 30.0,
+    @SerializedName("review_progress_cap_points") val reviewProgressCapPoints: Double = 150.0,
+)
+
 data class SubjectLessonDto(
     val id: Int = 0,
     @SerializedName("unit_id") val unitId: Int? = null,
@@ -94,6 +107,7 @@ data class SubjectLessonDto(
     val title: String = "",
     val position: Int = 0,
     val state: SubjectLearningStateDto = SubjectLearningStateDto(),
+    val progress: SubjectLearningProgressDto = SubjectLearningProgressDto(),
     val preparation: SubjectActionAvailabilityDto = SubjectActionAvailabilityDto(),
 )
 
@@ -103,6 +117,7 @@ data class SubjectUnitDto(
     val title: String = "",
     val position: Int = 0,
     val state: SubjectLearningStateDto = SubjectLearningStateDto(),
+    val progress: SubjectLearningProgressDto = SubjectLearningProgressDto(),
     val lessons: List<SubjectLessonDto> = emptyList(),
 )
 
@@ -113,6 +128,8 @@ data class SubjectDetailContentDto(
     @SerializedName("details_available") val detailsAvailable: Boolean = false,
     val units: List<SubjectUnitDto> = emptyList(),
     val lessons: List<SubjectLessonDto> = emptyList(),
+    @SerializedName("progress_settings") val progressSettings: SubjectProgressSettingsDto =
+        SubjectProgressSettingsDto(),
     val reason: String = "",
 )
 
