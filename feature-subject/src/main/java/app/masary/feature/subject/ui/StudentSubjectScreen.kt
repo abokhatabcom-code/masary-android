@@ -277,7 +277,22 @@ private fun SubjectContent(
                     }
                     item { SubjectContentPlaceholder(data.content.reason) }
                 }
-                item { SubjectLastActivityCard(data) }
+                item {
+                    SubjectLastActivityCard(
+                        data = data,
+                        onContinue = {
+                            val unitId = data.lastActivity.unitId
+                            val lessonId = data.lastActivity.lessonId
+                            if (
+                                data.lastActivity.preparation.available &&
+                                unitId != null &&
+                                lessonId != null
+                            ) {
+                                onLessonPreparation(data.subjectVersionId, unitId, lessonId)
+                            }
+                        },
+                    )
+                }
             }
         }
     }
@@ -824,7 +839,16 @@ private fun SubjectContentPlaceholder(reason: String) {
 }
 
 @Composable
-private fun SubjectLastActivityCard(data: StudentSubjectPage) {
+private fun SubjectLastActivityCard(
+    data: StudentSubjectPage,
+    onContinue: () -> Unit,
+) {
+    val unit = data.lastActivity.unitId?.let { unitId ->
+        data.content.units.firstOrNull { it.id == unitId }
+    }
+    val lesson = data.lastActivity.lessonId?.let { lessonId ->
+        (unit?.lessons.orEmpty() + data.content.lessons).firstOrNull { it.id == lessonId }
+    }
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
             modifier = Modifier
@@ -838,9 +862,23 @@ private fun SubjectLastActivityCard(data: StudentSubjectPage) {
                 SectionTitle(stringResource(R.string.subject_last_activity))
             }
             if (data.lastActivity.available) {
-                data.lastActivity.unitId?.let { unitId ->
+                if (unit != null) {
                     Text(
-                        text = stringResource(R.string.subject_last_activity_unit, unitId),
+                        text = stringResource(R.string.subject_last_activity_unit_named, unit.title),
+                        color = MasaryColors.brandNavy,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                } else {
+                    data.lastActivity.unitId?.let { unitId ->
+                        Text(
+                            text = stringResource(R.string.subject_last_activity_unit, unitId),
+                            color = MasaryColors.brandNavy,
+                        )
+                    }
+                }
+                lesson?.let {
+                    Text(
+                        text = stringResource(R.string.subject_last_activity_lesson_named, it.title),
                         color = MasaryColors.brandNavy,
                     )
                 }
@@ -860,7 +898,18 @@ private fun SubjectLastActivityCard(data: StudentSubjectPage) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                if (!data.lastActivity.preparation.available) {
+                if (
+                    data.lastActivity.preparation.available &&
+                    data.lastActivity.unitId != null &&
+                    data.lastActivity.lessonId != null
+                ) {
+                    Button(
+                        onClick = onContinue,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.subject_continue_last_activity))
+                    }
+                } else if (!data.lastActivity.preparation.available) {
                     SupportingText(data.lastActivity.preparation.reason)
                 }
             } else {
