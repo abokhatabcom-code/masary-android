@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_student_training_center.php';
-require_once __DIR__ . '/_student_subject.php';
+require_once __DIR__ . '/_student_subject_progress.php';
 
 const API_ACTIVITY_TYPES = [
     'guide_step',
@@ -252,55 +252,26 @@ function api_activity_validate_lesson_access(PDO $pdo, int $studentId, array $re
     $subjectVersionId = (int)($request['subject_version_id'] ?? 0);
     $unitId = (int)($request['unit_id'] ?? 0);
     $lessonId = (int)($request['lesson_id'] ?? 0);
-    if ($subjectVersionId <= 0 || $unitId <= 0 || $lessonId <= 0) {
-        api_error('validation_error', 'بيانات الدرس غير مكتملة.', 422);
-    }
-
-    $authorized = api_student_subject_authorized_row($pdo, $studentId, $subjectVersionId);
-    $identity = api_student_subject_identity($pdo, $subjectVersionId, $authorized);
-    $lastActivity = api_student_subject_last_activity($pdo, $studentId, $subjectVersionId);
-    $content = api_student_subject_content_details(
+    $access = api_student_subject_lesson_access_state(
         $pdo,
         $studentId,
         $subjectVersionId,
-        $identity,
-        $lastActivity,
+        $unitId,
+        $lessonId,
     );
-
-    $candidate = null;
-    foreach ((array)($content['units'] ?? []) as $unit) {
-        if ((int)($unit['id'] ?? 0) !== $unitId) {
-            continue;
-        }
-        foreach ((array)($unit['lessons'] ?? []) as $lesson) {
-            if ((int)($lesson['id'] ?? 0) === $lessonId) {
-                $candidate = $lesson;
-                break 2;
-            }
-        }
+    if (empty($access['available'])) {
+        api_error(
+            'content_access_unavailable',
+            (string)($access['reason'] ?? 'تعذر التحقق من فتح الدرس الآن.'),
+            503,
+        );
     }
-    if ($candidate === null) {
-        foreach ((array)($content['lessons'] ?? []) as $lesson) {
-            if ((int)($lesson['id'] ?? 0) === $lessonId
-                && (int)($lesson['unit_id'] ?? 0) === $unitId) {
-                $candidate = $lesson;
-                break;
-            }
-        }
-    }
-
-    if ($candidate === null) {
-        api_error('invalid_content', 'الدرس المطلوب غير متاح ضمن هذه المادة.', 422);
-    }
-
-    $status = (string)($candidate['state']['status'] ?? 'unavailable');
-    $preparationAvailable = !empty($candidate['preparation']['available']);
-    if (!$preparationAvailable || in_array($status, ['locked', 'unavailable'], true)) {
-        $reason = trim((string)($candidate['preparation']['reason'] ?? $candidate['state']['reason'] ?? ''));
-        if ($reason === '') {
-            $reason = 'هذا الدرس غير متاح للبدء حاليًا.';
-        }
-        api_error('content_locked', $reason, 409);
+    if (empty($access['open'])) {
+        api_error(
+            'content_locked',
+            (string)($access['reason'] ?? 'هذا الدرس غير متاح للبدء حاليًا.'),
+            409,
+        );
     }
 }
 
