@@ -28,7 +28,7 @@ function api_student_home_subject_state_columns(PDO $pdo): array
                 true,
             );
         }
-        $rows = $pdo->query('SHOW COLUMNS FROM student_subject_state')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = $pdo->query('SHOW COLUMNS IN student_subject_state')->fetchAll(PDO::FETCH_ASSOC) ?: [];
         return $cache[$driver] = array_fill_keys(
             array_filter(array_map(static fn(array $row): string => (string)($row['Field'] ?? ''), $rows)),
             true,
