@@ -31,6 +31,9 @@
     <string name="subject_last_activity">آخر نشاط</string>
     <string name="subject_last_activity_mode">النمط: %1$s</string>
     <string name="subject_last_activity_unit">الوحدة رقم %1$d</string>
+    <string name="subject_last_activity_unit_named">الوحدة: %1$s</string>
+    <string name="subject_last_activity_lesson_named">الدرس: %1$s</string>
+    <string name="subject_continue_last_activity">متابعة من حيث توقفت</string>
     <string name="subject_no_last_activity">لا يوجد نشاط سابق مؤكد لهذه المادة.</string>
     <string name="subject_access_unknown">حالة الوصول غير متاحة</string>
 </resources>
