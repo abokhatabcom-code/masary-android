@@ -121,4 +121,35 @@ foreach ([
     );
 }
 
+
+$activitySource = file_get_contents(
+    dirname(__DIR__) . '/public_html/api/_activity_preparation.php',
+);
+$guardSource = file_get_contents(
+    dirname(__DIR__) . '/public_html/api/_activity_preparation_guard.php',
+);
+if ($activitySource === false || $guardSource === false) {
+    throw new RuntimeException('Unable to read native lesson access sources.');
+}
+foreach ([
+    'api_activity_validate_lesson_access',
+    "'lesson_practice'",
+    "'content_locked'",
+] as $required) {
+    source_policy_check(
+        str_contains($activitySource, $required),
+        "Native lesson preparation is missing access validation: {$required}",
+    );
+}
+foreach ([
+    '$nativeLessonRequest',
+    "source = 'lesson'",
+    'api_activity_validate_lesson_access',
+] as $required) {
+    source_policy_check(
+        str_contains($guardSource . $compatSource, $required),
+        "Native lesson policy is not aligned with subject unlock rules: {$required}",
+    );
+}
+
 echo "Activity preparation source-policy tests passed.\n";
