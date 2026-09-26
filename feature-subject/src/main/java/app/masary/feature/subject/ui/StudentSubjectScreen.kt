@@ -598,10 +598,14 @@ private fun SubjectUnitCard(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    val subtitle = buildString {
-                        if (partLabel.isNotBlank()) append(partLabel)
-                        if (partLabel.isNotBlank()) append(" • ")
-                        append(stringResource(R.string.subject_unit_lessons_count, unit.lessons.size))
+                    val lessonsCountLabel = stringResource(
+                        R.string.subject_unit_lessons_count,
+                        unit.lessons.size,
+                    )
+                    val subtitle = if (partLabel.isBlank()) {
+                        lessonsCountLabel
+                    } else {
+                        "$partLabel • $lessonsCountLabel"
                     }
                     Text(
                         text = subtitle,
