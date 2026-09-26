@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_student_training_center.php';
+require_once __DIR__ . '/_student_subject.php';
 
 const API_ACTIVITY_TYPES = [
     'guide_step',
@@ -241,6 +242,68 @@ function api_activity_lesson(PDO $pdo, ?int $unitId, ?int $lessonId): array
     return ['lesson_id' => $lessonId, 'lesson_title' => api_activity_row_label($row)];
 }
 
+function api_activity_validate_lesson_access(PDO $pdo, int $studentId, array $request): void
+{
+    if ((string)($request['activity_type'] ?? '') !== 'lesson_practice'
+        || (string)($request['source'] ?? '') !== 'lesson') {
+        return;
+    }
+
+    $subjectVersionId = (int)($request['subject_version_id'] ?? 0);
+    $unitId = (int)($request['unit_id'] ?? 0);
+    $lessonId = (int)($request['lesson_id'] ?? 0);
+    if ($subjectVersionId <= 0 || $unitId <= 0 || $lessonId <= 0) {
+        api_error('validation_error', 'بيانات الدرس غير مكتملة.', 422);
+    }
+
+    $authorized = api_student_subject_authorized_row($pdo, $studentId, $subjectVersionId);
+    $identity = api_student_subject_identity($pdo, $subjectVersionId, $authorized);
+    $lastActivity = api_student_subject_last_activity($pdo, $studentId, $subjectVersionId);
+    $content = api_student_subject_content_details(
+        $pdo,
+        $studentId,
+        $subjectVersionId,
+        $identity,
+        $lastActivity,
+    );
+
+    $candidate = null;
+    foreach ((array)($content['units'] ?? []) as $unit) {
+        if ((int)($unit['id'] ?? 0) !== $unitId) {
+            continue;
+        }
+        foreach ((array)($unit['lessons'] ?? []) as $lesson) {
+            if ((int)($lesson['id'] ?? 0) === $lessonId) {
+                $candidate = $lesson;
+                break 2;
+            }
+        }
+    }
+    if ($candidate === null) {
+        foreach ((array)($content['lessons'] ?? []) as $lesson) {
+            if ((int)($lesson['id'] ?? 0) === $lessonId
+                && (int)($lesson['unit_id'] ?? 0) === $unitId) {
+                $candidate = $lesson;
+                break;
+            }
+        }
+    }
+
+    if ($candidate === null) {
+        api_error('invalid_content', 'الدرس المطلوب غير متاح ضمن هذه المادة.', 422);
+    }
+
+    $status = (string)($candidate['state']['status'] ?? 'unavailable');
+    $preparationAvailable = !empty($candidate['preparation']['available']);
+    if (!$preparationAvailable || in_array($status, ['locked', 'unavailable'], true)) {
+        $reason = trim((string)($candidate['preparation']['reason'] ?? $candidate['state']['reason'] ?? ''));
+        if ($reason === '') {
+            $reason = 'هذا الدرس غير متاح للبدء حاليًا.';
+        }
+        api_error('content_locked', $reason, 409);
+    }
+}
+
 function api_activity_validate_guide(PDO $pdo, int $studentId, array $request): void
 {
     if (!in_array($request['source'], ['home_guide', 'guide'], true)) {
@@ -391,6 +454,7 @@ function api_activity_preview(PDO $pdo, array $session, array $payload): array
     $subject = api_activity_subject($pdo, $studentId, (int)$request['subject_version_id']);
     $unit = api_activity_unit($pdo, (int)$request['subject_version_id'], $request['unit_id']);
     $lesson = api_activity_lesson($pdo, $request['unit_id'], $request['lesson_id']);
+    api_activity_validate_lesson_access($pdo, $studentId, $request);
     api_activity_validate_guide($pdo, $studentId, $request);
     $trainingTool = api_activity_training_tool($pdo, $studentId, $request);
 
