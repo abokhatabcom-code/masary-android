@@ -21,6 +21,7 @@ function api_student_subject_progress_columns(PDO $pdo, string $table): array
         'subject_versions',
         'student_unit_state',
         'student_content_node_state',
+        'content_nodes',
     ];
     if (!in_array($table, $allowed, true)) {
         return [];
@@ -139,6 +140,40 @@ function api_student_subject_progress_state_map(
     return $out;
 }
 
+function api_student_subject_node_threshold_map(
+    PDO $pdo,
+    array $nodeIds,
+    float $defaultThreshold,
+): array {
+    $columns = api_student_subject_progress_columns($pdo, 'content_nodes');
+    if (!isset($columns['id'], $columns['unlock_threshold_percent'])) {
+        return [];
+    }
+    $nodeIds = array_values(array_unique(array_filter(array_map('intval', $nodeIds), static fn(int $id): bool => $id > 0)));
+    if ($nodeIds === []) {
+        return [];
+    }
+    $placeholders = implode(',', array_fill(0, count($nodeIds), '?'));
+    try {
+        $statement = $pdo->prepare(
+            "SELECT id, unlock_threshold_percent FROM content_nodes WHERE id IN ({$placeholders})"
+        );
+        $statement->execute($nodeIds);
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable) {
+        return [];
+    }
+    $out = [];
+    foreach ($rows as $row) {
+        $id = (int)($row['id'] ?? 0);
+        $threshold = (float)($row['unlock_threshold_percent'] ?? 0);
+        if ($id > 0 && $threshold > 0.0 && $threshold <= 100.0) {
+            $out[$id] = $threshold;
+        }
+    }
+    return $out;
+}
+
 function api_student_subject_progress_percent(array $state, float $reviewCap): float
 {
     $reviewTotal = max(0.0, (float)($state['review_xp_total'] ?? 0));
@@ -223,6 +258,7 @@ function api_student_subject_apply_progress_states(
         $studentId,
         $nodeIds,
     );
+    $nodeThresholds = api_student_subject_node_threshold_map($pdo, $nodeIds, $threshold);
 
     if ($progressMode === 'unit') {
         $seenByPart = [];
@@ -270,8 +306,14 @@ function api_student_subject_apply_progress_states(
 
         foreach ($standaloneLessons as $index => $lesson) {
             unset($lesson['_content_node_id']);
-            $lesson['state'] = ['status' => 'ready', 'reason' => ''];
-            $lesson['preparation'] = ['available' => true, 'reason' => ''];
+            $hasUnit = (int)($lesson['unit_id'] ?? 0) > 0;
+            $lesson['state'] = $hasUnit
+                ? ['status' => 'ready', 'reason' => '']
+                : ['status' => 'unavailable', 'reason' => 'هذا الدرس غير مرتبط بوحدة قابلة للبدء.'];
+            $lesson['preparation'] = [
+                'available' => $hasUnit,
+                'reason' => $hasUnit ? '' : 'هذا الدرس غير مرتبط بوحدة قابلة للبدء.',
+            ];
             $standaloneLessons[$index] = $lesson;
         }
     } else {
@@ -310,6 +352,7 @@ function api_student_subject_apply_progress_states(
             $state = $nodeId > 0 ? ($nodeStates[$nodeId] ?? []) : [];
             $part = (int)$entry['part'];
             $unitId = (int)$entry['unit_id'];
+            $itemThreshold = (float)($nodeThresholds[$nodeId] ?? $threshold);
             $reviewPct = api_student_subject_progress_percent($state, $reviewCap);
 
             if ($unlockMode === 'free') {
@@ -332,16 +375,21 @@ function api_student_subject_apply_progress_states(
                 $open,
                 $state,
                 (int)($lesson['id'] ?? 0) === (int)($lastActivity['lesson_id'] ?? 0),
-                api_student_subject_progress_locked_reason($threshold, 'lesson'),
+                api_student_subject_progress_locked_reason($itemThreshold, 'lesson'),
             );
             $lesson['progress'] = [
                 'review_percent' => $reviewPct,
-                'unlock_threshold_percent' => $threshold,
+                'unlock_threshold_percent' => $itemThreshold,
                 'learn_completed' => (int)($state['learn_attempt_done'] ?? 0) === 1,
             ];
+            $canStart = $open && $unitId > 0;
             $lesson['preparation'] = [
-                'available' => $open,
-                'reason' => $open ? '' : api_student_subject_progress_locked_reason($threshold, 'lesson'),
+                'available' => $canStart,
+                'reason' => $canStart
+                    ? ''
+                    : ($open
+                        ? 'هذا الدرس غير مرتبط بوحدة قابلة للبدء.'
+                        : api_student_subject_progress_locked_reason($itemThreshold, 'lesson')),
             ];
             unset($lesson['_content_node_id']);
 
