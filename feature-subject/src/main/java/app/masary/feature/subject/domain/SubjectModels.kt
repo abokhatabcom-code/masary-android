@@ -83,6 +83,7 @@ data class SubjectContentPart(
 
 enum class SubjectLearningStatus {
     Unknown,
+    Ready,
     InProgress,
     Completed,
     Locked,
@@ -94,6 +95,19 @@ data class SubjectLearningState(
     val reason: String,
 )
 
+data class SubjectLearningProgress(
+    val reviewPercent: Double,
+    val unlockThresholdPercent: Double,
+    val learnCompleted: Boolean,
+)
+
+data class SubjectProgressSettings(
+    val progressMode: String,
+    val unlockMode: String,
+    val unlockThresholdPercent: Double,
+    val reviewProgressCapPoints: Double,
+)
+
 data class SubjectLesson(
     val id: Int,
     val unitId: Int?,
@@ -102,6 +116,7 @@ data class SubjectLesson(
     val position: Int,
     val state: SubjectLearningState,
     val preparation: SubjectActionAvailability,
+    val progress: SubjectLearningProgress = SubjectLearningProgress(0.0, 0.0, false),
 )
 
 data class SubjectUnit(
@@ -111,6 +126,7 @@ data class SubjectUnit(
     val position: Int,
     val state: SubjectLearningState,
     val lessons: List<SubjectLesson>,
+    val progress: SubjectLearningProgress = SubjectLearningProgress(0.0, 0.0, false),
 )
 
 data class SubjectContentSummary(
@@ -121,6 +137,8 @@ data class SubjectContentSummary(
     val reason: String,
     val units: List<SubjectUnit> = emptyList(),
     val lessons: List<SubjectLesson> = emptyList(),
+    val progressSettings: SubjectProgressSettings =
+        SubjectProgressSettings("unit", "sequential", 30.0, 150.0),
 )
 
 data class SubjectActionAvailability(
