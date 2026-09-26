@@ -302,7 +302,6 @@ function api_student_subject_content_details(
     $standaloneLessons = [];
     if ($canReadLessons) {
         $params = [$subjectVersionId];
-        $lessonAlias = 'l';
         $where = [];
         $joins = '';
         if (isset($lessonColumns['subject_version_id'])) {
@@ -426,6 +425,7 @@ function api_student_subject_last_activity(PDO $pdo, int $studentId, int $subjec
         return [
             'available' => false,
             'unit_id' => null,
+            'lesson_id' => null,
             'mode' => '',
             'updated_at' => '',
             'preparation' => ['available' => false, 'reason' => 'لا يوجد عقد نشاط سابق مكتمل.'],
