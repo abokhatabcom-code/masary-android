@@ -18,6 +18,15 @@
     <string name="subject_units">وحدات</string>
     <string name="subject_lessons">دروس</string>
     <string name="subject_part_counts">%1$d وحدة • %2$d درس</string>
+    <string name="subject_unit_lessons_count">%1$d درس</string>
+    <string name="subject_unit_no_lessons">لا توجد دروس منشورة داخل هذه الوحدة حاليًا.</string>
+    <string name="subject_standalone_lessons">الدروس</string>
+    <string name="subject_state_unknown">حالة الفتح غير محسومة</string>
+    <string name="subject_state_in_progress">قيد التقدم</string>
+    <string name="subject_state_completed">مكتمل</string>
+    <string name="subject_state_locked">مغلق</string>
+    <string name="subject_state_unavailable">غير متاح</string>
+    <string name="subject_content_source_note">يعرض مساري المحتوى المنشور فقط، ولا يفترض حالة فتح أو إكمال دون مصدر خادمي مؤكد.</string>
     <string name="subject_last_activity">آخر نشاط</string>
     <string name="subject_last_activity_mode">النمط: %1$s</string>
     <string name="subject_last_activity_unit">الوحدة رقم %1$d</string>
