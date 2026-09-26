@@ -727,9 +727,16 @@ private fun SubjectCard(subject: HomeSubject, onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(subject.name, fontWeight = FontWeight.Bold)
+                val level = subject.level
+                val points = subject.points
+                if (level != null && points != null) {
+                    Text("المستوى $level • $points نقطة", color = MasaryColors.brandNavy)
+                }
                 Text("القلوب: ${subject.hearts}", color = MasaryColors.muted)
             }
-            Text(subject.progressPercent?.let { "$it%" } ?: "—")
+            subject.progressPercent?.let { percent ->
+                Text("تقدم المستوى ${percent.coerceIn(0, 100)}%")
+            }
         }
     }
 }
