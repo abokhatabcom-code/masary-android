@@ -104,6 +104,7 @@ android {
         }
         create("preview") {
             isDebuggable = true
+            matchingFallbacks += listOf("debug")
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-preview"
             buildConfigField("String", "MASARY_ENVIRONMENT", "\"production\"")
