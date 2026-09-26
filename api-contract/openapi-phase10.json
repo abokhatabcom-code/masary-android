@@ -291,7 +291,8 @@
           "details_available",
           "reason",
           "units",
-          "lessons"
+          "lessons",
+          "progress_settings"
         ],
         "properties": {
           "structure_mode": {
@@ -328,6 +329,9 @@
             "items": {
               "$ref": "#/components/schemas/SubjectLesson"
             }
+          },
+          "progress_settings": {
+            "$ref": "#/components/schemas/SubjectProgressSettings"
           }
         }
       },
