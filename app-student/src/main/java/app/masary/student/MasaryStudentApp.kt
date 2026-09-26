@@ -51,6 +51,7 @@ import app.masary.feature.notifications.NotificationPermissionState
 import app.masary.feature.notifications.NotificationSyncCoordinator
 import app.masary.feature.subject.domain.SubjectRepository
 import app.masary.feature.subjects.domain.SubjectsRepository
+import app.masary.feature.trainingcenter.domain.TrainingCenterRepository
 import kotlinx.coroutines.launch
 
 private enum class AppRoute(val route: String) {
@@ -70,6 +71,7 @@ fun MasaryStudentApp(
     homeRepository: HomeRepository,
     subjectsRepository: SubjectsRepository,
     subjectRepository: SubjectRepository,
+    trainingCenterRepository: TrainingCenterRepository,
     activityPreparationRepository: ActivityPreparationRepository,
     activityPreparationPendingStore: ActivityPreparationPendingStore,
     deviceName: String,
@@ -131,6 +133,7 @@ fun MasaryStudentApp(
                     repository = homeRepository,
                     subjectsRepository = subjectsRepository,
                     subjectRepository = subjectRepository,
+                    trainingCenterRepository = trainingCenterRepository,
                     activityPreparationRepository = activityPreparationRepository,
                     activityPreparationPendingStore = activityPreparationPendingStore,
                     onLogout = {
@@ -146,6 +149,7 @@ fun MasaryStudentApp(
                                     homeRepository.clearSnapshot()
                                     subjectsRepository.clearSnapshot()
                                     subjectRepository.clearSnapshots()
+                                    trainingCenterRepository.clearSnapshots()
                                     activityPreparationPendingStore.clear()
                                 } catch (_: Exception) {
                                     // Local logout must not be blocked by a damaged cache store.

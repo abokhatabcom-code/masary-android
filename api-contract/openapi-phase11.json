@@ -1,0 +1,151 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Masary Android API — Phase 11 extension",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/student/subject/training-center": {
+      "get": {
+        "summary": "Read the authorized subject training center summary",
+        "description": "يعيد الأدوات الست وحالتها المؤكدة دون أسئلة أو إجابات أو بدء جلسة.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject_version_id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/StudentTrainingCenterSuccess" },
+          "401": { "$ref": "#/components/responses/StudentTrainingCenterError" },
+          "404": { "$ref": "#/components/responses/StudentTrainingCenterError" },
+          "422": { "$ref": "#/components/responses/StudentTrainingCenterError" },
+          "429": { "$ref": "#/components/responses/StudentTrainingCenterError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "StudentTrainingCenterSuccess": {
+        "description": "Authorized training center envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/StudentTrainingCenterResponse" }
+          }
+        }
+      },
+      "StudentTrainingCenterError": {
+        "description": "API error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "TrainingCenterIdentity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "curriculum_label"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "curriculum_label": { "type": "string" }
+        }
+      },
+      "TrainingCenterTool": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "title",
+          "description",
+          "activity_type",
+          "activity_mode",
+          "source",
+          "available",
+          "status",
+          "reason",
+          "item_count"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": ["choose", "truefalse", "connect", "fill", "speed", "smart_review"]
+          },
+          "title": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "activity_type": {
+            "type": "string",
+            "enum": [
+              "choose_test",
+              "true_false_test",
+              "connect_test",
+              "fill_test",
+              "speed_test",
+              "smart_review"
+            ]
+          },
+          "activity_mode": {
+            "type": "string",
+            "enum": ["practice", "speed", "review"]
+          },
+          "source": {
+            "type": "string",
+            "enum": ["subject", "review"]
+          },
+          "available": { "type": "boolean" },
+          "status": {
+            "type": "string",
+            "enum": ["ready", "empty", "source_unavailable"]
+          },
+          "reason": { "type": "string" },
+          "item_count": {
+            "anyOf": [
+              { "type": "integer", "minimum": 0 },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "StudentTrainingCenterData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "student_id",
+          "subject_version_id",
+          "generated_at",
+          "identity",
+          "tools",
+          "version"
+        ],
+        "properties": {
+          "student_id": { "type": "string", "minLength": 1 },
+          "subject_version_id": { "type": "integer", "minimum": 1 },
+          "generated_at": { "type": "string", "minLength": 1 },
+          "identity": { "$ref": "#/components/schemas/TrainingCenterIdentity" },
+          "tools": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TrainingCenterTool" }
+          },
+          "version": { "type": "string", "minLength": 1 }
+        }
+      },
+      "StudentTrainingCenterResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["success", "data", "error", "request_id"],
+        "properties": {
+          "success": { "const": true },
+          "data": { "$ref": "#/components/schemas/StudentTrainingCenterData" },
+          "error": { "type": "null" },
+          "request_id": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

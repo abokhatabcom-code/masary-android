@@ -6,6 +6,7 @@ import app.masary.core.network.home.StudentHomeApi
 import app.masary.core.network.notifications.StudentPushTokenApi
 import app.masary.core.network.subject.StudentSubjectApi
 import app.masary.core.network.subjects.StudentSubjectsApi
+import app.masary.core.network.training.StudentTrainingCenterApi
 import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -45,6 +46,17 @@ object MasaryNetwork {
 
     fun studentSubjectApi(baseUrl: HttpUrl, client: OkHttpClient = defaultClient()): StudentSubjectApi =
         retrofit(baseUrl, client).create(StudentSubjectApi::class.java)
+
+    fun studentTrainingCenterApi(
+        baseUrl: String,
+        client: OkHttpClient = defaultClient(),
+    ): StudentTrainingCenterApi = studentTrainingCenterApi(validateBaseUrl(baseUrl), client)
+
+    fun studentTrainingCenterApi(
+        baseUrl: HttpUrl,
+        client: OkHttpClient = defaultClient(),
+    ): StudentTrainingCenterApi =
+        retrofit(baseUrl, client).create(StudentTrainingCenterApi::class.java)
 
     fun studentActivityPreparationApi(
         baseUrl: String,

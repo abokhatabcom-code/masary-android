@@ -1,0 +1,89 @@
+{
+  "success": true,
+  "data": {
+    "student_id": "1001",
+    "subject_version_id": 41,
+    "generated_at": "2026-08-03T00:30:00+00:00",
+    "identity": {
+      "name": "الرياضيات",
+      "curriculum_label": "منهج عدن"
+    },
+    "tools": [
+      {
+        "key": "choose",
+        "title": "الاختيار من متعدد",
+        "description": "اختر الإجابة الصحيحة من الخيارات المتاحة.",
+        "activity_type": "choose_test",
+        "activity_mode": "practice",
+        "source": "subject",
+        "available": true,
+        "status": "ready",
+        "reason": "",
+        "item_count": 120
+      },
+      {
+        "key": "truefalse",
+        "title": "صح أو خطأ",
+        "description": "حدّد صحة العبارة بسرعة ودقة.",
+        "activity_type": "true_false_test",
+        "activity_mode": "practice",
+        "source": "subject",
+        "available": true,
+        "status": "ready",
+        "reason": "",
+        "item_count": 84
+      },
+      {
+        "key": "connect",
+        "title": "التوصيل",
+        "description": "اربط كل عنصر بالإجابة المناسبة.",
+        "activity_type": "connect_test",
+        "activity_mode": "practice",
+        "source": "subject",
+        "available": false,
+        "status": "source_unavailable",
+        "reason": "لم يثبت بعد مصدر أسئلة هذا النوع في هذه البيئة.",
+        "item_count": null
+      },
+      {
+        "key": "fill",
+        "title": "الإكمال",
+        "description": "أكمل العبارة بالمعلومة الصحيحة.",
+        "activity_type": "fill_test",
+        "activity_mode": "practice",
+        "source": "subject",
+        "available": false,
+        "status": "empty",
+        "reason": "لا توجد أسئلة مؤكدة لهذا النوع في المادة الآن.",
+        "item_count": 0
+      },
+      {
+        "key": "speed",
+        "title": "السرعة",
+        "description": "تدرّب على الإجابة الصحيحة خلال وقت قصير.",
+        "activity_type": "speed_test",
+        "activity_mode": "speed",
+        "source": "subject",
+        "available": true,
+        "status": "ready",
+        "reason": "",
+        "item_count": 30
+      },
+      {
+        "key": "smart_review",
+        "title": "راجع أخطاءك بذكاء",
+        "description": "تدرّب على الأخطاء المؤكدة في محاولاتك السابقة.",
+        "activity_type": "smart_review",
+        "activity_mode": "review",
+        "source": "review",
+        "available": false,
+        "status": "empty",
+        "reason": "لا توجد أخطاء مؤكدة قابلة للمراجعة الآن.",
+        "item_count": 0
+      }
+    ],
+    "version": "phase11-training-center-fixture-v1"
+  },
+  "error": null,
+  "request_id": "fixture-training-center-success"
+}

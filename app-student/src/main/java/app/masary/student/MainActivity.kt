@@ -23,12 +23,16 @@ import app.masary.feature.home.data.HomeRepositoryFactory
 import app.masary.feature.notifications.*
 import app.masary.feature.subject.data.SubjectRepositoryFactory
 import app.masary.feature.subjects.data.SubjectsRepositoryFactory
+import app.masary.feature.trainingcenter.data.TrainingCenterRepositoryFactory
 
 private val ComponentActivity.sessionDataStore by preferencesDataStore(name = "student_session")
 private val ComponentActivity.onboardingDataStore by preferencesDataStore(name = "student_onboarding")
 private val ComponentActivity.homeSnapshotDataStore by preferencesDataStore(name = "student_home_snapshot")
 private val ComponentActivity.subjectsSnapshotDataStore by preferencesDataStore(name = "student_subjects_snapshot")
 private val ComponentActivity.subjectSnapshotDataStore by preferencesDataStore(name = "student_subject_page_snapshots")
+private val ComponentActivity.trainingCenterSnapshotDataStore by preferencesDataStore(
+    name = "student_training_center_snapshots",
+)
 private val ComponentActivity.activityPreparationDataStore by preferencesDataStore(name = "student_activity_preparation")
 
 class MainActivity : ComponentActivity() {
@@ -102,6 +106,11 @@ class MainActivity : ComponentActivity() {
             BuildConfig.MASARY_API_BASE_URL,
             subjectSnapshotDataStore,
         )
+        val trainingCenterRepository = TrainingCenterRepositoryFactory.create(
+            sessionManager,
+            BuildConfig.MASARY_API_BASE_URL,
+            trainingCenterSnapshotDataStore,
+        )
         val activityPreparation = ActivityPreparationRepositoryFactory.create(
             sessionManager,
             BuildConfig.MASARY_API_BASE_URL,
@@ -118,6 +127,7 @@ class MainActivity : ComponentActivity() {
                     homeRepository = homeRepository,
                     subjectsRepository = subjectsRepository,
                     subjectRepository = subjectRepository,
+                    trainingCenterRepository = trainingCenterRepository,
                     activityPreparationRepository = activityPreparation.repository,
                     activityPreparationPendingStore = activityPreparation.pendingStore,
                     deviceName = Build.MODEL.ifBlank { "Android" },

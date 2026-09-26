@@ -91,6 +91,16 @@ import app.masary.feature.subject.domain.SubjectRepository
 import app.masary.feature.subject.ui.StudentSubjectRoute
 import app.masary.feature.subjects.domain.SubjectsRepository
 import app.masary.feature.subjects.ui.StudentSubjectsRoute
+import app.masary.feature.trainingcenter.domain.TrainingCenterRepository
+import app.masary.feature.trainingcenter.ui.StudentTrainingCenterRoute
+import kotlinx.serialization.Serializable
+
+@Serializable
+internal data class SubjectTrainingCenterDestination(val subjectVersionId: Int) {
+    init {
+        require(subjectVersionId > 0)
+    }
+}
 
 private val StudentDestination.preparationIcon: ImageVector
     get() = when (this) {
@@ -108,6 +118,7 @@ fun StudentHomeRoute(
     repository: app.masary.feature.home.domain.HomeRepository,
     subjectsRepository: SubjectsRepository,
     subjectRepository: SubjectRepository,
+    trainingCenterRepository: TrainingCenterRepository,
     activityPreparationRepository: ActivityPreparationRepository,
     activityPreparationPendingStore: ActivityPreparationPendingStore,
     onLogout: () -> Unit,
@@ -132,7 +143,8 @@ fun StudentHomeRoute(
             backStack?.destination?.hasRoute<ActivitySessionDestination>() == true -> StudentDestination.Subjects
         backStack?.destination?.hasRoute<StudentDestination.Guide>() == true -> StudentDestination.Guide
         backStack?.destination?.hasRoute<StudentDestination.Subjects>() == true ||
-            backStack?.destination?.hasRoute<StudentDestination.SubjectDetails>() == true -> StudentDestination.Subjects
+            backStack?.destination?.hasRoute<StudentDestination.SubjectDetails>() == true ||
+            backStack?.destination?.hasRoute<SubjectTrainingCenterDestination>() == true -> StudentDestination.Subjects
         backStack?.destination?.hasRoute<StudentDestination.Ranking>() == true -> StudentDestination.Ranking
         backStack?.destination?.hasRoute<StudentDestination.Profile>() == true -> StudentDestination.Profile
         else -> StudentDestination.Home
@@ -255,15 +267,42 @@ fun StudentHomeRoute(
                     ProfileSection(session, data, onLogout)
                 }
                 composable<StudentDestination.SubjectDetails> { entry ->
-            val destination = entry.toRoute<StudentDestination.SubjectDetails>()
-            StudentSubjectRoute(
-                subjectVersionId = destination.subjectVersionId,
-                repository = subjectRepository,
-                onBack = { navController.popBackStack() },
-                onSessionExpired = onLogout,
-                onTrainingCenter = { /* Phase 11 owns this destination. */ },
-            )
-        }
+                    val destination = entry.toRoute<StudentDestination.SubjectDetails>()
+                    StudentSubjectRoute(
+                        subjectVersionId = destination.subjectVersionId,
+                        repository = subjectRepository,
+                        onBack = { navController.popBackStack() },
+                        onSessionExpired = onLogout,
+                        onTrainingCenter = { subjectVersionId ->
+                            if (subjectVersionId > 0) {
+                                navController.navigate(
+                                    SubjectTrainingCenterDestination(subjectVersionId),
+                                ) { launchSingleTop = true }
+                            }
+                        },
+                    )
+                }
+                composable<SubjectTrainingCenterDestination> { entry ->
+                    val destination = entry.toRoute<SubjectTrainingCenterDestination>()
+                    StudentTrainingCenterRoute(
+                        subjectVersionId = destination.subjectVersionId,
+                        repository = trainingCenterRepository,
+                        onBack = { navController.popBackStack() },
+                        onSessionExpired = onLogout,
+                        onTool = { tool ->
+                            if (tool.available) {
+                                navController.navigate(
+                                    ActivityPreparationDestination(
+                                        subjectVersionId = destination.subjectVersionId,
+                                        activityType = tool.key.activityType,
+                                        activityMode = tool.key.activityMode,
+                                        source = tool.key.source,
+                                    ),
+                                ) { launchSingleTop = true }
+                            }
+                        },
+                    )
+                }
                 composable<ActivityPreparationDestination> { entry ->
                     ActivityPreparationRoute(
                         destination = entry.toRoute(),

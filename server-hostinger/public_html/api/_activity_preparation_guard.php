@@ -442,15 +442,22 @@ function api_activity_apply_authoritative_policy(
         );
     }
 
-    $expected = api_activity_authoritative_guide_action($pdo, $studentId, $request);
-    if ($expected === null
-        || !hash_equals((string)$expected['activity_type'], (string)($request['activity_type'] ?? ''))
-        || !hash_equals((string)$expected['activity_mode'], (string)($request['activity_mode'] ?? ''))) {
-        return api_activity_policy_block(
-            $preview,
-            'invalid_guide_action',
-            'لم يعد نوع هذه الخطوة مطابقًا لخطة الموجّه الحالية.',
-        );
+    $guideSource = in_array(
+        (string)($request['source'] ?? ''),
+        ['home_guide', 'guide'],
+        true,
+    );
+    if ($guideSource) {
+        $expected = api_activity_authoritative_guide_action($pdo, $studentId, $request);
+        if ($expected === null
+            || !hash_equals((string)$expected['activity_type'], (string)($request['activity_type'] ?? ''))
+            || !hash_equals((string)$expected['activity_mode'], (string)($request['activity_mode'] ?? ''))) {
+            return api_activity_policy_block(
+                $preview,
+                'invalid_guide_action',
+                'لم يعد نوع هذه الخطوة مطابقًا لخطة الموجّه الحالية.',
+            );
+        }
     }
 
     $unitId = (int)($request['unit_id'] ?? 0);
@@ -507,7 +514,11 @@ function api_activity_apply_authoritative_policy(
         }
     }
 
-    if (in_array(($request['activity_type'] ?? ''), ['review', 'smart_review'], true)) {
+    $subjectLevelSmartReview = ($request['activity_type'] ?? '') === 'smart_review'
+        && ($request['source'] ?? '') === 'review'
+        && $unitId <= 0;
+    if (in_array(($request['activity_type'] ?? ''), ['review', 'smart_review'], true)
+        && !$subjectLevelSmartReview) {
         if ($unitId <= 0) {
             return api_activity_policy_block($preview, 'unit_required', 'يجب تحديد وحدة المراجعة.');
         }

@@ -2,11 +2,10 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "app.masary.feature.home"
+    namespace = "app.masary.feature.trainingcenter"
     compileSdk = 35
 
     defaultConfig { minSdk = 26 }
@@ -20,11 +19,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":feature-notifications"))
-    implementation(project(":feature-activity-preparation"))
-    implementation(project(":feature-subjects"))
-    implementation(project(":feature-subject"))
-    implementation(project(":feature-training-center"))
     implementation(project(":core-models"))
     implementation(project(":core-ui"))
     implementation(project(":core-network"))
@@ -38,8 +32,6 @@ dependencies {
     implementation(libs.retrofit.core)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.gson)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.kotlinx.serialization.json)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)

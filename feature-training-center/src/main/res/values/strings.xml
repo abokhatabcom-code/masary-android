@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="training_center_title">مركز تدريب المادة</string>
+    <string name="training_center_subtitle">اختر أسلوب التدريب المناسب لك</string>
+    <string name="training_center_back">رجوع</string>
+    <string name="training_center_loading">جاري تجهيز أدوات التدريب…</string>
+    <string name="training_center_error">تعذر تحميل مركز التدريب</string>
+    <string name="training_center_not_found">مركز التدريب غير متاح</string>
+    <string name="training_center_retry">إعادة المحاولة</string>
+    <string name="training_center_cached_at">تُعرض آخر نسخة مؤكدة المحفوظة في %1$s، ويجري تحديثها.</string>
+    <string name="training_center_questions_count">%1$d سؤال مؤكد</string>
+    <string name="training_center_mistakes_count">%1$d خطأ مؤكد</string>
+    <string name="training_center_start">ابدأ التدريب</string>
+    <string name="training_center_unavailable">غير متاح حاليًا</string>
+    <string name="training_center_refresh_failed">تعذر تحديث مركز التدريب.</string>
+</resources>

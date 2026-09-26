@@ -28,6 +28,7 @@ include(
     ":feature-home",
     ":feature-subjects",
     ":feature-subject",
+    ":feature-training-center",
     ":feature-activity-preparation",
     ":feature-notifications",
 )
