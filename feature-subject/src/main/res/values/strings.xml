@@ -22,6 +22,7 @@
     <string name="subject_unit_no_lessons">لا توجد دروس منشورة داخل هذه الوحدة حاليًا.</string>
     <string name="subject_standalone_lessons">الدروس</string>
     <string name="subject_state_unknown">حالة الفتح غير محسومة</string>
+    <string name="subject_state_ready">جاهز</string>
     <string name="subject_state_in_progress">قيد التقدم</string>
     <string name="subject_state_completed">مكتمل</string>
     <string name="subject_state_locked">مغلق</string>
