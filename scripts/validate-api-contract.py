@@ -11,6 +11,7 @@ EXTENSION_PATHS = [
     ROOT / "api-contract/openapi-phase09.json",
     ROOT / "api-contract/openapi-phase10.json",
     ROOT / "api-contract/openapi-phase11.json",
+    ROOT / "api-contract/openapi-phase12.json",
 ]
 
 BASE_TEXT = BASE_PATH.read_text(encoding="utf-8")

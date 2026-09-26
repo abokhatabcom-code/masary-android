@@ -461,7 +461,17 @@ function api_activity_apply_authoritative_policy(
     }
 
     $unitId = (int)($request['unit_id'] ?? 0);
-    if ($unitId > 0) {
+    $lessonId = (int)($request['lesson_id'] ?? 0);
+    $nativeLessonRequest = (string)($request['activity_type'] ?? '') === 'lesson_practice'
+        && (string)($request['activity_mode'] ?? '') === 'learn'
+        && (string)($request['source'] ?? '') === 'lesson'
+        && $unitId > 0
+        && $lessonId > 0;
+
+    // Native lesson requests were already checked against the configured
+    // subject-version progress mode and threshold in api_activity_validate_lesson_access().
+    // Keep the legacy fixed-30% guard only for older activity sources.
+    if (!$nativeLessonRequest && $unitId > 0) {
         $unitState = api_activity_unit_unlock_state(
             $pdo,
             $studentId,
@@ -477,8 +487,7 @@ function api_activity_apply_authoritative_policy(
         }
     }
 
-    $lessonId = (int)($request['lesson_id'] ?? 0);
-    if ($lessonId > 0) {
+    if (!$nativeLessonRequest && $lessonId > 0) {
         if ($unitId <= 0) {
             return api_activity_policy_block($preview, 'invalid_lesson', 'تعذر التحقق من الدرس.');
         }

@@ -1,6 +1,8 @@
 package app.masary.feature.subject.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,8 +45,12 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -62,6 +68,9 @@ import app.masary.core.ui.MasaryColors
 import app.masary.feature.subject.R
 import app.masary.feature.subject.domain.StudentSubjectPage
 import app.masary.feature.subject.domain.SubjectContentPart
+import app.masary.feature.subject.domain.SubjectUnit
+import app.masary.feature.subject.domain.SubjectLesson
+import app.masary.feature.subject.domain.SubjectLearningStatus
 import app.masary.feature.subject.domain.SubjectRepository
 import app.masary.feature.subject.domain.SubjectStructureMode
 import java.text.DateFormat
@@ -74,6 +83,7 @@ fun StudentSubjectRoute(
     onBack: () -> Unit,
     onSessionExpired: () -> Unit,
     onTrainingCenter: (Int) -> Unit,
+    onLessonPreparation: (subjectVersionId: Int, unitId: Int, lessonId: Int) -> Unit,
 ) {
     val subjectViewModel: StudentSubjectViewModel = viewModel(
         key = "subject-$subjectVersionId",
@@ -112,6 +122,7 @@ fun StudentSubjectRoute(
                 onRefresh = subjectViewModel::refresh,
                 onBack = onBack,
                 onTrainingCenter = onTrainingCenter,
+                onLessonPreparation = onLessonPreparation,
             )
         }
     }
@@ -126,8 +137,23 @@ private fun SubjectContent(
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     onTrainingCenter: (Int) -> Unit,
+    onLessonPreparation: (subjectVersionId: Int, unitId: Int, lessonId: Int) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var expandedUnitIds by remember(data.subjectVersionId) { mutableStateOf(emptySet<Int>()) }
+    var expansionInitialized by remember(data.subjectVersionId) { mutableStateOf(false) }
+
+    LaunchedEffect(data.content.units, data.lastActivity.unitId) {
+        if (!expansionInitialized && data.content.units.isNotEmpty()) {
+            val preferredUnitId = preferredExpandedUnitId(
+                units = data.content.units,
+                lastActivityUnitId = data.lastActivity.unitId,
+            )
+            expandedUnitIds = preferredUnitId?.let(::setOf).orEmpty()
+            expansionInitialized = true
+        }
+    }
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MasaryColors.background,
@@ -195,7 +221,55 @@ private fun SubjectContent(
                 item { SubjectHeartsCard(data) }
                 item { SubjectTrainingCard(data, onTrainingCenter) }
                 item { SubjectContentHeader(data) }
-                if (data.content.parts.isEmpty()) {
+                if (data.content.detailsAvailable) {
+                    if (data.content.units.isEmpty() && data.content.lessons.isEmpty()) {
+                        item { SubjectContentPlaceholder(data.content.reason) }
+                    } else {
+                        items(data.content.units, key = SubjectUnit::id) { unit ->
+                            SubjectUnitCard(
+                                unit = unit,
+                                partLabel = data.content.parts
+                                    .firstOrNull { it.partNumber == unit.partNumber }
+                                    ?.label
+                                    .orEmpty(),
+                                expanded = unit.id in expandedUnitIds,
+                                onToggle = {
+                                    expandedUnitIds = if (unit.id in expandedUnitIds) {
+                                        expandedUnitIds - unit.id
+                                    } else {
+                                        expandedUnitIds + unit.id
+                                    }
+                                },
+                                onLesson = { lesson ->
+                                    val lessonUnitId = lesson.unitId
+                                    if (lesson.preparation.available && lessonUnitId != null) {
+                                        onLessonPreparation(data.subjectVersionId, lessonUnitId, lesson.id)
+                                    }
+                                },
+                            )
+                        }
+                        if (data.content.lessons.isNotEmpty()) {
+                            item {
+                                SectionTitle(stringResource(R.string.subject_standalone_lessons))
+                            }
+                            items(data.content.lessons, key = SubjectLesson::id) { lesson ->
+                                SubjectStandaloneLessonCard(
+                                    lesson = lesson,
+                                    partLabel = data.content.parts
+                                        .firstOrNull { it.partNumber == lesson.partNumber }
+                                        ?.label
+                                        .orEmpty(),
+                                    onLesson = {
+                                        val lessonUnitId = lesson.unitId
+                                        if (lesson.preparation.available && lessonUnitId != null) {
+                                            onLessonPreparation(data.subjectVersionId, lessonUnitId, lesson.id)
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                } else if (data.content.parts.isEmpty()) {
                     item { SubjectContentPlaceholder(data.content.reason) }
                 } else {
                     items(data.content.parts, key = SubjectContentPart::partNumber) { part ->
@@ -207,6 +281,20 @@ private fun SubjectContent(
             }
         }
     }
+}
+
+internal fun preferredExpandedUnitId(
+    units: List<SubjectUnit>,
+    lastActivityUnitId: Int?,
+): Int? {
+    if (units.isEmpty()) return null
+    lastActivityUnitId
+        ?.takeIf { activeId -> units.any { it.id == activeId } }
+        ?.let { return it }
+    return units.firstOrNull { unit ->
+        unit.state.status == SubjectLearningStatus.InProgress ||
+            unit.lessons.any { it.state.status == SubjectLearningStatus.InProgress }
+    }?.id ?: units.first().id
 }
 
 @Composable
@@ -493,6 +581,228 @@ private fun SubjectPartCard(part: SubjectContentPart) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SubjectUnitCard(
+    unit: SubjectUnit,
+    partLabel: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onLesson: (SubjectLesson) -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggle)
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.MenuBook,
+                    contentDescription = null,
+                    tint = MasaryColors.brandGold,
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = unit.title,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MasaryColors.brandNavy,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val lessonsCountLabel = stringResource(
+                        R.string.subject_unit_lessons_count,
+                        unit.lessons.size,
+                    )
+                    val subtitle = if (partLabel.isBlank()) {
+                        lessonsCountLabel
+                    } else {
+                        "$partLabel • $lessonsCountLabel"
+                    }
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MasaryColors.muted,
+                    )
+                    if (unit.state.status == SubjectLearningStatus.Locked && unit.state.reason.isNotBlank()) {
+                        Text(
+                            text = unit.state.reason,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MasaryColors.muted,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (unit.state.status !in setOf(SubjectLearningStatus.Unknown, SubjectLearningStatus.Ready)) {
+                    SubjectLearningStatePill(unit.state.status)
+                    Spacer(Modifier.width(8.dp))
+                }
+                val chevronRotation by animateFloatAsState(
+                    targetValue = if (expanded) 90f else 0f,
+                    label = "subject-unit-chevron",
+                )
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = MasaryColors.iceSurface,
+                    border = BorderStroke(1.dp, MasaryColors.border),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .size(18.dp)
+                            .rotate(chevronRotation),
+                        tint = MasaryColors.brandNavy,
+                    )
+                }
+            }
+
+            if (expanded) {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (unit.lessons.isEmpty()) {
+                        SupportingText(stringResource(R.string.subject_unit_no_lessons))
+                    } else {
+                        unit.lessons.forEach { lesson ->
+                            SubjectLessonRow(
+                                lesson = lesson,
+                                onClick = { onLesson(lesson) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubjectStandaloneLessonCard(
+    lesson: SubjectLesson,
+    partLabel: String,
+    onLesson: () -> Unit,
+) {
+    val canOpen = lesson.preparation.available && lesson.unitId != null
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = canOpen, onClick = onLesson)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = lesson.title,
+                        fontWeight = FontWeight.Bold,
+                        color = MasaryColors.brandNavy,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (partLabel.isNotBlank()) {
+                        Text(
+                            text = partLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MasaryColors.muted,
+                        )
+                    }
+                }
+                if (lesson.state.status !in setOf(SubjectLearningStatus.Unknown, SubjectLearningStatus.Ready)) {
+                    SubjectLearningStatePill(lesson.state.status)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubjectLessonRow(
+    lesson: SubjectLesson,
+    onClick: () -> Unit,
+) {
+    val canOpen = lesson.preparation.available && lesson.unitId != null
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = canOpen, onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        color = MasaryColors.iceSurface,
+        border = BorderStroke(1.dp, MasaryColors.border),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = lesson.title,
+                    color = MasaryColors.brandNavy,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (lesson.state.status == SubjectLearningStatus.Locked && lesson.state.reason.isNotBlank()) {
+                    Text(
+                        text = lesson.state.reason,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MasaryColors.muted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (lesson.state.status !in setOf(SubjectLearningStatus.Unknown, SubjectLearningStatus.Ready)) {
+                Spacer(Modifier.width(8.dp))
+                SubjectLearningStatePill(lesson.state.status)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubjectLearningStatePill(status: SubjectLearningStatus) {
+    val label = when (status) {
+        SubjectLearningStatus.Ready -> stringResource(R.string.subject_state_ready)
+        SubjectLearningStatus.InProgress -> stringResource(R.string.subject_state_in_progress)
+        SubjectLearningStatus.Completed -> stringResource(R.string.subject_state_completed)
+        SubjectLearningStatus.Locked -> stringResource(R.string.subject_state_locked)
+        SubjectLearningStatus.Unavailable -> stringResource(R.string.subject_state_unavailable)
+        SubjectLearningStatus.Unknown -> stringResource(R.string.subject_state_unknown)
+    }
+    val background = when (status) {
+        SubjectLearningStatus.Ready -> MasaryColors.iceSurface
+        SubjectLearningStatus.InProgress -> MasaryColors.warmSurface
+        SubjectLearningStatus.Completed -> MasaryColors.success.copy(alpha = 0.10f)
+        SubjectLearningStatus.Locked,
+        SubjectLearningStatus.Unavailable,
+        SubjectLearningStatus.Unknown,
+        -> MasaryColors.iceSurface
+    }
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = background,
+        border = BorderStroke(1.dp, MasaryColors.border),
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MasaryColors.brandNavy,
+            maxLines = 1,
+        )
     }
 }
 

@@ -7,6 +7,7 @@ on:
       - "api-contract/**"
       - "scripts/validate-api-contract.py"
       - "scripts/validate-hostinger-routes.py"
+      - "scripts/smoke-phase12-production.py"
       - ".github/workflows/server-api.yml"
   push:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - "api-contract/**"
       - "scripts/validate-api-contract.py"
       - "scripts/validate-hostinger-routes.py"
+      - "scripts/smoke-phase12-production.py"
       - ".github/workflows/server-api.yml"
   workflow_dispatch:
 
@@ -46,6 +48,9 @@ jobs:
 
       - name: Validate Hostinger rewrite routes
         run: python3 scripts/validate-hostinger-routes.py
+
+      - name: Validate production smoke script syntax
+        run: python3 -m py_compile scripts/smoke-phase12-production.py
 
       - name: Run isolated PHP behavioral tests
         shell: bash

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_student_training_center.php';
+require_once __DIR__ . '/_student_subject_progress.php';
 
 const API_ACTIVITY_TYPES = [
     'guide_step',
@@ -241,6 +242,39 @@ function api_activity_lesson(PDO $pdo, ?int $unitId, ?int $lessonId): array
     return ['lesson_id' => $lessonId, 'lesson_title' => api_activity_row_label($row)];
 }
 
+function api_activity_validate_lesson_access(PDO $pdo, int $studentId, array $request): void
+{
+    if ((string)($request['activity_type'] ?? '') !== 'lesson_practice'
+        || (string)($request['source'] ?? '') !== 'lesson') {
+        return;
+    }
+
+    $subjectVersionId = (int)($request['subject_version_id'] ?? 0);
+    $unitId = (int)($request['unit_id'] ?? 0);
+    $lessonId = (int)($request['lesson_id'] ?? 0);
+    $access = api_student_subject_lesson_access_state(
+        $pdo,
+        $studentId,
+        $subjectVersionId,
+        $unitId,
+        $lessonId,
+    );
+    if (empty($access['available'])) {
+        api_error(
+            'content_access_unavailable',
+            (string)($access['reason'] ?? 'تعذر التحقق من فتح الدرس الآن.'),
+            503,
+        );
+    }
+    if (empty($access['open'])) {
+        api_error(
+            'content_locked',
+            (string)($access['reason'] ?? 'هذا الدرس غير متاح للبدء حاليًا.'),
+            409,
+        );
+    }
+}
+
 function api_activity_validate_guide(PDO $pdo, int $studentId, array $request): void
 {
     if (!in_array($request['source'], ['home_guide', 'guide'], true)) {
@@ -391,6 +425,7 @@ function api_activity_preview(PDO $pdo, array $session, array $payload): array
     $subject = api_activity_subject($pdo, $studentId, (int)$request['subject_version_id']);
     $unit = api_activity_unit($pdo, (int)$request['subject_version_id'], $request['unit_id']);
     $lesson = api_activity_lesson($pdo, $request['unit_id'], $request['lesson_id']);
+    api_activity_validate_lesson_access($pdo, $studentId, $request);
     api_activity_validate_guide($pdo, $studentId, $request);
     $trainingTool = api_activity_training_tool($pdo, $studentId, $request);
 

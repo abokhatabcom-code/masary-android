@@ -74,6 +74,17 @@ class ApiContractFixtureTest {
         assertFalse(subject.data?.level?.available == true)
         assertEquals(2, subject.data?.hearts?.current)
         assertEquals(2, subject.data?.content?.parts?.size)
+        assertTrue(subject.data?.content?.detailsAvailable == true)
+        assertEquals(1, subject.data?.content?.units?.size)
+        assertEquals("الوحدة الأولى", subject.data?.content?.units?.first()?.title)
+        assertEquals(2, subject.data?.content?.units?.first()?.lessons?.size)
+        assertEquals("in_progress", subject.data?.content?.units?.first()?.state?.status)
+        assertEquals(12.0, subject.data?.content?.units?.first()?.progress?.reviewPercent)
+        assertEquals("ready", subject.data?.content?.units?.first()?.lessons?.get(1)?.state?.status)
+        assertTrue(subject.data?.content?.units?.first()?.lessons?.get(1)?.preparation?.available == true)
+        assertEquals("unit", subject.data?.content?.progressSettings?.progressMode)
+        assertEquals(30.0, subject.data?.content?.progressSettings?.unlockThresholdPercent)
+        assertEquals(1001, subject.data?.lastActivity?.lessonId)
         assertFalse(subject.data?.lastActivity?.preparation?.available == true)
 
         val trainingCenter = parse(

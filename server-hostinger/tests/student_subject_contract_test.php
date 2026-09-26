@@ -2,8 +2,9 @@
 declare(strict_types=1);
 
 $payloadSource = file_get_contents(__DIR__ . '/../public_html/api/_student_subject.php');
+$progressSource = file_get_contents(__DIR__ . '/../public_html/api/_student_subject_progress.php');
 $endpointSource = file_get_contents(__DIR__ . '/../public_html/api/v1/student/subject.php');
-if ($payloadSource === false || $endpointSource === false) {
+if ($payloadSource === false || $progressSource === false || $endpointSource === false) {
     throw new RuntimeException('Unable to read subject detail sources.');
 }
 
@@ -16,7 +17,10 @@ foreach ([
     "'hearts'",
     'api_student_subject_parts',
     'student_last_activity',
-    "'details_available' => false",
+    'api_student_subject_content_details',
+    "'details_available' => (bool)\$contentDetails['details_available']",
+    "'units' => \$contentDetails['units']",
+    "'lessons' => \$contentDetails['lessons']",
 ] as $required) {
     if (!str_contains($payloadSource, $required)) {
         throw new RuntimeException("Subject detail payload is missing: {$required}");
@@ -68,5 +72,45 @@ if (
 ) {
     throw new RuntimeException('Opening the subject page must remain read-only.');
 }
+if (!str_contains($payloadSource, 'SELECT * FROM units WHERE')) {
+    throw new RuntimeException('Subject content must load units in one bounded query.');
+}
+if (!str_contains($payloadSource, 'SELECT l.* FROM lessons l')) {
+    throw new RuntimeException('Subject content must load lessons in one bounded query.');
+}
+foreach ([
+    'unlock_threshold_percent',
+    'review_progress_cap_points',
+    'student_unit_state',
+    'student_content_node_state',
+    "'status' => 'ready'",
+    "'status' => 'locked'",
+    "'status' => 'completed'",
+    "'status' => 'in_progress'",
+] as $requiredProgressRule) {
+    if (!str_contains($progressSource, $requiredProgressRule)) {
+        throw new RuntimeException("Subject progress projection is missing: {$requiredProgressRule}");
+    }
+}
+if (!str_contains($progressSource, "$unlockMode === 'free'")) {
+    throw new RuntimeException('Free unlock mode must remain supported.');
+}
+if (!str_contains($progressSource, "$unlockMode === 'within_unit'")) {
+    throw new RuntimeException('Within-unit lesson unlocking must remain supported.');
+}
+if (
+    str_contains($progressSource, 'INSERT INTO')
+    || str_contains($progressSource, 'UPDATE ')
+    || str_contains($progressSource, 'DELETE FROM')
+) {
+    throw new RuntimeException('Projecting progress states must remain read-only.');
+}
+if (!str_contains($payloadSource, "'preparation' => [")) {
+    throw new RuntimeException('Lessons must expose a preparation gate instead of starting implicitly.');
+}
+if (!str_contains($payloadSource, 'outside the published subject tree')) {
+    throw new RuntimeException('Lessons outside the published unit tree must be rejected.');
+}
+// Subject content details must remain read-only.
 
 echo "Student subject detail contract tests passed.\n";

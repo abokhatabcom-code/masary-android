@@ -1,0 +1,191 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Masary Android API — Phase 12 content tree",
+    "version": "12.0.0",
+    "description": "إضافة نماذج الوحدات والدروس وحالات التقدم الموثقة إلى استجابة صفحة المادة الحالية دون مسار جديد."
+  },
+  "paths": {},
+  "components": {
+    "responses": {},
+    "schemas": {
+      "SubjectLearningState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reason"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "ready",
+              "in_progress",
+              "completed",
+              "locked",
+              "unavailable"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "SubjectLesson": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "unit_id",
+          "part_number",
+          "title",
+          "position",
+          "state",
+          "preparation"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unit_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "part_number": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "$ref": "#/components/schemas/SubjectLearningState"
+          },
+          "preparation": {
+            "$ref": "#/components/schemas/SubjectActionAvailability"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/SubjectLearningProgress"
+          }
+        }
+      },
+      "SubjectUnit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "part_number",
+          "title",
+          "position",
+          "state",
+          "lessons"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "part_number": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "$ref": "#/components/schemas/SubjectLearningState"
+          },
+          "lessons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubjectLesson"
+            }
+          },
+          "progress": {
+            "$ref": "#/components/schemas/SubjectLearningProgress"
+          }
+        }
+      },
+      "SubjectLearningProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "review_percent",
+          "unlock_threshold_percent",
+          "learn_completed"
+        ],
+        "properties": {
+          "review_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "unlock_threshold_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "learn_completed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SubjectProgressSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "progress_mode",
+          "unlock_mode",
+          "unlock_threshold_percent",
+          "review_progress_cap_points"
+        ],
+        "properties": {
+          "progress_mode": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "lesson"
+            ]
+          },
+          "unlock_mode": {
+            "type": "string",
+            "enum": [
+              "sequential",
+              "within_unit",
+              "free"
+            ]
+          },
+          "unlock_threshold_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "review_progress_cap_points": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    }
+  }
+}
