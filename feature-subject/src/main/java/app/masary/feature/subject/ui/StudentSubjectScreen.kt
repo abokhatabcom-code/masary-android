@@ -617,7 +617,7 @@ private fun SubjectUnitCard(
                         color = MasaryColors.muted,
                     )
                 }
-                if (unit.state.status != SubjectLearningStatus.Unknown) {
+                if (unit.state.status !in setOf(SubjectLearningStatus.Unknown, SubjectLearningStatus.Ready)) {
                     SubjectLearningStatePill(unit.state.status)
                     Spacer(Modifier.width(8.dp))
                 }
@@ -689,7 +689,7 @@ private fun SubjectStandaloneLessonCard(
                         )
                     }
                 }
-                if (lesson.state.status != SubjectLearningStatus.Unknown) {
+                if (lesson.state.status !in setOf(SubjectLearningStatus.Unknown, SubjectLearningStatus.Ready)) {
                     SubjectLearningStatePill(lesson.state.status)
                 }
             }
@@ -717,7 +717,7 @@ private fun SubjectLessonRow(lesson: SubjectLesson) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (lesson.state.status != SubjectLearningStatus.Unknown) {
+            if (lesson.state.status !in setOf(SubjectLearningStatus.Unknown, SubjectLearningStatus.Ready)) {
                 Spacer(Modifier.width(8.dp))
                 SubjectLearningStatePill(lesson.state.status)
             }
@@ -728,6 +728,7 @@ private fun SubjectLessonRow(lesson: SubjectLesson) {
 @Composable
 private fun SubjectLearningStatePill(status: SubjectLearningStatus) {
     val label = when (status) {
+        SubjectLearningStatus.Ready -> stringResource(R.string.subject_state_ready)
         SubjectLearningStatus.InProgress -> stringResource(R.string.subject_state_in_progress)
         SubjectLearningStatus.Completed -> stringResource(R.string.subject_state_completed)
         SubjectLearningStatus.Locked -> stringResource(R.string.subject_state_locked)
@@ -735,6 +736,7 @@ private fun SubjectLearningStatePill(status: SubjectLearningStatus) {
         SubjectLearningStatus.Unknown -> stringResource(R.string.subject_state_unknown)
     }
     val background = when (status) {
+        SubjectLearningStatus.Ready -> MasaryColors.iceSurface
         SubjectLearningStatus.InProgress -> MasaryColors.warmSurface
         SubjectLearningStatus.Completed -> MasaryColors.success.copy(alpha = 0.10f)
         SubjectLearningStatus.Locked,
