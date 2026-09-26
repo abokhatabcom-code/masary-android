@@ -53,7 +53,9 @@ class ApiContractFixtureTest {
         assertEquals(120, home.data?.summary?.globalXp)
         assertEquals(14, home.data?.indicators?.globalRank)
         assertEquals("الرياضيات", home.data?.subjects?.single()?.name)
-        assertEquals(null, home.data?.subjects?.single()?.progressPercent)
+        assertEquals(120, home.data?.subjects?.single()?.points)
+        assertEquals(2, home.data?.subjects?.single()?.level)
+        assertEquals(20, home.data?.subjects?.single()?.progressPercent)
         assertEquals("news", home.data?.spotlight?.type)
 
         val subjects = parse("subjects-success.json", StudentSubjectsResponseDto::class.java)
