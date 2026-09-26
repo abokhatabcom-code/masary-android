@@ -363,7 +363,7 @@ function api_student_subject_apply_progress_states(
                 $open = !isset($seenByPart[$part]) || !empty($prevPassedByPart[$part]);
             }
 
-            $passed = $reviewPct >= $threshold;
+            $passed = $reviewPct >= $itemThreshold;
             $seenByPart[$part] = true;
             $prevPassedByPart[$part] = $passed;
             if ($unitId > 0) {
