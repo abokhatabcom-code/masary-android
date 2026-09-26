@@ -632,6 +632,15 @@ private fun SubjectUnitCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MasaryColors.muted,
                     )
+                    if (unit.state.status == SubjectLearningStatus.Locked && unit.state.reason.isNotBlank()) {
+                        Text(
+                            text = unit.state.reason,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MasaryColors.muted,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 if (unit.state.status !in setOf(SubjectLearningStatus.Unknown, SubjectLearningStatus.Ready)) {
                     SubjectLearningStatePill(unit.state.status)
@@ -737,14 +746,24 @@ private fun SubjectLessonRow(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = lesson.title,
-                modifier = Modifier.weight(1f),
-                color = MasaryColors.brandNavy,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = lesson.title,
+                    color = MasaryColors.brandNavy,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (lesson.state.status == SubjectLearningStatus.Locked && lesson.state.reason.isNotBlank()) {
+                    Text(
+                        text = lesson.state.reason,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MasaryColors.muted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
             if (lesson.state.status !in setOf(SubjectLearningStatus.Unknown, SubjectLearningStatus.Ready)) {
                 Spacer(Modifier.width(8.dp))
                 SubjectLearningStatePill(lesson.state.status)
