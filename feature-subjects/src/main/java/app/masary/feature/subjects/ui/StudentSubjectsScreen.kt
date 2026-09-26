@@ -332,15 +332,52 @@ private fun SubjectCard(subject: StudentSubject, onSubject: (Int) -> Unit) {
                         tint = MasaryColors.brandNavy,
                     )
                     Spacer(Modifier.width(5.dp))
-                    Text(
-                        stringResource(R.string.subjects_last_activity),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MasaryColors.muted,
-                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.subjects_last_activity),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MasaryColors.muted,
+                        )
+                        val activitySummary = buildList {
+                            subject.lastActivity.unitId?.let { add("الوحدة $it") }
+                            subject.lastActivity.mode
+                                .takeIf(String::isNotBlank)
+                                ?.let { add(localizedSubjectActivityMode(it)) }
+                        }.joinToString(" • ")
+                        if (activitySummary.isNotBlank()) {
+                            Text(
+                                activitySummary,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MasaryColors.brandNavy,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        subject.lastActivity.updatedAt.takeIf(String::isNotBlank)?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MasaryColors.muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+private fun localizedSubjectActivityMode(mode: String): String = when (mode.trim().lowercase()) {
+    "learn", "learning" -> "تعلّم"
+    "review" -> "مراجعة"
+    "fill" -> "إكمال"
+    "connect", "match" -> "توصيل"
+    "choose", "mcq" -> "اختيار"
+    "truefalse", "true_false" -> "صح أو خطأ"
+    "speed" -> "سرعة"
+    else -> mode.trim()
 }
 
 @Composable
