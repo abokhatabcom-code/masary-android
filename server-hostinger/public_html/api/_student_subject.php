@@ -93,12 +93,36 @@ function api_student_subject_identity(PDO $pdo, int $subjectVersionId, array $au
     ];
 }
 
+function api_student_subject_level_state(float $xp): array
+{
+    $xp = max(0.0, $xp);
+    if (function_exists('calc_level')) {
+        $state = (array)calc_level($xp, 100);
+        $level = max(1, min(10, (int)($state['level'] ?? 1)));
+        $progress = max(0.0, min(1.0, (float)($state['progress'] ?? 0.0)));
+        return [
+            'level' => $level,
+            'progress_percent' => $level >= 10 ? 100 : (int)round($progress * 100),
+        ];
+    }
+
+    // Compatibility fallback mirrors the current platform rule.
+    $level = max(1, min(10, (int)floor($xp / 100.0) + 1));
+    $base = ($level - 1) * 100.0;
+    $progress = $level >= 10 ? 1.0 : max(0.0, min(1.0, ($xp - $base) / 100.0));
+    return [
+        'level' => $level,
+        'progress_percent' => (int)round($progress * 100),
+    ];
+}
+
 function api_student_subject_state(PDO $pdo, int $studentId, int $subjectVersionId, array $authorized): array
 {
     $columns = api_student_subject_columns($pdo, 'student_subject_state');
     $currentHearts = max(0, min(3, (int)($authorized['hearts'] ?? 3)));
     $points = null;
     $pointsAvailable = false;
+    $refillDate = '';
 
     if (isset($columns['student_id'], $columns['subject_version_id'])) {
         $select = [];
@@ -122,11 +146,23 @@ function api_student_subject_state(PDO $pdo, int $studentId, int $subjectVersion
                 if (array_key_exists('hearts', $row) && is_numeric($row['hearts'])) {
                     $currentHearts = max(0, min(3, (int)$row['hearts']));
                 }
+                $refillDate = trim((string)($row['hearts_refill_date'] ?? ''));
             } catch (Throwable) {
                 // The authorized list values remain safe fallbacks.
             }
         }
     }
+
+    // Platform hearts refill is daily. This endpoint remains read-only and only
+    // projects the effective balance instead of mutating student_subject_state.
+    $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Aden')))->format('Y-m-d');
+    if ($refillDate !== '' && $refillDate !== $today) {
+        $currentHearts = 3;
+    }
+
+    $levelState = $pointsAvailable
+        ? api_student_subject_level_state((float)$points)
+        : ['level' => null, 'progress_percent' => null];
 
     return [
         'points' => [
@@ -135,14 +171,14 @@ function api_student_subject_state(PDO $pdo, int $studentId, int $subjectVersion
             'reason' => $pointsAvailable ? '' : 'لم يتوفر سجل نقاط مؤكد لهذه المادة.',
         ],
         'level' => [
-            'available' => false,
-            'value' => null,
-            'reason' => 'لم تُثبت بعد معادلة مستوى المادة وحدوده في خدمة أندرويد.',
+            'available' => $pointsAvailable,
+            'value' => $pointsAvailable ? (int)$levelState['level'] : null,
+            'reason' => $pointsAvailable ? '' : 'لم يتوفر سجل نقاط مؤكد لحساب مستوى المادة.',
         ],
         'progress' => [
-            'available' => false,
-            'percent' => null,
-            'reason' => 'تقدم محتوى المادة التفصيلي سيُربط بمصدره المعتمد في مرحلة الوحدات والدروس.',
+            'available' => $pointsAvailable,
+            'percent' => $pointsAvailable ? (int)$levelState['progress_percent'] : null,
+            'reason' => $pointsAvailable ? '' : 'لم يتوفر سجل نقاط مؤكد لحساب تقدم المستوى.',
         ],
         'hearts' => [
             'current' => $currentHearts,
@@ -150,7 +186,9 @@ function api_student_subject_state(PDO $pdo, int $studentId, int $subjectVersion
             'next_restore' => [
                 'available' => false,
                 'at' => null,
-                'reason' => 'وقت الاستعادة التاريخي لا يثبت عدًا تنازليًا دقيقًا لقاعدة الثماني ساعات.',
+                'reason' => $currentHearts >= 3
+                    ? 'القلوب مكتملة. نظام المنصة يعيد القلوب يوميًا إلى 3 عند بداية يوم جديد.'
+                    : 'يعيد نظام المنصة القلوب يوميًا إلى 3 عند بداية يوم جديد.',
             ],
         ],
     ];
