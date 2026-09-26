@@ -9,6 +9,8 @@ if ($homeSource === false || $subjectSource === false) {
 
 foreach ([
     'api_student_home_subscription',
+    'api_student_home_effective_hearts',
+    "'hearts_refill_date'",
     "status='active'",
     'ends_at>=?',
     "calc_level($globalXp, (int)$levelStep)",
