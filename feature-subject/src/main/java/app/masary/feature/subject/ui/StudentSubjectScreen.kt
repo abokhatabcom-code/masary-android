@@ -62,6 +62,9 @@ import app.masary.core.ui.MasaryColors
 import app.masary.feature.subject.R
 import app.masary.feature.subject.domain.StudentSubjectPage
 import app.masary.feature.subject.domain.SubjectContentPart
+import app.masary.feature.subject.domain.SubjectUnit
+import app.masary.feature.subject.domain.SubjectLesson
+import app.masary.feature.subject.domain.SubjectLearningStatus
 import app.masary.feature.subject.domain.SubjectRepository
 import app.masary.feature.subject.domain.SubjectStructureMode
 import java.text.DateFormat
@@ -195,7 +198,42 @@ private fun SubjectContent(
                 item { SubjectHeartsCard(data) }
                 item { SubjectTrainingCard(data, onTrainingCenter) }
                 item { SubjectContentHeader(data) }
-                if (data.content.parts.isEmpty()) {
+                if (data.content.detailsAvailable) {
+                    if (data.content.units.isEmpty() && data.content.lessons.isEmpty()) {
+                        item { SubjectContentPlaceholder(data.content.reason) }
+                    } else {
+                        items(data.content.units, key = SubjectUnit::id) { unit ->
+                            SubjectUnitCard(
+                                unit = unit,
+                                partLabel = data.content.parts
+                                    .firstOrNull { it.partNumber == unit.partNumber }
+                                    ?.label
+                                    .orEmpty(),
+                            )
+                        }
+                        if (data.content.lessons.isNotEmpty()) {
+                            item {
+                                SectionTitle(stringResource(R.string.subject_standalone_lessons))
+                            }
+                            items(data.content.lessons, key = SubjectLesson::id) { lesson ->
+                                SubjectStandaloneLessonCard(
+                                    lesson = lesson,
+                                    partLabel = data.content.parts
+                                        .firstOrNull { it.partNumber == lesson.partNumber }
+                                        ?.label
+                                        .orEmpty(),
+                                )
+                            }
+                        }
+                        item {
+                            SubjectContentPlaceholder(
+                                data.content.reason.ifBlank {
+                                    stringResource(R.string.subject_content_source_note)
+                                },
+                            )
+                        }
+                    }
+                } else if (data.content.parts.isEmpty()) {
                     item { SubjectContentPlaceholder(data.content.reason) }
                 } else {
                     items(data.content.parts, key = SubjectContentPart::partNumber) { part ->
@@ -493,6 +531,158 @@ private fun SubjectPartCard(part: SubjectContentPart) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SubjectUnitCard(
+    unit: SubjectUnit,
+    partLabel: String,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.MenuBook,
+                    contentDescription = null,
+                    tint = MasaryColors.brandGold,
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = unit.title,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MasaryColors.brandNavy,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (partLabel.isNotBlank()) {
+                        Text(
+                            text = partLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MasaryColors.muted,
+                        )
+                    }
+                }
+                SubjectLearningStatePill(unit.state.status)
+            }
+            Text(
+                text = stringResource(R.string.subject_unit_lessons_count, unit.lessons.size),
+                color = MasaryColors.muted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (unit.lessons.isEmpty()) {
+                SupportingText(stringResource(R.string.subject_unit_no_lessons))
+            } else {
+                unit.lessons.forEach { lesson ->
+                    SubjectLessonRow(lesson)
+                }
+            }
+            if (unit.state.reason.isNotBlank() && unit.state.status == SubjectLearningStatus.Unknown) {
+                SupportingText(unit.state.reason)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubjectStandaloneLessonCard(
+    lesson: SubjectLesson,
+    partLabel: String,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = lesson.title,
+                        fontWeight = FontWeight.Bold,
+                        color = MasaryColors.brandNavy,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (partLabel.isNotBlank()) {
+                        Text(
+                            text = partLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MasaryColors.muted,
+                        )
+                    }
+                }
+                SubjectLearningStatePill(lesson.state.status)
+            }
+            if (lesson.state.reason.isNotBlank() && lesson.state.status == SubjectLearningStatus.Unknown) {
+                SupportingText(lesson.state.reason)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubjectLessonRow(lesson: SubjectLesson) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MasaryColors.iceSurface,
+        border = BorderStroke(1.dp, MasaryColors.border),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = lesson.title,
+                modifier = Modifier.weight(1f),
+                color = MasaryColors.brandNavy,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(8.dp))
+            SubjectLearningStatePill(lesson.state.status)
+        }
+    }
+}
+
+@Composable
+private fun SubjectLearningStatePill(status: SubjectLearningStatus) {
+    val label = when (status) {
+        SubjectLearningStatus.InProgress -> stringResource(R.string.subject_state_in_progress)
+        SubjectLearningStatus.Completed -> stringResource(R.string.subject_state_completed)
+        SubjectLearningStatus.Locked -> stringResource(R.string.subject_state_locked)
+        SubjectLearningStatus.Unavailable -> stringResource(R.string.subject_state_unavailable)
+        SubjectLearningStatus.Unknown -> stringResource(R.string.subject_state_unknown)
+    }
+    val background = when (status) {
+        SubjectLearningStatus.InProgress -> MasaryColors.warmSurface
+        SubjectLearningStatus.Completed -> MasaryColors.success.copy(alpha = 0.10f)
+        SubjectLearningStatus.Locked,
+        SubjectLearningStatus.Unavailable,
+        SubjectLearningStatus.Unknown,
+        -> MasaryColors.iceSurface
+    }
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = background,
+        border = BorderStroke(1.dp, MasaryColors.border),
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MasaryColors.brandNavy,
+            maxLines = 1,
+        )
     }
 }
 
