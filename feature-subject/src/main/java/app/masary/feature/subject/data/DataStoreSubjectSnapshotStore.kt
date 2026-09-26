@@ -86,7 +86,7 @@ class DataStoreSubjectSnapshotStore(
     private companion object {
         val OWNER = stringPreferencesKey("subject_page_owner")
         val SCHEMA_VERSION = intPreferencesKey("subject_page_schema_version")
-        const val CURRENT_SCHEMA_VERSION = 1
+        const val CURRENT_SCHEMA_VERSION = 2
         const val DEFAULT_MAX_AGE_MILLIS = 24L * 60L * 60L * 1_000L
     }
 }
