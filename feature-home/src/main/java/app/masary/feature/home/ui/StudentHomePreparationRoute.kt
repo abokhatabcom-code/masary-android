@@ -29,7 +29,6 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -83,6 +82,7 @@ import app.masary.feature.activitypreparation.ActivityPreparationDestination
 import app.masary.feature.activitypreparation.ActivityPreparationPendingStore
 import app.masary.feature.activitypreparation.ActivityPreparationRepository
 import app.masary.feature.activitypreparation.ActivityPreparationRoute
+import app.masary.feature.home.domain.HomeSmartGuide
 import app.masary.feature.home.domain.HomeSmartGuideStep
 import app.masary.feature.home.domain.HomeSubject
 import app.masary.feature.home.domain.StudentHomeData
@@ -447,7 +447,8 @@ private fun HomeContent(
                     message?.takeIf(String::isNotBlank)?.let {
                         Text(it, color = MasaryColors.muted, style = MaterialTheme.typography.bodySmall)
                     }
-                    GuideCard(data.smartGuide.nextPendingStep, onGuide, onStep)
+                    GuideCard(data.smartGuide, onGuide, onStep)
+                    ContinueLearningCard(data, onSubject)
                     SubjectPreview(data.subjects, onSubjects, onSubject)
                     data.spotlight?.let { spotlight ->
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
@@ -548,11 +549,16 @@ private fun LevelCard(data: StudentHomeData) {
 
 @Composable
 private fun IndicatorRow(data: StudentHomeData) {
+    val guideProgress = if (data.smartGuide.enabled && data.smartGuide.totalSteps > 0) {
+        "${data.smartGuide.completedSteps.coerceAtLeast(0)}/${data.smartGuide.totalSteps.coerceAtLeast(0)}"
+    } else {
+        "—"
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Indicator(Icons.Outlined.Timer, "دقائق", data.today.minutes.toString(), Modifier.weight(1f))
+        Indicator(Icons.Outlined.Timer, "دقائق اليوم", data.today.minutes.toString(), Modifier.weight(1f))
+        Indicator(Icons.Outlined.EmojiEvents, "نقاط اليوم", data.today.xp.toString(), Modifier.weight(1f))
         Indicator(Icons.Outlined.LocalFireDepartment, "السلسلة", data.streak.currentDays.toString(), Modifier.weight(1f))
-        Indicator(Icons.Outlined.TaskAlt, "المهام", "—", Modifier.weight(1f))
-        Indicator(Icons.Outlined.EmojiEvents, "الشارات", "—", Modifier.weight(1f))
+        Indicator(Icons.Outlined.AutoAwesome, "الموجّه", guideProgress, Modifier.weight(1f))
     }
 }
 
@@ -573,25 +579,104 @@ private fun Indicator(icon: ImageVector, label: String, value: String, modifier:
 
 @Composable
 private fun GuideCard(
-    step: HomeSmartGuideStep?,
+    guide: HomeSmartGuide,
     onGuide: () -> Unit,
     onStep: (HomeSmartGuideStep) -> Unit,
 ) {
+    val step = guide.nextPendingStep
     Card(colors = CardDefaults.cardColors(containerColor = MasaryColors.brandNavy)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("الموجّه الدراسي الذكي", color = MasaryColors.brandGoldBright, fontWeight = FontWeight.Bold)
+            Text(
+                guide.headline.ifBlank {
+                    if (guide.enabled) "خطتك الدراسية الذكية" else "الموجّه غير مفعّل حاليًا"
+                },
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+            )
+            if (guide.enabled && guide.totalSteps > 0) {
+                val progress = guide.completionPercent.coerceIn(0, 100)
+                Text(
+                    "${guide.completedSteps.coerceAtLeast(0)} من ${guide.totalSteps.coerceAtLeast(0)} خطوات • $progress%",
+                    color = Color.White.copy(alpha = 0.8f),
+                )
+                LinearProgressIndicator(
+                    progress = { progress / 100f },
+                    modifier = Modifier.fillMaxWidth().height(7.dp),
+                    color = MasaryColors.brandGoldBright,
+                    trackColor = Color.White.copy(alpha = 0.18f),
+                )
+            }
             if (step == null) {
-                Text("لا توجد خطوة معلقة الآن.", color = Color.White)
-                OutlinedButton(onClick = onGuide) { Text("فتح الموجّه") }
+                Text(
+                    if (guide.isComplete) "أكملت خطوات الموجّه الحالية." else "لا توجد خطوة معلقة الآن.",
+                    color = Color.White.copy(alpha = 0.85f),
+                )
+                OutlinedButton(onClick = onGuide, modifier = Modifier.fillMaxWidth()) {
+                    Text("فتح الموجّه")
+                }
             } else {
                 Text(step.title, color = Color.White, fontWeight = FontWeight.Bold)
-                Text(step.subtitle, color = Color.White.copy(alpha = 0.8f))
+                step.subtitle.takeIf(String::isNotBlank)?.let {
+                    Text(it, color = Color.White.copy(alpha = 0.8f))
+                }
+                val details = buildList {
+                    if (step.estimatedMinutes > 0) add("${step.estimatedMinutes} د")
+                    if (step.rewardGems > 0) add("${step.rewardGems} جوهرة")
+                }.joinToString(" • ")
+                if (details.isNotBlank()) {
+                    Text(details, color = MasaryColors.brandGoldBright, style = MaterialTheme.typography.labelMedium)
+                }
                 Button(onClick = { onStep(step) }, modifier = Modifier.fillMaxWidth()) {
                     Text(step.ctaLabel.ifBlank { "ابدأ" })
                 }
+                TextButton(onClick = onGuide, modifier = Modifier.align(Alignment.End)) {
+                    Text("عرض كل خطوات الموجّه", color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContinueLearningCard(
+    data: StudentHomeData,
+    onSubject: (Int) -> Unit,
+) {
+    val item = data.continueLearning
+    val subjectVersionId = item.subjectVersionId?.takeIf { it > 0 }
+    if (!item.available || subjectVersionId == null) return
+
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "تابع من حيث توقفت",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MasaryColors.brandNavy,
+            )
+            Text(
+                item.subjectName.ifBlank { "المادة الأخيرة" },
+                fontWeight = FontWeight.Bold,
+                color = MasaryColors.brandNavy,
+            )
+            item.hint.takeIf(String::isNotBlank)?.let {
+                Text(it, color = MasaryColors.muted)
+            }
+            if (item.disabled && item.disabledReason.isNotBlank()) {
+                Text(item.disabledReason, color = MasaryColors.muted, style = MaterialTheme.typography.bodySmall)
+            }
+            OutlinedButton(
+                onClick = { onSubject(subjectVersionId) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("فتح المادة")
             }
         }
     }
