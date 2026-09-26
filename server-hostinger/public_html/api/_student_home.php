@@ -74,6 +74,32 @@ function api_student_home_subjects(PDO $pdo, int $studentId): array
     }
 }
 
+function api_student_home_subscription(PDO $pdo, int $studentId): array
+{
+    if ($studentId <= 0) {
+        return ['status' => 'غير نشط', 'ends_at' => ''];
+    }
+    try {
+        $now = (new DateTimeImmutable('now', new DateTimeZone('Asia/Aden')))->format('Y-m-d H:i:s');
+        $statement = $pdo->prepare(
+            "SELECT status, ends_at FROM student_subscriptions "
+            . "WHERE student_id=? AND status='active' AND ends_at>=? "
+            . "ORDER BY ends_at DESC LIMIT 1"
+        );
+        $statement->execute([$studentId, $now]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($row) {
+            return [
+                'status' => 'نشط',
+                'ends_at' => trim((string)($row['ends_at'] ?? '')),
+            ];
+        }
+    } catch (Throwable) {
+        // Keep Home usable on legacy installs that do not expose subscriptions.
+    }
+    return ['status' => 'غير نشط', 'ends_at' => ''];
+}
+
 function api_student_home_spotlight(PDO $pdo, int $studentId): ?array
 {
     if (!function_exists('ik_dash_home_spotlight')) {
@@ -298,9 +324,7 @@ function api_student_home_payload(PDO $pdo, array $session): array
     $today = function_exists('ik_dash_today_stats')
         ? (array)ik_dash_today_stats($pdo, $studentId)
         : ['xp' => 0, 'seconds' => 0, 'minutes' => 0, 'attempts' => 0];
-    $subscription = function_exists('ik_dash_subscription')
-        ? (array)ik_dash_subscription($pdo, $studentId)
-        : ['status' => 'غير نشط', 'ends_at' => ''];
+    $subscription = api_student_home_subscription($pdo, $studentId);
     $continue = api_student_home_continue($pdo, $studentId);
     $smartGuide = api_student_home_smart_guide($pdo, $studentId);
     $subjects = api_student_home_subjects($pdo, $studentId);
@@ -311,12 +335,16 @@ function api_student_home_payload(PDO $pdo, array $session): array
     $globalXp = max(0.0, (float)($profile['global_xp'] ?? 0));
     $levelStep = 300.0;
     $levelMax = 10;
-    $level = min($levelMax, (int)floor($globalXp / $levelStep) + 1);
+    $levelState = function_exists('calc_level')
+        ? (array)calc_level($globalXp, (int)$levelStep)
+        : [];
+    $level = max(1, min($levelMax, (int)($levelState['level'] ?? ((int)floor($globalXp / $levelStep) + 1))));
     $levelBase = ($level - 1) * $levelStep;
     $levelNext = $level * $levelStep;
-    $levelPercent = $level >= $levelMax
-        ? 100
-        : (int)round(max(0.0, min(1.0, ($globalXp - $levelBase) / $levelStep)) * 100);
+    $levelProgress = array_key_exists('progress', $levelState)
+        ? max(0.0, min(1.0, (float)$levelState['progress']))
+        : max(0.0, min(1.0, ($globalXp - $levelBase) / $levelStep));
+    $levelPercent = $level >= $levelMax ? 100 : (int)round($levelProgress * 100);
 
     $streak = function_exists('student_streak_dashboard_state')
         ? (array)student_streak_dashboard_state($profile, function_exists('ik_dash_today_key') ? ik_dash_today_key() : null, $pdo)
@@ -333,7 +361,7 @@ function api_student_home_payload(PDO $pdo, array $session): array
         ];
     $goal = is_array($streak['goal'] ?? null) ? $streak['goal'] : [];
 
-    $activeSubscription = (string)($subscription['status'] ?? '') === 'نشط' && trim((string)($subscription['ends_at'] ?? '')) !== '';
+    $activeSubscription = (string)($subscription['status'] ?? '') === 'نشط';
     $unreadCount = api_student_home_unread_count($pdo, $studentId);
 
     $versionParts = [
