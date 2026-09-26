@@ -22,6 +22,8 @@ function api_student_subject_progress_columns(PDO $pdo, string $table): array
         'student_unit_state',
         'student_content_node_state',
         'content_nodes',
+        'units',
+        'lessons',
     ];
     if (!in_array($table, $allowed, true)) {
         return [];
@@ -30,6 +32,14 @@ function api_student_subject_progress_columns(PDO $pdo, string $table): array
         return $cache[$table];
     }
     try {
+        $driver = strtolower((string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+        if ($driver === 'sqlite') {
+            $rows = $pdo->query("PRAGMA table_info(`{$table}`)")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            return $cache[$table] = array_fill_keys(
+                array_filter(array_map(static fn(array $row): string => (string)($row['name'] ?? ''), $rows)),
+                true,
+            );
+        }
         $rows = $pdo->query("SHOW COLUMNS FROM `{$table}`")->fetchAll(PDO::FETCH_ASSOC) ?: [];
         return $cache[$table] = array_fill_keys(
             array_filter(array_map(static fn(array $row): string => (string)($row['Field'] ?? ''), $rows)),
@@ -207,6 +217,250 @@ function api_student_subject_progress_locked_reason(float $threshold, string $mo
         : rtrim(rtrim(number_format($threshold, 1, '.', ''), '0'), '.');
     $previous = $mode === 'lesson' ? 'الدرس السابق' : 'الوحدة السابقة';
     return "يفتح بإكمال {$label}% من {$previous}.";
+}
+
+function api_student_subject_order_column(array $columns): string
+{
+    foreach (['unit_order', 'lesson_order', 'sort_order', 'position', 'order_index', 'display_order', 'sequence', 'id'] as $column) {
+        if (isset($columns[$column])) {
+            return $column;
+        }
+    }
+    return 'id';
+}
+
+function api_student_subject_lesson_access_state(
+    PDO $pdo,
+    int $studentId,
+    int $subjectVersionId,
+    int $unitId,
+    int $lessonId,
+): array {
+    if ($studentId <= 0 || $subjectVersionId <= 0 || $unitId <= 0 || $lessonId <= 0) {
+        return [
+            'available' => false,
+            'open' => false,
+            'reason' => 'بيانات الدرس غير مكتملة.',
+        ];
+    }
+
+    $unitColumns = api_student_subject_progress_columns($pdo, 'units');
+    $lessonColumns = api_student_subject_progress_columns($pdo, 'lessons');
+    if (!isset($unitColumns['id'], $unitColumns['subject_version_id'])
+        || !isset($lessonColumns['id'], $lessonColumns['unit_id'])) {
+        return [
+            'available' => false,
+            'open' => false,
+            'reason' => 'تعذر التحقق من بنية الوحدات والدروس.',
+        ];
+    }
+
+    $unitPartColumn = isset($unitColumns['part']) ? 'part' : null;
+    $unitOrder = api_student_subject_order_column($unitColumns);
+    $lessonOrder = api_student_subject_order_column($lessonColumns);
+
+    $unitSelect = ['id'];
+    if ($unitPartColumn !== null) {
+        $unitSelect[] = $unitPartColumn;
+    }
+    $unitSelect[] = $unitOrder;
+    $where = ['subject_version_id=?'];
+    if (isset($unitColumns['is_active'])) {
+        $where[] = 'is_active=1';
+    }
+    try {
+        $statement = $pdo->prepare(
+            'SELECT ' . implode(',', array_unique($unitSelect))
+            . ' FROM units WHERE ' . implode(' AND ', $where)
+            . " ORDER BY " . ($unitPartColumn !== null ? "`{$unitPartColumn}` ASC, " : '')
+            . "`{$unitOrder}` ASC, id ASC"
+        );
+        $statement->execute([$subjectVersionId]);
+        $units = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable) {
+        return [
+            'available' => false,
+            'open' => false,
+            'reason' => 'تعذر قراءة ترتيب الوحدات.',
+        ];
+    }
+
+    $targetUnit = null;
+    foreach ($units as $unit) {
+        if ((int)($unit['id'] ?? 0) === $unitId) {
+            $targetUnit = $unit;
+            break;
+        }
+    }
+    if ($targetUnit === null) {
+        return [
+            'available' => true,
+            'open' => false,
+            'reason' => 'الوحدة المطلوبة غير متاحة ضمن هذه المادة.',
+        ];
+    }
+    $targetPart = $unitPartColumn !== null ? (int)($targetUnit[$unitPartColumn] ?? 0) : 0;
+
+    $lessonSelect = ['id', 'unit_id', $lessonOrder];
+    if (isset($lessonColumns['part'])) {
+        $lessonSelect[] = 'part';
+    }
+    if (isset($lessonColumns['content_node_id'])) {
+        $lessonSelect[] = 'content_node_id';
+    }
+    $lessonWhere = [];
+    $params = [];
+    if (isset($lessonColumns['subject_version_id'])) {
+        $lessonWhere[] = 'l.subject_version_id=?';
+        $params[] = $subjectVersionId;
+        $join = '';
+    } else {
+        $join = ' JOIN units u ON u.id=l.unit_id';
+        $lessonWhere[] = 'u.subject_version_id=?';
+        $params[] = $subjectVersionId;
+        if (isset($unitColumns['is_active'])) {
+            $lessonWhere[] = 'u.is_active=1';
+        }
+    }
+    if (isset($lessonColumns['is_active'])) {
+        $lessonWhere[] = 'l.is_active=1';
+    }
+
+    try {
+        $qualified = array_map(static fn(string $column): string => "l.`{$column}`", array_unique($lessonSelect));
+        $statement = $pdo->prepare(
+            'SELECT ' . implode(',', $qualified)
+            . ' FROM lessons l' . $join
+            . ' WHERE ' . implode(' AND ', $lessonWhere)
+            . ' ORDER BY l.unit_id ASC, ' . "l.`{$lessonOrder}` ASC, l.id ASC"
+        );
+        $statement->execute($params);
+        $lessons = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable) {
+        return [
+            'available' => false,
+            'open' => false,
+            'reason' => 'تعذر قراءة ترتيب الدروس.',
+        ];
+    }
+
+    $targetFound = false;
+    foreach ($lessons as $lesson) {
+        if ((int)($lesson['id'] ?? 0) === $lessonId && (int)($lesson['unit_id'] ?? 0) === $unitId) {
+            $targetFound = true;
+            break;
+        }
+    }
+    if (!$targetFound) {
+        return [
+            'available' => true,
+            'open' => false,
+            'reason' => 'الدرس المطلوب غير متاح ضمن هذه الوحدة.',
+        ];
+    }
+
+    $settings = api_student_subject_progress_settings($pdo, $subjectVersionId);
+    $progressMode = (string)$settings['progress_mode'];
+    $unlockMode = (string)$settings['unlock_mode'];
+    $threshold = (float)$settings['unlock_threshold_percent'];
+    $reviewCap = (float)$settings['review_progress_cap_points'];
+
+    if ($unlockMode === 'free') {
+        return ['available' => true, 'open' => true, 'reason' => ''];
+    }
+
+    if ($progressMode === 'unit') {
+        $partUnits = array_values(array_filter(
+            $units,
+            static fn(array $unit): bool => ($unitPartColumn === null ? 0 : (int)($unit[$unitPartColumn] ?? 0)) === $targetPart,
+        ));
+        $index = null;
+        foreach ($partUnits as $position => $unit) {
+            if ((int)($unit['id'] ?? 0) === $unitId) {
+                $index = $position;
+                break;
+            }
+        }
+        if ($index === null || $index === 0) {
+            return ['available' => true, 'open' => true, 'reason' => ''];
+        }
+        $previousUnitId = (int)($partUnits[$index - 1]['id'] ?? 0);
+        $states = api_student_subject_progress_state_map(
+            $pdo,
+            'student_unit_state',
+            'unit_id',
+            $studentId,
+            [$previousUnitId],
+        );
+        $reviewPct = api_student_subject_progress_percent($states[$previousUnitId] ?? [], $reviewCap);
+        $open = $reviewPct >= $threshold;
+        return [
+            'available' => true,
+            'open' => $open,
+            'reason' => $open ? '' : api_student_subject_progress_locked_reason($threshold, 'unit'),
+        ];
+    }
+
+    $unitPartById = [];
+    foreach ($units as $unit) {
+        $id = (int)($unit['id'] ?? 0);
+        if ($id > 0) {
+            $unitPartById[$id] = $unitPartColumn === null ? 0 : (int)($unit[$unitPartColumn] ?? 0);
+        }
+    }
+
+    $path = array_values(array_filter(
+        $lessons,
+        static function (array $lesson) use ($unlockMode, $unitId, $targetPart, $unitPartById): bool {
+            $lessonUnitId = (int)($lesson['unit_id'] ?? 0);
+            if ($unlockMode === 'within_unit') {
+                return $lessonUnitId === $unitId;
+            }
+            return (int)($unitPartById[$lessonUnitId] ?? 0) === $targetPart;
+        },
+    ));
+
+    $nodeIds = [];
+    foreach ($path as $lesson) {
+        $nodeId = (int)($lesson['content_node_id'] ?? 0);
+        if ($nodeId > 0) {
+            $nodeIds[] = $nodeId;
+        }
+    }
+    $nodeStates = api_student_subject_progress_state_map(
+        $pdo,
+        'student_content_node_state',
+        'content_node_id',
+        $studentId,
+        $nodeIds,
+    );
+    $nodeThresholds = api_student_subject_node_threshold_map($pdo, $nodeIds, $threshold);
+
+    $previousPassed = true;
+    foreach ($path as $position => $lesson) {
+        $currentLessonId = (int)($lesson['id'] ?? 0);
+        $open = $position === 0 || $previousPassed;
+        if ($currentLessonId === $lessonId) {
+            $reasonThreshold = $position > 0
+                ? (float)($nodeThresholds[(int)($path[$position - 1]['content_node_id'] ?? 0)] ?? $threshold)
+                : $threshold;
+            return [
+                'available' => true,
+                'open' => $open,
+                'reason' => $open ? '' : api_student_subject_progress_locked_reason($reasonThreshold, 'lesson'),
+            ];
+        }
+        $nodeId = (int)($lesson['content_node_id'] ?? 0);
+        $itemThreshold = (float)($nodeThresholds[$nodeId] ?? $threshold);
+        $reviewPct = api_student_subject_progress_percent($nodeStates[$nodeId] ?? [], $reviewCap);
+        $previousPassed = $reviewPct >= $itemThreshold;
+    }
+
+    return [
+        'available' => true,
+        'open' => false,
+        'reason' => 'تعذر تحديد موقع الدرس في مسار التعلّم.',
+    ];
 }
 
 function api_student_subject_apply_progress_states(
