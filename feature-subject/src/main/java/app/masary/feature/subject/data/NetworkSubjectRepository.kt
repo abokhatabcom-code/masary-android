@@ -17,6 +17,10 @@ import app.masary.feature.subject.domain.SubjectHearts
 import app.masary.feature.subject.domain.SubjectIdentity
 import app.masary.feature.subject.domain.SubjectIntValue
 import app.masary.feature.subject.domain.SubjectLastActivity
+import app.masary.feature.subject.domain.SubjectUnit
+import app.masary.feature.subject.domain.SubjectLesson
+import app.masary.feature.subject.domain.SubjectLearningStatus
+import app.masary.feature.subject.domain.SubjectLearningState
 import app.masary.feature.subject.domain.SubjectMedia
 import app.masary.feature.subject.domain.SubjectPageNetworkException
 import app.masary.feature.subject.domain.SubjectPageNotFoundException
@@ -208,11 +212,29 @@ internal fun StudentSubjectDetailDataDto.toDomain(): StudentSubjectPage = Studen
                 )
             },
         detailsAvailable = content.detailsAvailable,
+        units = content.units
+            .filter { it.id > 0 }
+            .map { unit ->
+                SubjectUnit(
+                    id = unit.id,
+                    partNumber = unit.partNumber.coerceAtLeast(0),
+                    title = unit.title.trim().ifBlank { "وحدة ${unit.id}" },
+                    position = unit.position.coerceAtLeast(0),
+                    state = unit.state.toDomainLearningState(),
+                    lessons = unit.lessons
+                        .filter { it.id > 0 }
+                        .map { lesson -> lesson.toDomainLesson() },
+                )
+            },
+        lessons = content.lessons
+            .filter { it.id > 0 }
+            .map { lesson -> lesson.toDomainLesson() },
         reason = content.reason,
     ),
     lastActivity = SubjectLastActivity(
         available = lastActivity.available,
         unitId = lastActivity.unitId?.takeIf { it > 0 },
+        lessonId = lastActivity.lessonId?.takeIf { it > 0 },
         mode = lastActivity.mode.trim(),
         updatedAt = lastActivity.updatedAt.trim(),
         preparation = SubjectActionAvailability(lastActivity.preparation.available, lastActivity.preparation.reason),
@@ -223,3 +245,30 @@ internal fun StudentSubjectDetailDataDto.toDomain(): StudentSubjectPage = Studen
     ),
     version = version,
 )
+
+
+private fun app.masary.core.network.subject.SubjectLearningStateDto.toDomainLearningState(): SubjectLearningState =
+    SubjectLearningState(
+        status = when (status.trim().lowercase()) {
+            "in_progress" -> SubjectLearningStatus.InProgress
+            "completed" -> SubjectLearningStatus.Completed
+            "locked" -> SubjectLearningStatus.Locked
+            "unavailable" -> SubjectLearningStatus.Unavailable
+            else -> SubjectLearningStatus.Unknown
+        },
+        reason = reason.trim(),
+    )
+
+private fun app.masary.core.network.subject.SubjectLessonDto.toDomainLesson(): SubjectLesson =
+    SubjectLesson(
+        id = id,
+        unitId = unitId?.takeIf { it > 0 },
+        partNumber = partNumber.coerceAtLeast(0),
+        title = title.trim().ifBlank { "درس $id" },
+        position = position.coerceAtLeast(0),
+        state = state.toDomainLearningState(),
+        preparation = SubjectActionAvailability(
+            available = preparation.available,
+            reason = preparation.reason.trim(),
+        ),
+    )
