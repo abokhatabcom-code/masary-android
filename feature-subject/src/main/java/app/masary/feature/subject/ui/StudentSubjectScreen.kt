@@ -256,13 +256,6 @@ private fun SubjectContent(
                                 )
                             }
                         }
-                        item {
-                            SubjectContentPlaceholder(
-                                data.content.reason.ifBlank {
-                                    stringResource(R.string.subject_content_source_note)
-                                },
-                            )
-                        }
                     }
                 } else if (data.content.parts.isEmpty()) {
                     item { SubjectContentPlaceholder(data.content.reason) }
@@ -643,9 +636,6 @@ private fun SubjectUnitCard(
                         unit.lessons.forEach { lesson ->
                             SubjectLessonRow(lesson)
                         }
-                    }
-                    if (unit.state.reason.isNotBlank() && unit.state.status == SubjectLearningStatus.Unknown) {
-                        SupportingText(stringResource(R.string.subject_unlock_state_pending))
                     }
                 }
             }
