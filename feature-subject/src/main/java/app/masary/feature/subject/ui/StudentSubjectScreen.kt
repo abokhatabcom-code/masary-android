@@ -140,16 +140,11 @@ private fun SubjectContent(
 
     LaunchedEffect(data.content.units, data.lastActivity.unitId) {
         if (!expansionInitialized && data.content.units.isNotEmpty()) {
-            val preferredUnitId = data.lastActivity.unitId
-                ?.takeIf { activeId -> data.content.units.any { it.id == activeId } }
-                ?: data.content.units
-                    .firstOrNull { unit ->
-                        unit.state.status == SubjectLearningStatus.InProgress ||
-                            unit.lessons.any { it.state.status == SubjectLearningStatus.InProgress }
-                    }
-                    ?.id
-                ?: data.content.units.first().id
-            expandedUnitIds = setOf(preferredUnitId)
+            val preferredUnitId = preferredExpandedUnitId(
+                units = data.content.units,
+                lastActivityUnitId = data.lastActivity.unitId,
+            )
+            expandedUnitIds = preferredUnitId?.let(::setOf).orEmpty()
             expansionInitialized = true
         }
     }
@@ -269,6 +264,20 @@ private fun SubjectContent(
             }
         }
     }
+}
+
+internal fun preferredExpandedUnitId(
+    units: List<SubjectUnit>,
+    lastActivityUnitId: Int?,
+): Int? {
+    if (units.isEmpty()) return null
+    lastActivityUnitId
+        ?.takeIf { activeId -> units.any { it.id == activeId } }
+        ?.let { return it }
+    return units.firstOrNull { unit ->
+        unit.state.status == SubjectLearningStatus.InProgress ||
+            unit.lessons.any { it.state.status == SubjectLearningStatus.InProgress }
+    }?.id ?: units.first().id
 }
 
 @Composable
