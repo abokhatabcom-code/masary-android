@@ -83,6 +83,9 @@ if (!str_contains($payloadSource, "'status' => 'unknown'")) {
 if (!str_contains($payloadSource, "'preparation' => [")) {
     throw new RuntimeException('Lessons must expose a preparation gate instead of starting implicitly.');
 }
+if (!str_contains($payloadSource, 'outside the published subject tree')) {
+    throw new RuntimeException('Lessons outside the published unit tree must be rejected.');
+}
 // Subject content details must remain read-only.
 
 echo "Student subject detail contract tests passed.\n";
