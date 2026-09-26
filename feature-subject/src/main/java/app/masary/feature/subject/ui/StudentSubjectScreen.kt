@@ -83,6 +83,7 @@ fun StudentSubjectRoute(
     onBack: () -> Unit,
     onSessionExpired: () -> Unit,
     onTrainingCenter: (Int) -> Unit,
+    onLessonPreparation: (subjectVersionId: Int, unitId: Int, lessonId: Int) -> Unit,
 ) {
     val subjectViewModel: StudentSubjectViewModel = viewModel(
         key = "subject-$subjectVersionId",
@@ -121,6 +122,7 @@ fun StudentSubjectRoute(
                 onRefresh = subjectViewModel::refresh,
                 onBack = onBack,
                 onTrainingCenter = onTrainingCenter,
+                onLessonPreparation = onLessonPreparation,
             )
         }
     }
@@ -135,6 +137,7 @@ private fun SubjectContent(
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     onTrainingCenter: (Int) -> Unit,
+    onLessonPreparation: (subjectVersionId: Int, unitId: Int, lessonId: Int) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var expandedUnitIds by remember(data.subjectVersionId) { mutableStateOf(emptySet<Int>()) }
@@ -237,6 +240,12 @@ private fun SubjectContent(
                                         expandedUnitIds + unit.id
                                     }
                                 },
+                                onLesson = { lesson ->
+                                    val lessonUnitId = lesson.unitId
+                                    if (lesson.preparation.available && lessonUnitId != null) {
+                                        onLessonPreparation(data.subjectVersionId, lessonUnitId, lesson.id)
+                                    }
+                                },
                             )
                         }
                         if (data.content.lessons.isNotEmpty()) {
@@ -250,6 +259,12 @@ private fun SubjectContent(
                                         .firstOrNull { it.partNumber == lesson.partNumber }
                                         ?.label
                                         .orEmpty(),
+                                    onLesson = {
+                                        val lessonUnitId = lesson.unitId
+                                        if (lesson.preparation.available && lessonUnitId != null) {
+                                            onLessonPreparation(data.subjectVersionId, lessonUnitId, lesson.id)
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -575,6 +590,7 @@ private fun SubjectUnitCard(
     partLabel: String,
     expanded: Boolean,
     onToggle: () -> Unit,
+    onLesson: (SubjectLesson) -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
@@ -651,7 +667,10 @@ private fun SubjectUnitCard(
                         SupportingText(stringResource(R.string.subject_unit_no_lessons))
                     } else {
                         unit.lessons.forEach { lesson ->
-                            SubjectLessonRow(lesson)
+                            SubjectLessonRow(
+                                lesson = lesson,
+                                onClick = { onLesson(lesson) },
+                            )
                         }
                     }
                 }
@@ -664,11 +683,14 @@ private fun SubjectUnitCard(
 private fun SubjectStandaloneLessonCard(
     lesson: SubjectLesson,
     partLabel: String,
+    onLesson: () -> Unit,
 ) {
+    val canOpen = lesson.preparation.available && lesson.unitId != null
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(enabled = canOpen, onClick = onLesson)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -698,9 +720,15 @@ private fun SubjectStandaloneLessonCard(
 }
 
 @Composable
-private fun SubjectLessonRow(lesson: SubjectLesson) {
+private fun SubjectLessonRow(
+    lesson: SubjectLesson,
+    onClick: () -> Unit,
+) {
+    val canOpen = lesson.preparation.available && lesson.unitId != null
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = canOpen, onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         color = MasaryColors.iceSurface,
         border = BorderStroke(1.dp, MasaryColors.border),
