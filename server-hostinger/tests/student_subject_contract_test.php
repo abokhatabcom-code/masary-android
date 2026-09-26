@@ -2,8 +2,9 @@
 declare(strict_types=1);
 
 $payloadSource = file_get_contents(__DIR__ . '/../public_html/api/_student_subject.php');
+$progressSource = file_get_contents(__DIR__ . '/../public_html/api/_student_subject_progress.php');
 $endpointSource = file_get_contents(__DIR__ . '/../public_html/api/v1/student/subject.php');
-if ($payloadSource === false || $endpointSource === false) {
+if ($payloadSource === false || $progressSource === false || $endpointSource === false) {
     throw new RuntimeException('Unable to read subject detail sources.');
 }
 
@@ -77,8 +78,32 @@ if (!str_contains($payloadSource, 'SELECT * FROM units WHERE')) {
 if (!str_contains($payloadSource, 'SELECT l.* FROM lessons l')) {
     throw new RuntimeException('Subject content must load lessons in one bounded query.');
 }
-if (!str_contains($payloadSource, "'status' => 'unknown'")) {
-    throw new RuntimeException('Unverified learning state must stay explicitly unknown.');
+foreach ([
+    'unlock_threshold_percent',
+    'review_progress_cap_points',
+    'student_unit_state',
+    'student_content_node_state',
+    "'status' => 'ready'",
+    "'status' => 'locked'",
+    "'status' => 'completed'",
+    "'status' => 'in_progress'",
+] as $requiredProgressRule) {
+    if (!str_contains($progressSource, $requiredProgressRule)) {
+        throw new RuntimeException("Subject progress projection is missing: {$requiredProgressRule}");
+    }
+}
+if (!str_contains($progressSource, "$unlockMode === 'free'")) {
+    throw new RuntimeException('Free unlock mode must remain supported.');
+}
+if (!str_contains($progressSource, "$unlockMode === 'within_unit'")) {
+    throw new RuntimeException('Within-unit lesson unlocking must remain supported.');
+}
+if (
+    str_contains($progressSource, 'INSERT INTO')
+    || str_contains($progressSource, 'UPDATE ')
+    || str_contains($progressSource, 'DELETE FROM')
+) {
+    throw new RuntimeException('Projecting progress states must remain read-only.');
 }
 if (!str_contains($payloadSource, "'preparation' => [")) {
     throw new RuntimeException('Lessons must expose a preparation gate instead of starting implicitly.');
