@@ -51,7 +51,7 @@ function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjec
     try {
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $statement = $pdo->prepare(
-            "SELECT subject_version_id, hearts FROM student_subject_state "
+            "SELECT subject_version_id, hearts, hearts_refill_date FROM student_subject_state "
             . "WHERE student_id=? AND subject_version_id IN ({$placeholders})"
         );
         $statement->execute(array_merge([$studentId], $ids));
@@ -59,7 +59,10 @@ function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjec
         foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
             $subjectVersionId = (int)($row['subject_version_id'] ?? 0);
             if ($subjectVersionId > 0) {
-                $out[$subjectVersionId] = max(0, (int)($row['hearts'] ?? 3));
+                $out[$subjectVersionId] = api_student_home_effective_hearts(
+                    (int)($row['hearts'] ?? 3),
+                    (string)($row['hearts_refill_date'] ?? ''),
+                );
             }
         }
         return $out;
@@ -143,7 +146,7 @@ function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit):
     $limit = api_student_home_subject_limit($limit);
     try {
         $stmt = $pdo->prepare(
-            "SELECT ss.subject_version_id, s.name, ss.hearts "
+            "SELECT ss.subject_version_id, s.name, ss.hearts, ss.hearts_refill_date "
             . "FROM student_subject_state ss "
             . "JOIN subject_versions sv ON sv.id=ss.subject_version_id "
             . "JOIN subjects s ON s.id=sv.subject_id "
@@ -154,7 +157,10 @@ function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit):
             static fn(array $row): array => [
                 'subject_version_id' => max(0, (int)($row['subject_version_id'] ?? 0)),
                 'name' => trim((string)($row['name'] ?? '')),
-                'hearts' => max(0, (int)($row['hearts'] ?? 0)),
+                'hearts' => api_student_home_effective_hearts(
+                    (int)($row['hearts'] ?? 3),
+                    (string)($row['hearts_refill_date'] ?? ''),
+                ),
                 'progress_percent' => null,
             ],
             $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
