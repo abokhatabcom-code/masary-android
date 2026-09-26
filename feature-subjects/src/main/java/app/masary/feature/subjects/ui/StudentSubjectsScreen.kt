@@ -274,6 +274,15 @@ private fun SubjectCard(subject: StudentSubject, onSubject: (Int) -> Unit) {
                     if (curriculum != null) {
                         Text(curriculum, color = MasaryColors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                    val level = subject.level
+                    val points = subject.points
+                    if (level != null && points != null) {
+                        Text(
+                            stringResource(R.string.subjects_level_points, level, points),
+                            color = MasaryColors.brandNavy,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
                 }
                 AccessPill(subject.access.status)
             }
