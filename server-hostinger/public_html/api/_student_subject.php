@@ -551,9 +551,9 @@ function api_student_subject_payload(PDO $pdo, array $session, int $subjectVersi
         'progress' => $state['progress'],
         'hearts' => $state['hearts'],
         'access' => [
-            'available' => false,
-            'status' => 'unknown',
-            'reason' => 'ارتباط المادة بالسياق مؤكد، أما سياسة الاشتراك التفصيلية فليست مربوطة بهذه الخدمة بعد.',
+            'available' => true,
+            'status' => 'available',
+            'reason' => '',
         ],
         'content' => [
             'structure_mode' => $identity['structure_mode'],
