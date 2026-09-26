@@ -132,6 +132,7 @@ function api_activity_preview_compatible(PDO $pdo, array $session, array $payloa
         $request['unit_id'],
     );
     $lesson = api_activity_lesson($pdo, $request['unit_id'], $request['lesson_id']);
+    api_activity_validate_lesson_access($pdo, $studentId, $request);
     api_activity_validate_guide($pdo, $studentId, $request);
     $trainingTool = api_activity_training_tool($pdo, $studentId, $request);
 
