@@ -339,6 +339,10 @@ function api_student_subject_content_details(
                     continue;
                 }
                 $unitId = isset($lessonColumns['unit_id']) ? max(0, (int)($row['unit_id'] ?? 0)) : 0;
+                if ($unitId > 0 && $canReadUnits && !isset($unitIndex[$unitId])) {
+                    // Never surface a lesson whose parent unit is outside the published subject tree.
+                    continue;
+                }
                 $part = isset($lessonColumns['part'])
                     ? max(0, (int)($row['part'] ?? 0))
                     : (int)($unitParts[$unitId] ?? 0);
