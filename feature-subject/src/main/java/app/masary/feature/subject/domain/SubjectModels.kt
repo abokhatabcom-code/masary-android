@@ -118,9 +118,9 @@ data class SubjectContentSummary(
     val hasParts: Boolean,
     val parts: List<SubjectContentPart>,
     val detailsAvailable: Boolean,
-    val units: List<SubjectUnit>,
-    val lessons: List<SubjectLesson>,
     val reason: String,
+    val units: List<SubjectUnit> = emptyList(),
+    val lessons: List<SubjectLesson> = emptyList(),
 )
 
 data class SubjectActionAvailability(
@@ -131,11 +131,11 @@ data class SubjectActionAvailability(
 data class SubjectLastActivity(
     val available: Boolean,
     val unitId: Int?,
-    val lessonId: Int?,
     val mode: String,
     val updatedAt: String,
     val preparation: SubjectActionAvailability,
     val reason: String,
+    val lessonId: Int? = null,
 )
 
 data class SubjectActions(
