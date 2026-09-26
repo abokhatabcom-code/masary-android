@@ -16,7 +16,10 @@ foreach ([
     "'hearts'",
     'api_student_subject_parts',
     'student_last_activity',
-    "'details_available' => false",
+    'api_student_subject_content_details',
+    "'details_available' => (bool)\$contentDetails['details_available']",
+    "'units' => \$contentDetails['units']",
+    "'lessons' => \$contentDetails['lessons']",
 ] as $required) {
     if (!str_contains($payloadSource, $required)) {
         throw new RuntimeException("Subject detail payload is missing: {$required}");
@@ -68,5 +71,18 @@ if (
 ) {
     throw new RuntimeException('Opening the subject page must remain read-only.');
 }
+if (!str_contains($payloadSource, 'SELECT * FROM units WHERE')) {
+    throw new RuntimeException('Subject content must load units in one bounded query.');
+}
+if (!str_contains($payloadSource, 'SELECT l.* FROM lessons l')) {
+    throw new RuntimeException('Subject content must load lessons in one bounded query.');
+}
+if (!str_contains($payloadSource, "'status' => 'unknown'")) {
+    throw new RuntimeException('Unverified learning state must stay explicitly unknown.');
+}
+if (!str_contains($payloadSource, "'preparation' => [")) {
+    throw new RuntimeException('Lessons must expose a preparation gate instead of starting implicitly.');
+}
+// Subject content details must remain read-only.
 
 echo "Student subject detail contract tests passed.\n";
