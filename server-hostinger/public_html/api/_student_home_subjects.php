@@ -5,6 +5,14 @@ declare(strict_types=1);
  * Shared read-only subject selection used by Home preview and the full
  * subjects page. The limit is always normalized before being applied.
  */
+function api_student_home_subject_effective_hearts(int $hearts, ?string $refillDate): int
+{
+    $hearts = max(0, min(3, $hearts));
+    $refillDate = trim((string)$refillDate);
+    $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Aden')))->format('Y-m-d');
+    return $refillDate !== '' && $refillDate !== $today ? 3 : $hearts;
+}
+
 function api_student_home_subject_limit(int $limit): int
 {
     return max(1, min(100, $limit));
@@ -59,7 +67,7 @@ function api_student_home_subject_hearts(PDO $pdo, int $studentId, array $subjec
         foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
             $subjectVersionId = (int)($row['subject_version_id'] ?? 0);
             if ($subjectVersionId > 0) {
-                $out[$subjectVersionId] = api_student_home_effective_hearts(
+                $out[$subjectVersionId] = api_student_home_subject_effective_hearts(
                     (int)($row['hearts'] ?? 3),
                     (string)($row['hearts_refill_date'] ?? ''),
                 );
@@ -157,7 +165,7 @@ function api_student_home_legacy_subjects(PDO $pdo, int $studentId, int $limit):
             static fn(array $row): array => [
                 'subject_version_id' => max(0, (int)($row['subject_version_id'] ?? 0)),
                 'name' => trim((string)($row['name'] ?? '')),
-                'hearts' => api_student_home_effective_hearts(
+                'hearts' => api_student_home_subject_effective_hearts(
                     (int)($row['hearts'] ?? 3),
                     (string)($row['hearts_refill_date'] ?? ''),
                 ),
