@@ -110,7 +110,9 @@
         "subject_version_id": 10,
         "name": "الرياضيات",
         "hearts": 3,
-        "progress_percent": null
+        "progress_percent": 20,
+        "points": 120,
+        "level": 2
       }
     ],
     "spotlight": {
