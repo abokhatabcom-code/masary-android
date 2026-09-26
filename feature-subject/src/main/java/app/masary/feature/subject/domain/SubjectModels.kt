@@ -81,11 +81,45 @@ data class SubjectContentPart(
     val lessonsCount: Int,
 )
 
+enum class SubjectLearningStatus {
+    Unknown,
+    InProgress,
+    Completed,
+    Locked,
+    Unavailable,
+}
+
+data class SubjectLearningState(
+    val status: SubjectLearningStatus,
+    val reason: String,
+)
+
+data class SubjectLesson(
+    val id: Int,
+    val unitId: Int?,
+    val partNumber: Int,
+    val title: String,
+    val position: Int,
+    val state: SubjectLearningState,
+    val preparation: SubjectActionAvailability,
+)
+
+data class SubjectUnit(
+    val id: Int,
+    val partNumber: Int,
+    val title: String,
+    val position: Int,
+    val state: SubjectLearningState,
+    val lessons: List<SubjectLesson>,
+)
+
 data class SubjectContentSummary(
     val structureMode: SubjectStructureMode,
     val hasParts: Boolean,
     val parts: List<SubjectContentPart>,
     val detailsAvailable: Boolean,
+    val units: List<SubjectUnit>,
+    val lessons: List<SubjectLesson>,
     val reason: String,
 )
 
@@ -97,6 +131,7 @@ data class SubjectActionAvailability(
 data class SubjectLastActivity(
     val available: Boolean,
     val unitId: Int?,
+    val lessonId: Int?,
     val mode: String,
     val updatedAt: String,
     val preparation: SubjectActionAvailability,
