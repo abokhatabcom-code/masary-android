@@ -280,6 +280,20 @@ fun StudentHomeRoute(
                                 ) { launchSingleTop = true }
                             }
                         },
+                        onLessonPreparation = { subjectVersionId, unitId, lessonId ->
+                            if (subjectVersionId > 0 && unitId > 0 && lessonId > 0) {
+                                navController.navigate(
+                                    ActivityPreparationDestination(
+                                        subjectVersionId = subjectVersionId,
+                                        unitId = unitId,
+                                        lessonId = lessonId,
+                                        activityType = "lesson_practice",
+                                        activityMode = "learn",
+                                        source = "lesson",
+                                    ),
+                                ) { launchSingleTop = true }
+                            }
+                        },
                     )
                 }
                 composable<SubjectTrainingCenterDestination> { entry ->
