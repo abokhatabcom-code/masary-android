@@ -1,6 +1,8 @@
 package app.masary.feature.subject.data
 
 import app.masary.core.datastore.SessionManager
+import app.masary.core.local.StudentLocalStore
+import app.masary.core.models.student.StudentLiveState
 import app.masary.core.models.auth.AuthTokens
 import app.masary.core.network.auth.StudentAuthApi
 import app.masary.core.network.auth.StudentRefreshRequestDto
@@ -35,7 +37,10 @@ import app.masary.feature.subject.domain.SubjectSnapshotStore
 import app.masary.feature.subject.domain.SubjectStructureMode
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import retrofit2.HttpException
 
 class NetworkSubjectRepository(
@@ -43,8 +48,14 @@ class NetworkSubjectRepository(
     private val authApi: StudentAuthApi,
     private val sessionManager: SessionManager,
     private val snapshotStore: SubjectSnapshotStore,
+    private val localStore: StudentLocalStore,
     private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
 ) : SubjectRepository {
+    override fun observeLiveState(): Flow<StudentLiveState> =
+        sessionManager.session.flatMapLatest { session ->
+            session?.let { localStore.observeLiveState(it.id) } ?: flowOf(StudentLiveState())
+        }
+
     override suspend fun loadSubject(subjectVersionId: Int): Result<StudentSubjectPage> {
         if (subjectVersionId <= 0) return Result.failure(SubjectPageNotFoundException())
         val studentId = sessionManager.session.first()?.id
