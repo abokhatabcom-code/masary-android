@@ -68,6 +68,13 @@ interface StudentLocalStore {
     suspend fun deleteDocumentKind(kind: String)
     suspend fun applyConfirmedDelta(delta: ConfirmedStudentDelta)
     suspend fun enqueueOperation(operation: PendingOperationEntity)
+    suspend fun markOperationSyncing(operationId: String, nowEpochMillis: Long = System.currentTimeMillis())
+    suspend fun markOperationFailed(
+        operationId: String,
+        error: String?,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    )
+    suspend fun markOperationConfirmed(operationId: String, nowEpochMillis: Long = System.currentTimeMillis())
 
     suspend fun readyOperations(
         studentId: String,
@@ -77,6 +84,12 @@ interface StudentLocalStore {
 
     suspend fun saveQuestionSession(session: QuestionSessionEntity)
     suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity)
+    suspend fun recordQuestionAnswer(
+        answer: QuestionAnswerEntity,
+        nextQuestionIndex: Int,
+        sessionStatus: String,
+        operation: PendingOperationEntity,
+    )
     suspend fun readQuestionAnswers(studentId: String, sessionId: String): List<QuestionAnswerEntity>
     suspend fun clearStudent(studentId: String)
 }
@@ -256,6 +269,48 @@ class RoomStudentLocalStore(
         operationDao.upsert(operation)
     }
 
+    override suspend fun markOperationSyncing(operationId: String, nowEpochMillis: Long) {
+        val operation = operationDao.read(operationId) ?: return
+        operationDao.updateState(
+            operationId = operationId,
+            state = PendingOperationState.SYNCING,
+            attemptCount = operation.attemptCount,
+            updatedAtEpochMillis = nowEpochMillis,
+            nextAttemptAtEpochMillis = 0,
+            lastError = null,
+        )
+    }
+
+    override suspend fun markOperationFailed(
+        operationId: String,
+        error: String?,
+        nowEpochMillis: Long,
+    ) {
+        val operation = operationDao.read(operationId) ?: return
+        val attempts = operation.attemptCount + 1
+        operationDao.updateState(
+            operationId = operationId,
+            state = PendingOperationState.FAILED,
+            attemptCount = attempts,
+            updatedAtEpochMillis = nowEpochMillis,
+            nextAttemptAtEpochMillis = nowEpochMillis +
+                PendingOperationRetryPolicy.nextDelayMillis(attempts - 1),
+            lastError = error?.take(500),
+        )
+    }
+
+    override suspend fun markOperationConfirmed(operationId: String, nowEpochMillis: Long) {
+        val operation = operationDao.read(operationId) ?: return
+        operationDao.updateState(
+            operationId = operationId,
+            state = PendingOperationState.CONFIRMED,
+            attemptCount = operation.attemptCount,
+            updatedAtEpochMillis = nowEpochMillis,
+            nextAttemptAtEpochMillis = 0,
+            lastError = null,
+        )
+    }
+
     override suspend fun readyOperations(
         studentId: String,
         nowEpochMillis: Long = System.currentTimeMillis(),
@@ -268,6 +323,36 @@ class RoomStudentLocalStore(
 
     override suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity) =
         sessionDao.upsertAnswer(answer)
+
+    override suspend fun recordQuestionAnswer(
+        answer: QuestionAnswerEntity,
+        nextQuestionIndex: Int,
+        sessionStatus: String,
+        operation: PendingOperationEntity,
+    ) {
+        require(answer.studentId == operation.studentId) { "answer and operation owners must match" }
+        require(answer.sessionId.isNotBlank()) { "sessionId is required" }
+        require(operation.operationId.isNotBlank()) { "operationId is required" }
+        database.withTransaction {
+            val session = sessionDao.readSession(answer.studentId, answer.sessionId)
+                ?: error("Question session is not available locally.")
+            require(session.studentId == answer.studentId) { "session owner mismatch" }
+            sessionDao.upsertAnswer(answer)
+            sessionDao.upsertSession(
+                session.copy(
+                    currentQuestionIndex = nextQuestionIndex.coerceAtLeast(0),
+                    status = sessionStatus,
+                    updatedAtEpochMillis = answer.answeredAtEpochMillis,
+                    completedAtEpochMillis = if (sessionStatus == "completed_local") {
+                        answer.answeredAtEpochMillis
+                    } else {
+                        session.completedAtEpochMillis
+                    },
+                ),
+            )
+            operationDao.upsert(operation)
+        }
+    }
 
     override suspend fun readQuestionAnswers(studentId: String, sessionId: String): List<QuestionAnswerEntity> =
         sessionDao.readAnswers(studentId, sessionId)
