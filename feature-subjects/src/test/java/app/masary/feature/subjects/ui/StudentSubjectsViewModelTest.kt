@@ -5,6 +5,8 @@ import app.masary.feature.subjects.domain.SubjectsAcademicContext
 import app.masary.feature.subjects.domain.SubjectsEmptyState
 import app.masary.feature.subjects.domain.SubjectsRepository
 import app.masary.feature.subjects.domain.SubjectsSnapshotMetadata
+import app.masary.core.models.student.StudentLiveState
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +34,7 @@ class StudentSubjectsViewModelTest {
         val fresh = subjects("fresh")
         val response = CompletableDeferred<Result<StudentSubjectsData>>()
         val viewModel = StudentSubjectsViewModel(object : SubjectsRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
             override suspend fun loadSnapshot() = cached
             override suspend fun loadSubjects() = response.await()
             override suspend fun clearSnapshot() = Unit
@@ -52,6 +55,7 @@ class StudentSubjectsViewModelTest {
         val response = CompletableDeferred<Result<StudentSubjectsData>>()
         var calls = 0
         val viewModel = StudentSubjectsViewModel(object : SubjectsRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
             override suspend fun loadSnapshot(): StudentSubjectsData? = null
             override suspend fun loadSubjects(): Result<StudentSubjectsData> {
                 calls += 1
