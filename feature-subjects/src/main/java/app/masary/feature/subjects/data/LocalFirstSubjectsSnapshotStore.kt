@@ -34,7 +34,6 @@ class LocalFirstSubjectsSnapshotStore(
     }
 
     override suspend fun clear() {
-        localStore.deleteDocumentKind(KIND)
         legacyStore.clear()
     }
 
