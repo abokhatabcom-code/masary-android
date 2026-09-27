@@ -185,5 +185,6 @@ tasks.matching { it.name == "testDebugUnitTest" }.configureEach {
         ":core-network:testDebugUnitTest",
         ":core-datastore:testDebugUnitTest",
         ":core-security:testDebugUnitTest",
+        ":core-local:testDebugUnitTest",
     )
 }
