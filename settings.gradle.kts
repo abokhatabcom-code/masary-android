@@ -24,6 +24,7 @@ include(
     ":core-network",
     ":core-security",
     ":core-datastore",
+    ":core-local",
     ":feature-auth",
     ":feature-home",
     ":feature-subjects",
