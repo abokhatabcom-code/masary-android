@@ -58,6 +58,9 @@ interface PendingOperationDao {
     @Upsert
     suspend fun upsert(entity: PendingOperationEntity)
 
+    @Query("SELECT * FROM pending_operations WHERE operationId = :operationId LIMIT 1")
+    suspend fun read(operationId: String): PendingOperationEntity?
+
     @Query("""
         SELECT * FROM pending_operations
         WHERE studentId = :studentId
@@ -74,6 +77,27 @@ interface PendingOperationDao {
 
     @Query("SELECT COUNT(*) FROM pending_operations WHERE studentId = :studentId AND state IN ('pending', 'syncing', 'failed')")
     fun observeOutstandingCount(studentId: String): Flow<Int>
+
+    @Query("""
+        UPDATE pending_operations
+        SET state = :state,
+            attemptCount = :attemptCount,
+            updatedAtEpochMillis = :updatedAtEpochMillis,
+            nextAttemptAtEpochMillis = :nextAttemptAtEpochMillis,
+            lastError = :lastError
+        WHERE operationId = :operationId
+    """)
+    suspend fun updateState(
+        operationId: String,
+        state: String,
+        attemptCount: Int,
+        updatedAtEpochMillis: Long,
+        nextAttemptAtEpochMillis: Long,
+        lastError: String?,
+    )
+
+    @Query("DELETE FROM pending_operations WHERE operationId = :operationId")
+    suspend fun delete(operationId: String)
 
     @Query("DELETE FROM pending_operations WHERE studentId = :studentId")
     suspend fun deleteStudent(studentId: String)
