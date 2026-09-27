@@ -17,7 +17,7 @@ object SubjectsRepositoryFactory {
         subjectsApi = MasaryNetwork.studentSubjectsApi(baseUrl),
         authApi = MasaryNetwork.studentAuthApi(baseUrl),
         sessionManager = sessionManager,
-        localStore = localStore,
+        liveStateProvider = localStore::observeLiveState,
         snapshotStore = LocalFirstSubjectsSnapshotStore(
             localStore = localStore,
             legacyStore = DataStoreSubjectsSnapshotStore(snapshotDataStore),
