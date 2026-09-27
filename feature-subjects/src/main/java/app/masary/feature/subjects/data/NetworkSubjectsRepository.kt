@@ -153,6 +153,8 @@ private fun StudentSubjectSummaryDto.toDomain(): StudentSubject = StudentSubject
     subjectVersionId = subjectVersionId,
     name = name.trim(),
     hearts = hearts.coerceAtLeast(0),
+    points = points?.coerceAtLeast(0),
+    level = level?.coerceIn(1, 10),
     curriculumLabel = curriculumLabel.trim(),
     progress = SubjectProgress(
         available = progress.available && progress.percent != null,

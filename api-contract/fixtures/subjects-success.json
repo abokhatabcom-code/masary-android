@@ -20,9 +20,9 @@
         "hearts": 3,
         "curriculum_label": "منهج عدن",
         "progress": {
-          "available": false,
-          "percent": null,
-          "reason": "لم يتوفر مصدر تقدم مؤكد لقائمة المواد."
+          "available": true,
+          "percent": 20,
+          "reason": ""
         },
         "media": {
           "available": false,
@@ -30,9 +30,9 @@
           "reason": "لم يُربط مفتاح وسائط مؤكد بالمادة بعد."
         },
         "access": {
-          "available": false,
-          "status": "unknown",
-          "reason": "تظهر المادة لأنها مرتبطة بالسياق الأكاديمي، لكن سياسة الوصول التفصيلية غير مربوطة بهذه القائمة بعد."
+          "available": true,
+          "status": "available",
+          "reason": ""
         },
         "last_activity": {
           "available": true,
@@ -40,7 +40,9 @@
           "mode": "learn",
           "updated_at": "2026-08-02 12:15:00",
           "reason": ""
-        }
+        },
+        "points": 120,
+        "level": 2
       }
     ],
     "empty": {

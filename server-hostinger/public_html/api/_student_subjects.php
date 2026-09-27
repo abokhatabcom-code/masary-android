@@ -160,6 +160,10 @@ function api_student_subjects_payload(PDO $pdo, array $session): array
         if ($subjectVersionId <= 0 || $name === '') {
             continue;
         }
+        $points = $row['points'] ?? null;
+        $pointsAvailable = is_int($points) || is_float($points) || ctype_digit((string)$points);
+        $level = $row['level'] ?? null;
+        $levelAvailable = is_int($level) || is_float($level) || ctype_digit((string)$level);
         $progress = $row['progress_percent'] ?? null;
         $progressAvailable = is_int($progress) || is_float($progress) || ctype_digit((string)$progress);
         $activity = $lastActivity[$subjectVersionId] ?? [
@@ -174,11 +178,13 @@ function api_student_subjects_payload(PDO $pdo, array $session): array
             'subject_version_id' => $subjectVersionId,
             'name' => $name,
             'hearts' => max(0, (int)($row['hearts'] ?? 0)),
+            'points' => $pointsAvailable ? max(0, (int)$points) : null,
+            'level' => $levelAvailable ? max(1, min(10, (int)$level)) : null,
             'curriculum_label' => (string)($academic['curriculum_name'] ?? ''),
             'progress' => [
                 'available' => $progressAvailable,
                 'percent' => $progressAvailable ? max(0, min(100, (int)$progress)) : null,
-                'reason' => $progressAvailable ? '' : 'لم يتوفر مصدر تقدم مؤكد لقائمة المواد.',
+                'reason' => $progressAvailable ? '' : 'لم يتوفر سجل نقاط مؤكد لحساب تقدم المستوى.',
             ],
             'media' => [
                 'available' => false,
@@ -186,9 +192,9 @@ function api_student_subjects_payload(PDO $pdo, array $session): array
                 'reason' => 'لم يُربط مفتاح وسائط مؤكد بالمادة بعد.',
             ],
             'access' => [
-                'available' => false,
-                'status' => 'unknown',
-                'reason' => 'تظهر المادة لأنها مرتبطة بالسياق الأكاديمي، لكن سياسة الوصول التفصيلية غير مربوطة بهذه القائمة بعد.',
+                'available' => true,
+                'status' => 'available',
+                'reason' => '',
             ],
             'last_activity' => $activity,
         ];

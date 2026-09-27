@@ -9,8 +9,8 @@
     <string name="subjects_cached">تعرض آخر نسخة مؤكدة محفوظة على الجهاز.</string>
     <string name="subjects_incomplete">القائمة وصلت إلى حد الحماية؛ قد لا تكون جميع المواد ظاهرة.</string>
     <string name="subjects_hearts">%1$d قلوب</string>
-    <string name="subjects_progress">التقدم %1$d%%</string>
-    <string name="subjects_progress_unavailable">التقدم غير متاح حاليًا</string>
+    <string name="subjects_progress">تقدم المستوى %1$d%%</string>
+    <string name="subjects_progress_unavailable">لا توجد نقاط مسجلة للمادة بعد</string>
     <string name="subjects_last_activity">آخر نشاط محفوظ</string>
     <string name="subjects_access_available">متاحة</string>
     <string name="subjects_access_free">مجانية</string>
@@ -19,4 +19,5 @@
     <string name="subjects_access_unknown">تفاصيل الوصول غير متاحة</string>
     <string name="subjects_open">فتح المادة</string>
     <string name="subjects_academic_unavailable">السياق الأكاديمي النصي غير متاح، والقائمة ما تزال مبنية من ربط الخادم.</string>
+    <string name="subjects_level_points">المستوى %1$d • %2$d نقطة</string>
 </resources>

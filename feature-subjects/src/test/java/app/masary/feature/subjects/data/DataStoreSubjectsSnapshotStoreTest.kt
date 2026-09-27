@@ -68,6 +68,8 @@ class DataStoreSubjectsSnapshotStoreTest {
                 subjectVersionId = 12,
                 name = "الرياضيات",
                 hearts = 3,
+                points = null,
+                level = null,
                 curriculumLabel = "منهج عدن",
                 progress = SubjectProgress(false, null, "غير متاح"),
                 media = SubjectMedia(false, null, "غير متاح"),

@@ -277,7 +277,22 @@ private fun SubjectContent(
                     }
                     item { SubjectContentPlaceholder(data.content.reason) }
                 }
-                item { SubjectLastActivityCard(data) }
+                item {
+                    SubjectLastActivityCard(
+                        data = data,
+                        onContinue = {
+                            val unitId = data.lastActivity.unitId
+                            val lessonId = data.lastActivity.lessonId
+                            if (
+                                data.lastActivity.preparation.available &&
+                                unitId != null &&
+                                lessonId != null
+                            ) {
+                                onLessonPreparation(data.subjectVersionId, unitId, lessonId)
+                            }
+                        },
+                    )
+                }
             }
         }
     }
@@ -344,15 +359,19 @@ private fun SubjectIdentityCard(data: StudentSubjectPage) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Text(
-                    text = when (data.content.structureMode) {
-                        SubjectStructureMode.Units -> stringResource(R.string.subject_units)
-                        SubjectStructureMode.Lessons -> stringResource(R.string.subject_lessons)
-                        SubjectStructureMode.Unknown -> stringResource(R.string.subject_unavailable)
-                    },
-                    color = MasaryColors.brandGoldBright,
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                when (data.content.structureMode) {
+                    SubjectStructureMode.Units -> Text(
+                        text = stringResource(R.string.subject_units),
+                        color = MasaryColors.brandGoldBright,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    SubjectStructureMode.Lessons -> Text(
+                        text = stringResource(R.string.subject_lessons),
+                        color = MasaryColors.brandGoldBright,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    SubjectStructureMode.Unknown -> Unit
+                }
             }
         }
     }
@@ -368,36 +387,37 @@ private fun SubjectProgressCard(data: StudentSubjectPage) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SectionTitle(stringResource(R.string.subject_progress))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Metric(
-                    label = stringResource(R.string.subject_points),
-                    value = data.points.value
-                        ?.takeIf { data.points.available }
-                        ?.toString()
-                        ?: stringResource(R.string.subject_unavailable),
-                    modifier = Modifier.weight(1f),
-                )
-                Metric(
-                    label = stringResource(R.string.subject_level),
-                    value = data.level.value
-                        ?.takeIf { data.level.available }
-                        ?.toString()
-                        ?: stringResource(R.string.subject_unavailable),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            if (data.progress.available && data.progress.percent != null) {
-                LinearProgressIndicator(
-                    progress = { data.progress.percent.coerceIn(0, 100) / 100f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp),
-                    color = MasaryColors.brandGold,
-                    trackColor = MasaryColors.border,
-                )
-                Text("${data.progress.percent}%", color = MasaryColors.muted)
+            if (!data.points.available || data.points.value == null) {
+                SupportingText(stringResource(R.string.subject_no_points_yet))
             } else {
-                SupportingText(data.progress.reason)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Metric(
+                        label = stringResource(R.string.subject_points),
+                        value = data.points.value.toString(),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Metric(
+                        label = stringResource(R.string.subject_level),
+                        value = data.level.value
+                            ?.takeIf { data.level.available }
+                            ?.toString()
+                            ?: "—",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (data.progress.available && data.progress.percent != null) {
+                    LinearProgressIndicator(
+                        progress = { data.progress.percent.coerceIn(0, 100) / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
+                        color = MasaryColors.brandGold,
+                        trackColor = MasaryColors.border,
+                    )
+                    Text("${data.progress.percent}%", color = MasaryColors.muted)
+                } else {
+                    SupportingText(data.progress.reason)
+                }
             }
         }
     }
@@ -824,7 +844,16 @@ private fun SubjectContentPlaceholder(reason: String) {
 }
 
 @Composable
-private fun SubjectLastActivityCard(data: StudentSubjectPage) {
+private fun SubjectLastActivityCard(
+    data: StudentSubjectPage,
+    onContinue: () -> Unit,
+) {
+    val unit = data.lastActivity.unitId?.let { unitId ->
+        data.content.units.firstOrNull { it.id == unitId }
+    }
+    val lesson = data.lastActivity.lessonId?.let { lessonId ->
+        (unit?.lessons.orEmpty() + data.content.lessons).firstOrNull { it.id == lessonId }
+    }
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
             modifier = Modifier
@@ -838,9 +867,23 @@ private fun SubjectLastActivityCard(data: StudentSubjectPage) {
                 SectionTitle(stringResource(R.string.subject_last_activity))
             }
             if (data.lastActivity.available) {
-                data.lastActivity.unitId?.let { unitId ->
+                if (unit != null) {
                     Text(
-                        text = stringResource(R.string.subject_last_activity_unit, unitId),
+                        text = stringResource(R.string.subject_last_activity_unit_named, unit.title),
+                        color = MasaryColors.brandNavy,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                } else {
+                    data.lastActivity.unitId?.let { unitId ->
+                        Text(
+                            text = stringResource(R.string.subject_last_activity_unit, unitId),
+                            color = MasaryColors.brandNavy,
+                        )
+                    }
+                }
+                lesson?.let {
+                    Text(
+                        text = stringResource(R.string.subject_last_activity_lesson_named, it.title),
                         color = MasaryColors.brandNavy,
                     )
                 }
@@ -860,7 +903,18 @@ private fun SubjectLastActivityCard(data: StudentSubjectPage) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                if (!data.lastActivity.preparation.available) {
+                if (
+                    data.lastActivity.preparation.available &&
+                    data.lastActivity.unitId != null &&
+                    data.lastActivity.lessonId != null
+                ) {
+                    Button(
+                        onClick = onContinue,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.subject_continue_last_activity))
+                    }
+                } else if (!data.lastActivity.preparation.available) {
                     SupportingText(data.lastActivity.preparation.reason)
                 }
             } else {

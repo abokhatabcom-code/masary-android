@@ -9,10 +9,11 @@
     <string name="subject_cached_at">تُعرض آخر نسخة مؤكدة المحفوظة في %1$s، ويجري تحديثها.</string>
     <string name="subject_points">نقاط المادة</string>
     <string name="subject_level">مستوى المادة</string>
-    <string name="subject_progress">التقدم</string>
+    <string name="subject_progress">تقدم المستوى</string>
     <string name="subject_unavailable">غير متاح حاليًا</string>
+    <string name="subject_no_points_yet">لا توجد نقاط مسجلة لهذه المادة بعد.</string>
     <string name="subject_hearts">قلوب المادة</string>
-    <string name="subject_restore_unknown">وقت الاستعادة غير متاح بدقة</string>
+    <string name="subject_restore_unknown">تتجدد القلوب يوميًا عند بداية يوم جديد.</string>
     <string name="subject_training_center">مركز تدريب المادة</string>
     <string name="subject_content">محتوى المادة</string>
     <string name="subject_units">وحدات</string>
@@ -31,6 +32,9 @@
     <string name="subject_last_activity">آخر نشاط</string>
     <string name="subject_last_activity_mode">النمط: %1$s</string>
     <string name="subject_last_activity_unit">الوحدة رقم %1$d</string>
+    <string name="subject_last_activity_unit_named">الوحدة: %1$s</string>
+    <string name="subject_last_activity_lesson_named">الدرس: %1$s</string>
+    <string name="subject_continue_last_activity">متابعة من حيث توقفت</string>
     <string name="subject_no_last_activity">لا يوجد نشاط سابق مؤكد لهذه المادة.</string>
     <string name="subject_access_unknown">حالة الوصول غير متاحة</string>
 </resources>

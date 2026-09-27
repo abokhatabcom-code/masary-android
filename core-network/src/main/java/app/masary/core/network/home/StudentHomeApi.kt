@@ -42,6 +42,8 @@ data class HomeSubjectDto(
     @SerializedName("subject_version_id") val subjectVersionId: Int = 0,
     val name: String = "",
     val hearts: Int = 0,
+    val points: Int? = null,
+    val level: Int? = null,
     @SerializedName("progress_percent") val progressPercent: Int? = null,
 )
 

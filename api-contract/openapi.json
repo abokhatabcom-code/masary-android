@@ -532,26 +532,6 @@
               }
             }
           },
-          "400": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "API error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "201": {
             "description": "API envelope",
             "content": {
@@ -562,8 +542,28 @@
               }
             }
           },
+          "400": {
+            "description": "API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Idempotency key conflict or username conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "API error",
             "content": {
               "application/json": {
                 "schema": {
@@ -1984,6 +1984,8 @@
           "subject_version_id",
           "name",
           "hearts",
+          "points",
+          "level",
           "progress_percent"
         ],
         "properties": {
@@ -2000,6 +2002,29 @@
             "anyOf": [
               {
                 "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
               },
               {
                 "type": "null"

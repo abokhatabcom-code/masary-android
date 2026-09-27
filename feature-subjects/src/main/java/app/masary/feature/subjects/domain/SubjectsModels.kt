@@ -30,6 +30,8 @@ data class StudentSubject(
     val subjectVersionId: Int,
     val name: String,
     val hearts: Int,
+    val points: Int?,
+    val level: Int?,
     val curriculumLabel: String,
     val progress: SubjectProgress,
     val media: SubjectMedia,

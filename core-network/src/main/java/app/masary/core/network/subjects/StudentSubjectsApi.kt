@@ -38,6 +38,8 @@ data class StudentSubjectSummaryDto(
     @SerializedName("subject_version_id") val subjectVersionId: Int = 0,
     val name: String = "",
     val hearts: Int = 0,
+    val points: Int? = null,
+    val level: Int? = null,
     @SerializedName("curriculum_label") val curriculumLabel: String = "",
     val progress: SubjectProgressDto = SubjectProgressDto(),
     val media: SubjectMediaDto = SubjectMediaDto(),
