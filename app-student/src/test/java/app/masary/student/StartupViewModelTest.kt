@@ -76,6 +76,38 @@ class StartupViewModelTest {
         assertEquals(StartupState.Authenticated(session), viewModel.state.value)
     }
 
+    @Test fun `offline startup keeps a locally authenticated student usable`() = runTest(dispatcher) {
+        val sessions = FakeSessionManager(session, tokens)
+        val offline = AuthFailureException(AuthFailureKind.NETWORK, "offline")
+        val viewModel = StartupViewModel(
+            FakeOnboardingStore(true),
+            sessions,
+            FakeAuthRepository(Result.failure(offline)),
+        )
+
+        advanceUntilIdle()
+
+        assertEquals(StartupState.Authenticated(session), viewModel.state.value)
+        assertEquals(tokens, sessions.tokens)
+        assertEquals(false, sessions.cleared)
+    }
+
+    @Test fun `temporary server validation failure keeps local session usable`() = runTest(dispatcher) {
+        val sessions = FakeSessionManager(session, tokens)
+        val temporary = AuthFailureException(AuthFailureKind.SERVER, "temporary")
+        val viewModel = StartupViewModel(
+            FakeOnboardingStore(true),
+            sessions,
+            FakeAuthRepository(Result.failure(temporary)),
+        )
+
+        advanceUntilIdle()
+
+        assertEquals(StartupState.Authenticated(session), viewModel.state.value)
+        assertEquals(tokens, sessions.tokens)
+        assertEquals(false, sessions.cleared)
+    }
+
     @Test fun `terminal refresh rejection clears sensitive session and opens login`() = runTest(dispatcher) {
         val sessions = FakeSessionManager(session, tokens)
         val rejection = AuthFailureException(AuthFailureKind.SESSION_REJECTED, "rejected")
