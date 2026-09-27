@@ -162,16 +162,16 @@ class RoomStudentLocalStore(
     override suspend fun readDocument(
         studentId: String,
         kind: String,
-        documentId: String = CachedDocumentEntity.DEFAULT_DOCUMENT_ID,
+        documentId: String,
     ): CachedDocumentEntity? = documentDao.read(studentId, kind, documentId)
 
     override suspend fun putDocument(
         studentId: String,
         kind: String,
         payloadJson: String,
-        documentId: String = CachedDocumentEntity.DEFAULT_DOCUMENT_ID,
-        serverVersion: String? = null,
-        savedAtEpochMillis: Long = System.currentTimeMillis(),
+        documentId: String,
+        serverVersion: String?,
+        savedAtEpochMillis: Long,
     ) {
         require(studentId.isNotBlank()) { "studentId is required" }
         require(kind.isNotBlank()) { "document kind is required" }
@@ -313,8 +313,8 @@ class RoomStudentLocalStore(
 
     override suspend fun readyOperations(
         studentId: String,
-        nowEpochMillis: Long = System.currentTimeMillis(),
-        limit: Int = 50,
+        nowEpochMillis: Long,
+        limit: Int,
     ): List<PendingOperationEntity> =
         operationDao.ready(studentId, nowEpochMillis, limit.coerceIn(1, 100))
 
