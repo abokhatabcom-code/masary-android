@@ -397,6 +397,10 @@ class RoomStudentLocalStore(
             val session = sessionDao.readSession(answer.studentId, answer.sessionId)
                 ?: error("Question session is not available locally.")
             require(session.studentId == answer.studentId) { "session owner mismatch" }
+            val existingOperation = operationDao.read(operation.operationId)
+            require(existingOperation == null || existingOperation.studentId == operation.studentId) {
+                "operationId is already owned by another student"
+            }
             sessionDao.upsertAnswer(answer)
             sessionDao.upsertSession(
                 session.copy(
