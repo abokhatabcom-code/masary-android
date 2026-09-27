@@ -13,6 +13,7 @@ data class StudentProfileStateEntity(
     val levelNextXp: Int = 0,
     val todayXp: Int = 0,
     val todaySeconds: Int = 0,
+    val todayMinutes: Int = 0,
     val todayAttempts: Int = 0,
     val streakCurrentDays: Int = 0,
     val unreadNotifications: Int = 0,
