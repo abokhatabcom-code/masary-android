@@ -80,6 +80,24 @@ class StudentLocalStore(
         )
     }
 
+    suspend fun replaceProfileState(entity: StudentProfileStateEntity) {
+        require(entity.studentId.isNotBlank()) { "studentId is required" }
+        stateDao.upsertProfile(entity)
+    }
+
+    suspend fun replaceSubjectStates(entities: List<StudentSubjectStateEntity>) {
+        if (entities.isEmpty()) return
+        require(entities.all { it.studentId.isNotBlank() && it.subjectVersionId > 0 }) {
+            "valid studentId and subjectVersionId are required"
+        }
+        stateDao.upsertSubjects(entities)
+    }
+
+    suspend fun deleteDocumentKind(kind: String) {
+        require(kind.isNotBlank()) { "document kind is required" }
+        documentDao.deleteKind(kind)
+    }
+
     suspend fun applyConfirmedDelta(delta: ConfirmedStudentDelta) {
         require(delta.studentId.isNotBlank()) { "studentId is required" }
         database.withTransaction {
