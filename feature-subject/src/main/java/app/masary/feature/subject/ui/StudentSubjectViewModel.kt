@@ -7,6 +7,7 @@ import app.masary.feature.subject.domain.StudentSubjectPage
 import app.masary.feature.subject.domain.SubjectPageNotFoundException
 import app.masary.feature.subject.domain.SubjectPageSessionExpiredException
 import app.masary.feature.subject.domain.SubjectRepository
+import app.masary.core.models.student.StudentLiveState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,7 +41,29 @@ class StudentSubjectViewModel(
         if (subjectVersionId <= 0) {
             _state.value = SubjectUiState.NotFound("معرف المادة غير صالح.")
         } else {
+            observeLiveState()
             loadSubject()
+        }
+    }
+
+    private fun observeLiveState() {
+        viewModelScope.launch {
+            repository.observeLiveState().collect { liveState ->
+                when (val current = _state.value) {
+                    is SubjectUiState.Content -> {
+                        _state.value = current.copy(data = current.data.applyLiveState(liveState))
+                    }
+                    is SubjectUiState.Error -> {
+                        current.previousData?.let { previous ->
+                            _state.value = current.copy(previousData = previous.applyLiveState(liveState))
+                        }
+                    }
+                    SubjectUiState.Loading,
+                    SubjectUiState.SessionExpired,
+                    is SubjectUiState.NotFound,
+                    -> Unit
+                }
+            }
         }
     }
 
@@ -102,4 +125,26 @@ class StudentSubjectViewModelFactory(
         require(modelClass.isAssignableFrom(StudentSubjectViewModel::class.java))
         return StudentSubjectViewModel(subjectVersionId, repository) as T
     }
+}
+
+
+private fun StudentSubjectPage.applyLiveState(liveState: StudentLiveState): StudentSubjectPage {
+    val local = liveState.subjects[subjectVersionId] ?: return this
+    return copy(
+        points = points.copy(
+            available = local.points != null,
+            value = local.points,
+        ),
+        level = level.copy(
+            available = local.level != null,
+            value = local.level,
+        ),
+        progress = progress.copy(
+            available = local.levelProgressPercent != null,
+            percent = local.levelProgressPercent,
+        ),
+        hearts = hearts.copy(
+            current = local.hearts?.coerceIn(0, hearts.maximum) ?: hearts.current,
+        ),
+    )
 }
