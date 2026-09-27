@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.masary.feature.subjects.domain.StudentSubjectsData
+import app.masary.core.models.student.StudentLiveState
 import app.masary.feature.subjects.domain.SubjectsRepository
 import app.masary.feature.subjects.domain.SubjectsSessionExpiredException
 import kotlinx.coroutines.Job
@@ -34,7 +35,28 @@ class StudentSubjectsViewModel(
     private var loadJob: Job? = null
 
     init {
+        observeLiveState()
         loadSubjects()
+    }
+
+    private fun observeLiveState() {
+        viewModelScope.launch {
+            repository.observeLiveState().collect { liveState ->
+                when (val current = _state.value) {
+                    is SubjectsUiState.Content -> {
+                        _state.value = current.copy(data = current.data.applyLiveState(liveState))
+                    }
+                    is SubjectsUiState.Error -> {
+                        current.previousData?.let { previous ->
+                            _state.value = current.copy(previousData = previous.applyLiveState(liveState))
+                        }
+                    }
+                    SubjectsUiState.Loading,
+                    SubjectsUiState.SessionExpired,
+                    -> Unit
+                }
+            }
+        }
     }
 
     fun refresh() {
@@ -93,3 +115,21 @@ class StudentSubjectsViewModelFactory(
         return StudentSubjectsViewModel(repository) as T
     }
 }
+
+
+private fun StudentSubjectsData.applyLiveState(liveState: StudentLiveState): StudentSubjectsData =
+    copy(
+        subjects = subjects.map { subject ->
+            liveState.subjects[subject.subjectVersionId]?.let { local ->
+                subject.copy(
+                    hearts = local.hearts ?: subject.hearts,
+                    points = local.points,
+                    level = local.level,
+                    progress = subject.progress.copy(
+                        available = local.levelProgressPercent != null,
+                        percent = local.levelProgressPercent,
+                    ),
+                )
+            } ?: subject
+        },
+    )
