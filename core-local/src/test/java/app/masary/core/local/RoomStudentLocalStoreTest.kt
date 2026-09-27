@@ -61,6 +61,40 @@ class RoomStudentLocalStoreTest {
     }
 
     @Test
+    fun deleteDocumentKindIsScopedToOneStudent() = runTest {
+        store.putDocument(STUDENT_A, "home", "{\"owner\":\"a\"}")
+        store.putDocument(STUDENT_B, "home", "{\"owner\":\"b\"}")
+
+        store.deleteDocumentKind(STUDENT_A, "home")
+
+        assertNull(store.readDocument(STUDENT_A, "home"))
+        assertNotNull(store.readDocument(STUDENT_B, "home"))
+    }
+
+    @Test
+    fun duplicateOperationIdCannotBeReassignedToAnotherStudent() = runTest {
+        store.enqueueOperation(operation("shared-id", STUDENT_A))
+
+        try {
+            store.enqueueOperation(operation("shared-id", STUDENT_B))
+            throw AssertionError("Cross-student operation id collision must be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
+
+        assertEquals(
+            STUDENT_A,
+            store.readyOperations(STUDENT_A, nowEpochMillis = 10_000L, limit = 10)
+                .single()
+                .studentId,
+        )
+        assertTrue(
+            store.readyOperations(STUDENT_B, nowEpochMillis = 10_000L, limit = 10)
+                .isEmpty(),
+        )
+    }
+
+    @Test
     fun syncingOperationSurvivesDatabaseReopenAndRecoversWithSameId() = runTest {
         store.enqueueOperation(operation("stable-operation", STUDENT_A))
         store.markOperationSyncing("stable-operation", nowEpochMillis = 1_000L)

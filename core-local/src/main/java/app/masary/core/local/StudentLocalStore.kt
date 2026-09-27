@@ -65,7 +65,7 @@ interface StudentLocalStore {
 
     suspend fun replaceProfileState(entity: StudentProfileStateEntity)
     suspend fun replaceSubjectStates(entities: List<StudentSubjectStateEntity>)
-    suspend fun deleteDocumentKind(kind: String)
+    suspend fun deleteDocumentKind(studentId: String, kind: String)
     suspend fun applyConfirmedDelta(delta: ConfirmedStudentDelta)
     suspend fun enqueueOperation(operation: PendingOperationEntity)
     suspend fun markOperationSyncing(operationId: String, nowEpochMillis: Long = System.currentTimeMillis())
@@ -210,9 +210,10 @@ class RoomStudentLocalStore(
         stateDao.upsertSubjects(entities)
     }
 
-    override suspend fun deleteDocumentKind(kind: String) {
+    override suspend fun deleteDocumentKind(studentId: String, kind: String) {
+        require(studentId.isNotBlank()) { "studentId is required" }
         require(kind.isNotBlank()) { "document kind is required" }
-        documentDao.deleteKind(kind)
+        documentDao.deleteKind(studentId, kind)
     }
 
     override suspend fun applyConfirmedDelta(delta: ConfirmedStudentDelta) {
@@ -280,7 +281,13 @@ class RoomStudentLocalStore(
     override suspend fun enqueueOperation(operation: PendingOperationEntity) {
         require(operation.operationId.isNotBlank()) { "operationId is required" }
         require(operation.studentId.isNotBlank()) { "studentId is required" }
-        operationDao.upsert(operation)
+        database.withTransaction {
+            val existing = operationDao.read(operation.operationId)
+            require(existing == null || existing.studentId == operation.studentId) {
+                "operationId is already owned by another student"
+            }
+            operationDao.upsert(operation)
+        }
     }
 
     override suspend fun markOperationSyncing(operationId: String, nowEpochMillis: Long) {

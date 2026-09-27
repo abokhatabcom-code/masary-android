@@ -49,8 +49,8 @@ interface CachedDocumentDao {
     @Query("DELETE FROM cached_documents WHERE studentId = :studentId")
     suspend fun deleteStudent(studentId: String)
 
-    @Query("DELETE FROM cached_documents WHERE kind = :kind")
-    suspend fun deleteKind(kind: String)
+    @Query("DELETE FROM cached_documents WHERE studentId = :studentId AND kind = :kind")
+    suspend fun deleteKind(studentId: String, kind: String)
 }
 
 @Dao
