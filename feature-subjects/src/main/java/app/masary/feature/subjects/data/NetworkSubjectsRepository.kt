@@ -35,8 +35,8 @@ class NetworkSubjectsRepository(
     private val authApi: StudentAuthApi,
     private val sessionManager: SessionManager,
     private val snapshotStore: SubjectsSnapshotStore,
-    private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
     private val liveStateProvider: (String) -> Flow<StudentLiveState> = { flowOf(StudentLiveState()) },
+    private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
 ) : SubjectsRepository {
     override fun observeLiveState(): Flow<StudentLiveState> =
         sessionManager.session.flatMapLatest { session ->
