@@ -14,6 +14,7 @@ data class StudentProfileLiveState(
     val levelNextXp: Int,
     val todayXp: Int,
     val todaySeconds: Int,
+    val todayMinutes: Int,
     val todayAttempts: Int,
     val streakCurrentDays: Int,
     val unreadNotifications: Int,
