@@ -1,7 +1,11 @@
 package app.masary.core.local
 
 import androidx.room.withTransaction
+import app.masary.core.models.student.StudentLiveState
+import app.masary.core.models.student.StudentProfileLiveState
+import app.masary.core.models.student.StudentSubjectLiveState
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 
 data class ConfirmedProfileDelta(
     val globalXp: Int? = null,
@@ -9,8 +13,14 @@ data class ConfirmedProfileDelta(
     val level: Int? = null,
     val levelProgressPercent: Int? = null,
     val levelNextXp: Int? = null,
+    val todayXp: Int? = null,
+    val todaySeconds: Int? = null,
+    val todayAttempts: Int? = null,
     val streakCurrentDays: Int? = null,
     val unreadNotifications: Int? = null,
+    val smartGuideCompletedSteps: Int? = null,
+    val smartGuideTotalSteps: Int? = null,
+    val smartGuideCompletionPercent: Int? = null,
 )
 
 data class ConfirmedSubjectDelta(
@@ -51,6 +61,47 @@ class StudentLocalStore(
 
     fun observeResumableQuestionSession(studentId: String): Flow<QuestionSessionEntity?> =
         sessionDao.observeResumableSession(studentId)
+
+    fun observeLiveState(studentId: String): Flow<StudentLiveState> =
+        combine(
+            stateDao.observeProfile(studentId),
+            stateDao.observeSubjects(studentId),
+        ) { profile, subjects ->
+            StudentLiveState(
+                profile = profile?.let {
+                    StudentProfileLiveState(
+                        studentId = it.studentId,
+                        globalXp = it.globalXp,
+                        gems = it.gems,
+                        level = it.level,
+                        levelProgressPercent = it.levelProgressPercent,
+                        levelNextXp = it.levelNextXp,
+                        todayXp = it.todayXp,
+                        todaySeconds = it.todaySeconds,
+                        todayAttempts = it.todayAttempts,
+                        streakCurrentDays = it.streakCurrentDays,
+                        unreadNotifications = it.unreadNotifications,
+                        smartGuideCompletedSteps = it.smartGuideCompletedSteps,
+                        smartGuideTotalSteps = it.smartGuideTotalSteps,
+                        smartGuideCompletionPercent = it.smartGuideCompletionPercent,
+                        serverVersion = it.serverVersion,
+                        confirmedAtEpochMillis = it.confirmedAtEpochMillis,
+                    )
+                },
+                subjects = subjects.associate { subject ->
+                    subject.subjectVersionId to StudentSubjectLiveState(
+                        studentId = subject.studentId,
+                        subjectVersionId = subject.subjectVersionId,
+                        points = subject.points,
+                        level = subject.level,
+                        levelProgressPercent = subject.levelProgressPercent,
+                        hearts = subject.hearts,
+                        serverVersion = subject.serverVersion,
+                        confirmedAtEpochMillis = subject.confirmedAtEpochMillis,
+                    )
+                },
+            )
+        }
 
     suspend fun readDocument(
         studentId: String,
@@ -112,10 +163,19 @@ class StudentLocalStore(
                         levelProgressPercent = patch.levelProgressPercent?.coerceIn(0, 100)
                             ?: current.levelProgressPercent,
                         levelNextXp = patch.levelNextXp?.coerceAtLeast(0) ?: current.levelNextXp,
+                        todayXp = patch.todayXp?.coerceAtLeast(0) ?: current.todayXp,
+                        todaySeconds = patch.todaySeconds?.coerceAtLeast(0) ?: current.todaySeconds,
+                        todayAttempts = patch.todayAttempts?.coerceAtLeast(0) ?: current.todayAttempts,
                         streakCurrentDays = patch.streakCurrentDays?.coerceAtLeast(0)
                             ?: current.streakCurrentDays,
                         unreadNotifications = patch.unreadNotifications?.coerceAtLeast(0)
                             ?: current.unreadNotifications,
+                        smartGuideCompletedSteps = patch.smartGuideCompletedSteps?.coerceAtLeast(0)
+                            ?: current.smartGuideCompletedSteps,
+                        smartGuideTotalSteps = patch.smartGuideTotalSteps?.coerceAtLeast(0)
+                            ?: current.smartGuideTotalSteps,
+                        smartGuideCompletionPercent = patch.smartGuideCompletionPercent?.coerceIn(0, 100)
+                            ?: current.smartGuideCompletionPercent,
                         serverVersion = delta.serverVersion ?: current.serverVersion,
                         confirmedAtEpochMillis = delta.confirmedAtEpochMillis,
                     ),
