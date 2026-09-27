@@ -369,8 +369,17 @@ class RoomStudentLocalStore(
     ): List<PendingOperationEntity> =
         operationDao.ready(studentId, nowEpochMillis, limit.coerceIn(1, 100))
 
-    override suspend fun saveQuestionSession(session: QuestionSessionEntity) =
-        sessionDao.upsertSession(session)
+    override suspend fun saveQuestionSession(session: QuestionSessionEntity) {
+        require(session.sessionId.isNotBlank()) { "sessionId is required" }
+        require(session.studentId.isNotBlank()) { "studentId is required" }
+        database.withTransaction {
+            val existing = sessionDao.readSessionById(session.sessionId)
+            require(existing == null || existing.studentId == session.studentId) {
+                "question session is already owned by another student"
+            }
+            sessionDao.upsertSession(session)
+        }
+    }
 
     override suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity) =
         sessionDao.upsertAnswer(answer)
