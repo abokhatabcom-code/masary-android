@@ -18,6 +18,8 @@ import app.masary.feature.subject.domain.SubjectRestoreTime
 import app.masary.feature.subject.domain.SubjectSnapshotMetadata
 import app.masary.feature.subject.domain.SubjectStructureMode
 import app.masary.core.models.student.StudentLiveState
+import app.masary.core.models.student.StudentSubjectLiveState
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -117,6 +119,50 @@ class StudentSubjectViewModelTest {
         runCurrent()
         assertEquals(0, calls)
         assertTrue(viewModel.state.value is SubjectUiState.NotFound)
+    }
+
+    @Test
+    fun `confirmed live state updates subject points without another network request`() = runTest(dispatcher) {
+        val cached = subject("cached").copy(snapshot = SubjectSnapshotMetadata(1L))
+        val response = CompletableDeferred<Result<StudentSubjectPage>>()
+        val live = MutableStateFlow(StudentLiveState())
+        var networkCalls = 0
+        val viewModel = StudentSubjectViewModel(12, object : SubjectRepository {
+            override fun observeLiveState() = live
+            override suspend fun loadSnapshot(subjectVersionId: Int) = cached
+            override suspend fun loadSubject(subjectVersionId: Int): Result<StudentSubjectPage> {
+                networkCalls += 1
+                return response.await()
+            }
+            override suspend fun clearSnapshots() = Unit
+        })
+
+        runCurrent()
+        live.value = StudentLiveState(
+            subjects = mapOf(
+                12 to StudentSubjectLiveState(
+                    studentId = "42",
+                    subjectVersionId = 12,
+                    points = 175,
+                    level = 2,
+                    levelProgressPercent = 75,
+                    hearts = 1,
+                    serverVersion = "confirmed-2",
+                    confirmedAtEpochMillis = 2L,
+                ),
+            ),
+        )
+        runCurrent()
+
+        val state = viewModel.state.value as SubjectUiState.Content
+        assertEquals(175, state.data.points.value)
+        assertEquals(2, state.data.level.value)
+        assertEquals(75, state.data.progress.percent)
+        assertEquals(1, state.data.hearts.current)
+        assertEquals(1, networkCalls)
+
+        response.complete(Result.success(cached.copy(snapshot = null)))
+        runCurrent()
     }
 
     private fun subject(version: String) = StudentSubjectPage(
