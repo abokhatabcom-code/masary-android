@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, phase-12-5-student-data-foundation-implementation]
   pull_request:
   workflow_dispatch:
 
@@ -37,6 +37,25 @@ jobs:
 
       - name: Validate API contract
         run: python3 scripts/validate-api-contract.py
+
+      - name: Validate official student identity
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          gradle = Path("app-student/build.gradle.kts").read_text(encoding="utf-8")
+          strings = Path("app-student/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+          for marker in (
+              'applicationId = "app.masary.student"',
+              'versionCode = 2',
+              'versionName = "1.0.1"',
+          ):
+              if marker not in gradle:
+                  raise SystemExit(f"Missing official identity marker: {marker}")
+          if '<string name="app_name">مساري الطالب</string>' not in strings:
+              raise SystemExit("Official app label must remain exactly: مساري الطالب")
+          PY
 
       - name: Run unit tests and Android lint
         run: ./gradlew --no-daemon test lint
@@ -77,7 +96,9 @@ jobs:
           if-no-files-found: error
 
   build-signed-production-student-apk:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    # The phase branch is temporarily trusted to produce the install-over update APK
+    # before merge. This allowance is removed after the artifact is verified.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/phase-12-5-student-data-foundation-implementation'))
     runs-on: ubuntu-latest
     env:
       MASARY_DEVELOPMENT_BASE_URL: ${{ vars.MASARY_DEVELOPMENT_BASE_URL }}
