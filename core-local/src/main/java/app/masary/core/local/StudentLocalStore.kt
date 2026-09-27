@@ -75,6 +75,11 @@ interface StudentLocalStore {
         nowEpochMillis: Long = System.currentTimeMillis(),
     )
     suspend fun markOperationConfirmed(operationId: String, nowEpochMillis: Long = System.currentTimeMillis())
+    suspend fun recoverInterruptedOperations(
+        studentId: String,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+        staleAfterMillis: Long = 2L * 60L * 1_000L,
+    ): Int
 
     suspend fun readyOperations(
         studentId: String,
@@ -308,6 +313,19 @@ class RoomStudentLocalStore(
             updatedAtEpochMillis = nowEpochMillis,
             nextAttemptAtEpochMillis = 0,
             lastError = null,
+        )
+    }
+
+    override suspend fun recoverInterruptedOperations(
+        studentId: String,
+        nowEpochMillis: Long,
+        staleAfterMillis: Long,
+    ): Int {
+        require(studentId.isNotBlank()) { "studentId is required" }
+        return operationDao.recoverInterrupted(
+            studentId = studentId,
+            staleBeforeEpochMillis = nowEpochMillis - staleAfterMillis.coerceAtLeast(0),
+            nowEpochMillis = nowEpochMillis,
         )
     }
 
