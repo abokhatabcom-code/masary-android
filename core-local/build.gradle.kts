@@ -25,6 +25,7 @@ ksp {
 }
 
 dependencies {
+    implementation(project(":core-models"))
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.kotlinx.coroutines.core)
