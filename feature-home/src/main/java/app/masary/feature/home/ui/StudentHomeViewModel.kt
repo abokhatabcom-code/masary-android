@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.domain.HomeSessionExpiredException
 import app.masary.feature.home.domain.StudentHomeData
+import app.masary.core.models.student.StudentLiveState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +21,28 @@ class StudentHomeViewModel(
     private var loadJob: Job? = null
 
     init {
+        observeLiveState()
         loadHome()
+    }
+
+    private fun observeLiveState() {
+        viewModelScope.launch {
+            repository.observeLiveState().collect { liveState ->
+                when (val current = _state.value) {
+                    is HomeUiState.Content -> {
+                        _state.value = current.copy(data = current.data.applyLiveState(liveState))
+                    }
+                    is HomeUiState.Error -> {
+                        current.previousData?.let { previous ->
+                            _state.value = current.copy(previousData = previous.applyLiveState(liveState))
+                        }
+                    }
+                    HomeUiState.Loading,
+                    HomeUiState.SessionExpired,
+                    -> Unit
+                }
+            }
+        }
     }
 
     fun refresh() {
@@ -76,4 +98,64 @@ class StudentHomeViewModelFactory(
         require(modelClass.isAssignableFrom(StudentHomeViewModel::class.java))
         return StudentHomeViewModel(repository) as T
     }
+}
+
+
+private fun StudentHomeData.applyLiveState(liveState: StudentLiveState): StudentHomeData {
+    val profile = liveState.profile
+    val updatedSummary = profile?.let {
+        summary.copy(
+            globalXp = it.globalXp,
+            gems = it.gems,
+            level = it.level,
+            levelPercent = it.levelProgressPercent,
+            levelNextXp = it.levelNextXp,
+        )
+    } ?: summary
+    val updatedToday = profile?.let {
+        today.copy(
+            xp = it.todayXp,
+            seconds = it.todaySeconds,
+            minutes = it.todayMinutes,
+            attempts = it.todayAttempts,
+        )
+    } ?: today
+    val updatedStreak = profile?.let {
+        streak.copy(currentDays = it.streakCurrentDays)
+    } ?: streak
+    val updatedNotifications = profile?.let {
+        notifications.copy(unreadCount = it.unreadNotifications)
+    } ?: notifications
+    val updatedGuide = profile?.let {
+        smartGuide.copy(
+            completedSteps = it.smartGuideCompletedSteps,
+            totalSteps = it.smartGuideTotalSteps,
+            completionPercent = it.smartGuideCompletionPercent,
+            isComplete = it.smartGuideTotalSteps > 0 &&
+                it.smartGuideCompletedSteps >= it.smartGuideTotalSteps,
+        )
+    } ?: smartGuide
+    val updatedSubjects = subjects.map { subject ->
+        liveState.subjects[subject.subjectVersionId]?.let { local ->
+            subject.copy(
+                hearts = local.hearts ?: subject.hearts,
+                progressPercent = local.levelProgressPercent,
+                points = local.points,
+                level = local.level,
+            )
+        } ?: subject
+    }
+    return copy(
+        summary = updatedSummary,
+        today = updatedToday,
+        streak = updatedStreak,
+        notifications = updatedNotifications,
+        smartGuide = updatedGuide,
+        indicators = indicators.copy(
+            totalXp = updatedSummary.globalXp,
+            gems = updatedSummary.gems,
+            streakDays = updatedStreak.currentDays,
+        ),
+        subjects = updatedSubjects,
+    )
 }
