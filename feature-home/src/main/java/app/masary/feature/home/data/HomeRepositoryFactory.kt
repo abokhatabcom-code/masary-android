@@ -17,6 +17,7 @@ object HomeRepositoryFactory {
         homeApi = MasaryNetwork.studentHomeApi(baseUrl),
         authApi = MasaryNetwork.studentAuthApi(baseUrl),
         sessionManager = sessionManager,
+        localStore = localStore,
         snapshotStore = LocalFirstHomeSnapshotStore(
             localStore = localStore,
             legacyStore = DataStoreHomeSnapshotStore(snapshotDataStore),
