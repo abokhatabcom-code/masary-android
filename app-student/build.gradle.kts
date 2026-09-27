@@ -156,6 +156,7 @@ dependencies {
     implementation(project(":feature-activity-preparation"))
     implementation(project(":feature-notifications"))
     implementation(project(":core-datastore"))
+    implementation(project(":core-local"))
     implementation(project(":core-security"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
