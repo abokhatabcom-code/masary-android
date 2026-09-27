@@ -4,6 +4,8 @@ import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.domain.HomeSnapshotMetadata
 import app.masary.feature.home.domain.HomeStudent
 import app.masary.feature.home.domain.StudentHomeData
+import app.masary.core.models.student.StudentLiveState
+import kotlinx.coroutines.flow.flowOf
 import com.google.gson.Gson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +33,7 @@ class StudentHomeViewModelTest {
         val fresh = home("fresh")
         val response = CompletableDeferred<Result<StudentHomeData>>()
         val viewModel = StudentHomeViewModel(object : HomeRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
             override suspend fun loadSnapshot() = snapshot
             override suspend fun loadHome() = response.await()
             override suspend fun clearSnapshot() = Unit
