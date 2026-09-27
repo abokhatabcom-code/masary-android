@@ -359,15 +359,19 @@ private fun SubjectIdentityCard(data: StudentSubjectPage) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Text(
-                    text = when (data.content.structureMode) {
-                        SubjectStructureMode.Units -> stringResource(R.string.subject_units)
-                        SubjectStructureMode.Lessons -> stringResource(R.string.subject_lessons)
-                        SubjectStructureMode.Unknown -> stringResource(R.string.subject_unavailable)
-                    },
-                    color = MasaryColors.brandGoldBright,
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                when (data.content.structureMode) {
+                    SubjectStructureMode.Units -> Text(
+                        text = stringResource(R.string.subject_units),
+                        color = MasaryColors.brandGoldBright,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    SubjectStructureMode.Lessons -> Text(
+                        text = stringResource(R.string.subject_lessons),
+                        color = MasaryColors.brandGoldBright,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    SubjectStructureMode.Unknown -> Unit
+                }
             }
         }
     }
