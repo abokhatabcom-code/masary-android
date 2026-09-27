@@ -148,6 +148,32 @@ class RoomStudentLocalStoreTest {
     }
 
     @Test
+    fun questionSessionAndAnswersSurviveDatabaseReopen() = runTest {
+        val session = questionSession("session-resume", STUDENT_A).copy(currentQuestionIndex = 2)
+        store.saveQuestionSession(session)
+        store.saveQuestionAnswer(
+            QuestionAnswerEntity(
+                studentId = STUDENT_A,
+                sessionId = session.sessionId,
+                questionId = "q1",
+                answerJson = "{}",
+                localSequence = 1,
+                answeredAtEpochMillis = 400L,
+            ),
+        )
+
+        database.close()
+        openDatabase()
+
+        val restoredSession = store.observeResumableQuestionSession(STUDENT_A).first()
+        val restoredAnswers = store.readQuestionAnswers(STUDENT_A, session.sessionId)
+
+        assertEquals("session-resume", restoredSession?.sessionId)
+        assertEquals(2, restoredSession?.currentQuestionIndex)
+        assertEquals("q1", restoredAnswers.single().questionId)
+    }
+
+    @Test
     fun syncingOperationSurvivesDatabaseReopenAndRecoversWithSameId() = runTest {
         store.enqueueOperation(operation("stable-operation", STUDENT_A))
         store.markOperationSyncing("stable-operation", nowEpochMillis = 1_000L)
