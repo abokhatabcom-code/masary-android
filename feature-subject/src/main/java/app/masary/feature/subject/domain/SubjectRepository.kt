@@ -1,6 +1,10 @@
 package app.masary.feature.subject.domain
 
+import app.masary.core.models.student.StudentLiveState
+import kotlinx.coroutines.flow.Flow
+
 interface SubjectRepository {
+    fun observeLiveState(): Flow<StudentLiveState>
     suspend fun loadSubject(subjectVersionId: Int): Result<StudentSubjectPage>
     suspend fun loadSnapshot(subjectVersionId: Int): StudentSubjectPage?
     suspend fun clearSnapshots()
