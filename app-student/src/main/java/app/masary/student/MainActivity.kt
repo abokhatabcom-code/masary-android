@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
                 MasaryStudentApp(
                     onboardingStore = onboardingStore,
                     sessionManager = sessionManager,
+                    localStore = localStore,
                     authRepository = authRepository,
                     registrationRepository = registrationRepository,
                     homeRepository = homeRepository,
