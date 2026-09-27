@@ -95,6 +95,23 @@ class RoomStudentLocalStoreTest {
     }
 
     @Test
+    fun questionSessionIdCannotBeReassignedToAnotherStudent() = runTest {
+        store.saveQuestionSession(questionSession("session-1", STUDENT_A))
+
+        try {
+            store.saveQuestionSession(questionSession("session-1", STUDENT_B))
+            throw AssertionError("Cross-student session id collision must be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
+
+        assertEquals(
+            STUDENT_A,
+            database.questionSessionDao().readSessionById("session-1")?.studentId,
+        )
+    }
+
+    @Test
     fun syncingOperationSurvivesDatabaseReopenAndRecoversWithSameId() = runTest {
         store.enqueueOperation(operation("stable-operation", STUDENT_A))
         store.markOperationSyncing("stable-operation", nowEpochMillis = 1_000L)
@@ -179,6 +196,16 @@ class RoomStudentLocalStoreTest {
         ).allowMainThreadQueries().build()
         store = RoomStudentLocalStore(database)
     }
+
+    private fun questionSession(id: String, studentId: String) = QuestionSessionEntity(
+        sessionId = id,
+        studentId = studentId,
+        subjectVersionId = 12,
+        status = "in_progress",
+        packageJson = "{}",
+        startedAtEpochMillis = 100L,
+        updatedAtEpochMillis = 100L,
+    )
 
     private fun operation(id: String, studentId: String) = PendingOperationEntity(
         operationId = id,
