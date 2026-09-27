@@ -17,6 +17,8 @@ import app.masary.feature.subject.domain.SubjectRepository
 import app.masary.feature.subject.domain.SubjectRestoreTime
 import app.masary.feature.subject.domain.SubjectSnapshotMetadata
 import app.masary.feature.subject.domain.SubjectStructureMode
+import app.masary.core.models.student.StudentLiveState
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,6 +46,7 @@ class StudentSubjectViewModelTest {
         val fresh = subject("fresh")
         val response = CompletableDeferred<Result<StudentSubjectPage>>()
         val viewModel = StudentSubjectViewModel(12, object : SubjectRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
             override suspend fun loadSnapshot(subjectVersionId: Int) = cached
             override suspend fun loadSubject(subjectVersionId: Int) = response.await()
             override suspend fun clearSnapshots() = Unit
@@ -64,6 +67,7 @@ class StudentSubjectViewModelTest {
         val response = CompletableDeferred<Result<StudentSubjectPage>>()
         var calls = 0
         val viewModel = StudentSubjectViewModel(12, object : SubjectRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
             override suspend fun loadSnapshot(subjectVersionId: Int): StudentSubjectPage? = null
             override suspend fun loadSubject(subjectVersionId: Int): Result<StudentSubjectPage> {
                 calls += 1
@@ -83,6 +87,7 @@ class StudentSubjectViewModelTest {
     @Test
     fun `not found failure becomes protected not found state`() = runTest(dispatcher) {
         val viewModel = StudentSubjectViewModel(12, object : SubjectRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
             override suspend fun loadSnapshot(subjectVersionId: Int): StudentSubjectPage? = null
             override suspend fun loadSubject(subjectVersionId: Int) =
                 Result.failure<StudentSubjectPage>(SubjectPageNotFoundException())
@@ -97,6 +102,7 @@ class StudentSubjectViewModelTest {
     fun `invalid route id does not call repository`() = runTest(dispatcher) {
         var calls = 0
         val viewModel = StudentSubjectViewModel(0, object : SubjectRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
             override suspend fun loadSnapshot(subjectVersionId: Int): StudentSubjectPage? {
                 calls += 1
                 return null
