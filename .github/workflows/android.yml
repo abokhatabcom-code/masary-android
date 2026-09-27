@@ -214,9 +214,9 @@ jobs:
               Path("app-student/build/outputs/apk/release/output-metadata.json").read_text(encoding="utf-8")
           )
           element = metadata["elements"][0]
-          if int(element["versionCode"]) != 1207:
+          if int(element["versionCode"]) != 1208:
               raise SystemExit("Official APK versionCode must be 1208.")
-          if str(element["versionName"]) != "1.12.7":
+          if str(element["versionName"]) != "1.12.8":
               raise SystemExit("Official APK versionName must be 1.12.8.")
           PY
 
