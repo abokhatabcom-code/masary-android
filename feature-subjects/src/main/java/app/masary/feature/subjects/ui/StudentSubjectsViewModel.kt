@@ -123,12 +123,14 @@ private fun StudentSubjectsData.applyLiveState(liveState: StudentLiveState): Stu
             liveState.subjects[subject.subjectVersionId]?.let { local ->
                 subject.copy(
                     hearts = local.hearts ?: subject.hearts,
-                    points = local.points,
-                    level = local.level,
-                    progress = subject.progress.copy(
-                        available = local.levelProgressPercent != null,
-                        percent = local.levelProgressPercent,
-                    ),
+                    points = local.points ?: subject.points,
+                    level = local.level ?: subject.level,
+                    progress = local.levelProgressPercent?.let { percent ->
+                        subject.progress.copy(
+                            available = true,
+                            percent = percent,
+                        )
+                    } ?: subject.progress,
                 )
             } ?: subject
         },

@@ -105,43 +105,44 @@ private fun StudentHomeData.applyLiveState(liveState: StudentLiveState): Student
     val profile = liveState.profile
     val updatedSummary = profile?.let {
         summary.copy(
-            globalXp = it.globalXp,
-            gems = it.gems,
-            level = it.level,
-            levelPercent = it.levelProgressPercent,
-            levelNextXp = it.levelNextXp,
+            globalXp = it.globalXp ?: summary.globalXp,
+            gems = it.gems ?: summary.gems,
+            level = it.level ?: summary.level,
+            levelPercent = it.levelProgressPercent ?: summary.levelPercent,
+            levelNextXp = it.levelNextXp ?: summary.levelNextXp,
         )
     } ?: summary
     val updatedToday = profile?.let {
         today.copy(
-            xp = it.todayXp,
-            seconds = it.todaySeconds,
-            minutes = it.todayMinutes,
-            attempts = it.todayAttempts,
+            xp = it.todayXp ?: today.xp,
+            seconds = it.todaySeconds ?: today.seconds,
+            minutes = it.todayMinutes ?: today.minutes,
+            attempts = it.todayAttempts ?: today.attempts,
         )
     } ?: today
     val updatedStreak = profile?.let {
-        streak.copy(currentDays = it.streakCurrentDays)
+        streak.copy(currentDays = it.streakCurrentDays ?: streak.currentDays)
     } ?: streak
     val updatedNotifications = profile?.let {
-        notifications.copy(unreadCount = it.unreadNotifications)
+        notifications.copy(unreadCount = it.unreadNotifications ?: notifications.unreadCount)
     } ?: notifications
     val updatedGuide = profile?.let {
+        val completedSteps = it.smartGuideCompletedSteps ?: smartGuide.completedSteps
+        val totalSteps = it.smartGuideTotalSteps ?: smartGuide.totalSteps
         smartGuide.copy(
-            completedSteps = it.smartGuideCompletedSteps,
-            totalSteps = it.smartGuideTotalSteps,
-            completionPercent = it.smartGuideCompletionPercent,
-            isComplete = it.smartGuideTotalSteps > 0 &&
-                it.smartGuideCompletedSteps >= it.smartGuideTotalSteps,
+            completedSteps = completedSteps,
+            totalSteps = totalSteps,
+            completionPercent = it.smartGuideCompletionPercent ?: smartGuide.completionPercent,
+            isComplete = totalSteps > 0 && completedSteps >= totalSteps,
         )
     } ?: smartGuide
     val updatedSubjects = subjects.map { subject ->
         liveState.subjects[subject.subjectVersionId]?.let { local ->
             subject.copy(
                 hearts = local.hearts ?: subject.hearts,
-                progressPercent = local.levelProgressPercent,
-                points = local.points,
-                level = local.level,
+                progressPercent = local.levelProgressPercent ?: subject.progressPercent,
+                points = local.points ?: subject.points,
+                level = local.level ?: subject.level,
             )
         } ?: subject
     }

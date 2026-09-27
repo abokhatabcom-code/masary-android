@@ -131,18 +131,15 @@ class StudentSubjectViewModelFactory(
 private fun StudentSubjectPage.applyLiveState(liveState: StudentLiveState): StudentSubjectPage {
     val local = liveState.subjects[subjectVersionId] ?: return this
     return copy(
-        points = points.copy(
-            available = local.points != null,
-            value = local.points,
-        ),
-        level = level.copy(
-            available = local.level != null,
-            value = local.level,
-        ),
-        progress = progress.copy(
-            available = local.levelProgressPercent != null,
-            percent = local.levelProgressPercent,
-        ),
+        points = local.points?.let { value ->
+            points.copy(available = true, value = value)
+        } ?: points,
+        level = local.level?.let { value ->
+            level.copy(available = true, value = value)
+        } ?: level,
+        progress = local.levelProgressPercent?.let { percent ->
+            progress.copy(available = true, percent = percent)
+        } ?: progress,
         hearts = hearts.copy(
             current = local.hearts?.coerceIn(0, hearts.maximum) ?: hearts.current,
         ),

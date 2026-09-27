@@ -51,6 +51,41 @@ class StudentHomeViewModelTest {
         assertEquals("fresh", (viewModel.state.value as HomeUiState.Content).data.student.id)
     }
 
+    @Test fun `partial confirmed profile delta preserves unrelated Home values`() = runTest(dispatcher) {
+        val cached = home("42").copy(snapshot = HomeSnapshotMetadata(1))
+        val response = CompletableDeferred<Result<StudentHomeData>>()
+        val live = MutableStateFlow(StudentLiveState())
+        val viewModel = StudentHomeViewModel(object : HomeRepository {
+            override fun observeLiveState() = live
+            override suspend fun loadSnapshot() = cached
+            override suspend fun loadHome() = response.await()
+            override suspend fun clearSnapshot() = Unit
+        })
+
+        runCurrent()
+        val before = (viewModel.state.value as HomeUiState.Content).data
+
+        live.value = StudentLiveState(
+            profile = StudentProfileLiveState(
+                studentId = "42",
+                gems = before.summary.gems + 5,
+                confirmedAtEpochMillis = 2,
+            ),
+        )
+        runCurrent()
+
+        val after = (viewModel.state.value as HomeUiState.Content).data
+        assertEquals(before.summary.gems + 5, after.summary.gems)
+        assertEquals(before.summary.globalXp, after.summary.globalXp)
+        assertEquals(before.summary.level, after.summary.level)
+        assertEquals(before.today, after.today)
+        assertEquals(before.streak.currentDays, after.streak.currentDays)
+        assertEquals(before.smartGuide.completedSteps, after.smartGuide.completedSteps)
+
+        response.complete(Result.success(cached.copy(snapshot = null)))
+        runCurrent()
+    }
+
     @Test fun `confirmed live state updates Home without a second network request`() = runTest(dispatcher) {
         val cached = home("42").copy(snapshot = HomeSnapshotMetadata(1))
         val response = CompletableDeferred<Result<StudentHomeData>>()

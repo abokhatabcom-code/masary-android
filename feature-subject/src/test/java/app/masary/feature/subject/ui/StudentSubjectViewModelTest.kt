@@ -122,6 +122,50 @@ class StudentSubjectViewModelTest {
     }
 
     @Test
+    fun `partial subject delta preserves known counters that were not changed`() = runTest(dispatcher) {
+        val cached = subject("cached").copy(
+            points = SubjectIntValue(true, 120, ""),
+            level = SubjectIntValue(true, 3, ""),
+            progress = SubjectProgressValue(true, 40, ""),
+            snapshot = SubjectSnapshotMetadata(1L),
+        )
+        val response = CompletableDeferred<Result<StudentSubjectPage>>()
+        val live = MutableStateFlow(StudentLiveState())
+        val viewModel = StudentSubjectViewModel(12, object : SubjectRepository {
+            override fun observeLiveState() = live
+            override suspend fun loadSnapshot(subjectVersionId: Int) = cached
+            override suspend fun loadSubject(subjectVersionId: Int) = response.await()
+            override suspend fun clearSnapshots() = Unit
+        })
+
+        runCurrent()
+        live.value = StudentLiveState(
+            subjects = mapOf(
+                12 to StudentSubjectLiveState(
+                    studentId = "42",
+                    subjectVersionId = 12,
+                    points = null,
+                    level = null,
+                    levelProgressPercent = null,
+                    hearts = 1,
+                    serverVersion = "confirmed-3",
+                    confirmedAtEpochMillis = 3L,
+                ),
+            ),
+        )
+        runCurrent()
+
+        val data = (viewModel.state.value as SubjectUiState.Content).data
+        assertEquals(120, data.points.value)
+        assertEquals(3, data.level.value)
+        assertEquals(40, data.progress.percent)
+        assertEquals(1, data.hearts.current)
+
+        response.complete(Result.success(cached.copy(snapshot = null)))
+        runCurrent()
+    }
+
+    @Test
     fun `confirmed live state updates subject points without another network request`() = runTest(dispatcher) {
         val cached = subject("cached").copy(snapshot = SubjectSnapshotMetadata(1L))
         val response = CompletableDeferred<Result<StudentSubjectPage>>()
