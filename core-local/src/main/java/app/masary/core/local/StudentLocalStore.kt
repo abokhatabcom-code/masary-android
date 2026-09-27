@@ -83,7 +83,7 @@ interface StudentLocalStore {
 
 class RoomStudentLocalStore(
     private val database: MasaryLocalDatabase,
-) {
+) : StudentLocalStore {
     private val stateDao = database.studentStateDao()
     private val documentDao = database.cachedDocumentDao()
     private val operationDao = database.pendingOperationDao()
