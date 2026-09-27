@@ -75,6 +75,11 @@ interface StudentLocalStore {
         nowEpochMillis: Long = System.currentTimeMillis(),
     )
     suspend fun markOperationConfirmed(operationId: String, nowEpochMillis: Long = System.currentTimeMillis())
+    suspend fun confirmOperation(
+        operationId: String,
+        delta: ConfirmedStudentDelta? = null,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    )
     suspend fun recoverInterruptedOperations(
         studentId: String,
         nowEpochMillis: Long = System.currentTimeMillis(),
@@ -213,58 +218,62 @@ class RoomStudentLocalStore(
     override suspend fun applyConfirmedDelta(delta: ConfirmedStudentDelta) {
         require(delta.studentId.isNotBlank()) { "studentId is required" }
         database.withTransaction {
-            delta.profile?.let { patch ->
-                val current = stateDao.readProfile(delta.studentId)
-                    ?: StudentProfileStateEntity(studentId = delta.studentId)
-                stateDao.upsertProfile(
+            applyConfirmedDeltaInTransaction(delta)
+        }
+    }
+
+    private suspend fun applyConfirmedDeltaInTransaction(delta: ConfirmedStudentDelta) {
+        delta.profile?.let { patch ->
+            val current = stateDao.readProfile(delta.studentId)
+                ?: StudentProfileStateEntity(studentId = delta.studentId)
+            stateDao.upsertProfile(
+                current.copy(
+                    globalXp = patch.globalXp?.coerceAtLeast(0) ?: current.globalXp,
+                    gems = patch.gems?.coerceAtLeast(0) ?: current.gems,
+                    level = patch.level?.coerceAtLeast(1) ?: current.level,
+                    levelProgressPercent = patch.levelProgressPercent?.coerceIn(0, 100)
+                        ?: current.levelProgressPercent,
+                    levelNextXp = patch.levelNextXp?.coerceAtLeast(0) ?: current.levelNextXp,
+                    todayXp = patch.todayXp?.coerceAtLeast(0) ?: current.todayXp,
+                    todaySeconds = patch.todaySeconds?.coerceAtLeast(0) ?: current.todaySeconds,
+                    todayMinutes = patch.todayMinutes?.coerceAtLeast(0) ?: current.todayMinutes,
+                    todayAttempts = patch.todayAttempts?.coerceAtLeast(0) ?: current.todayAttempts,
+                    streakCurrentDays = patch.streakCurrentDays?.coerceAtLeast(0)
+                        ?: current.streakCurrentDays,
+                    unreadNotifications = patch.unreadNotifications?.coerceAtLeast(0)
+                        ?: current.unreadNotifications,
+                    smartGuideCompletedSteps = patch.smartGuideCompletedSteps?.coerceAtLeast(0)
+                        ?: current.smartGuideCompletedSteps,
+                    smartGuideTotalSteps = patch.smartGuideTotalSteps?.coerceAtLeast(0)
+                        ?: current.smartGuideTotalSteps,
+                    smartGuideCompletionPercent = patch.smartGuideCompletionPercent?.coerceIn(0, 100)
+                        ?: current.smartGuideCompletionPercent,
+                    serverVersion = delta.serverVersion ?: current.serverVersion,
+                    confirmedAtEpochMillis = delta.confirmedAtEpochMillis,
+                ),
+            )
+        }
+
+        if (delta.subjects.isNotEmpty()) {
+            val patched = delta.subjects
+                .filter { it.subjectVersionId > 0 }
+                .map { patch ->
+                    val current = stateDao.readSubject(delta.studentId, patch.subjectVersionId)
+                        ?: StudentSubjectStateEntity(
+                            studentId = delta.studentId,
+                            subjectVersionId = patch.subjectVersionId,
+                        )
                     current.copy(
-                        globalXp = patch.globalXp?.coerceAtLeast(0) ?: current.globalXp,
-                        gems = patch.gems?.coerceAtLeast(0) ?: current.gems,
+                        points = patch.points?.coerceAtLeast(0) ?: current.points,
                         level = patch.level?.coerceAtLeast(1) ?: current.level,
                         levelProgressPercent = patch.levelProgressPercent?.coerceIn(0, 100)
                             ?: current.levelProgressPercent,
-                        levelNextXp = patch.levelNextXp?.coerceAtLeast(0) ?: current.levelNextXp,
-                        todayXp = patch.todayXp?.coerceAtLeast(0) ?: current.todayXp,
-                        todaySeconds = patch.todaySeconds?.coerceAtLeast(0) ?: current.todaySeconds,
-                        todayMinutes = patch.todayMinutes?.coerceAtLeast(0) ?: current.todayMinutes,
-                        todayAttempts = patch.todayAttempts?.coerceAtLeast(0) ?: current.todayAttempts,
-                        streakCurrentDays = patch.streakCurrentDays?.coerceAtLeast(0)
-                            ?: current.streakCurrentDays,
-                        unreadNotifications = patch.unreadNotifications?.coerceAtLeast(0)
-                            ?: current.unreadNotifications,
-                        smartGuideCompletedSteps = patch.smartGuideCompletedSteps?.coerceAtLeast(0)
-                            ?: current.smartGuideCompletedSteps,
-                        smartGuideTotalSteps = patch.smartGuideTotalSteps?.coerceAtLeast(0)
-                            ?: current.smartGuideTotalSteps,
-                        smartGuideCompletionPercent = patch.smartGuideCompletionPercent?.coerceIn(0, 100)
-                            ?: current.smartGuideCompletionPercent,
+                        hearts = patch.hearts?.coerceAtLeast(0) ?: current.hearts,
                         serverVersion = delta.serverVersion ?: current.serverVersion,
                         confirmedAtEpochMillis = delta.confirmedAtEpochMillis,
-                    ),
-                )
-            }
-
-            if (delta.subjects.isNotEmpty()) {
-                val patched = delta.subjects
-                    .filter { it.subjectVersionId > 0 }
-                    .map { patch ->
-                        val current = stateDao.readSubject(delta.studentId, patch.subjectVersionId)
-                            ?: StudentSubjectStateEntity(
-                                studentId = delta.studentId,
-                                subjectVersionId = patch.subjectVersionId,
-                            )
-                        current.copy(
-                            points = patch.points?.coerceAtLeast(0) ?: current.points,
-                            level = patch.level?.coerceAtLeast(1) ?: current.level,
-                            levelProgressPercent = patch.levelProgressPercent?.coerceIn(0, 100)
-                                ?: current.levelProgressPercent,
-                            hearts = patch.hearts?.coerceAtLeast(0) ?: current.hearts,
-                            serverVersion = delta.serverVersion ?: current.serverVersion,
-                            confirmedAtEpochMillis = delta.confirmedAtEpochMillis,
-                        )
-                    }
-                stateDao.upsertSubjects(patched)
-            }
+                    )
+                }
+            stateDao.upsertSubjects(patched)
         }
     }
 
@@ -305,15 +314,32 @@ class RoomStudentLocalStore(
     }
 
     override suspend fun markOperationConfirmed(operationId: String, nowEpochMillis: Long) {
-        val operation = operationDao.read(operationId) ?: return
-        operationDao.updateState(
-            operationId = operationId,
-            state = PendingOperationState.CONFIRMED,
-            attemptCount = operation.attemptCount,
-            updatedAtEpochMillis = nowEpochMillis,
-            nextAttemptAtEpochMillis = 0,
-            lastError = null,
-        )
+        confirmOperation(operationId, null, nowEpochMillis)
+    }
+
+    override suspend fun confirmOperation(
+        operationId: String,
+        delta: ConfirmedStudentDelta?,
+        nowEpochMillis: Long,
+    ) {
+        require(operationId.isNotBlank()) { "operationId is required" }
+        database.withTransaction {
+            val operation = operationDao.read(operationId) ?: return@withTransaction
+            delta?.let {
+                require(it.studentId == operation.studentId) {
+                    "confirmed delta owner must match operation owner"
+                }
+                applyConfirmedDeltaInTransaction(it)
+            }
+            operationDao.updateState(
+                operationId = operationId,
+                state = PendingOperationState.CONFIRMED,
+                attemptCount = operation.attemptCount,
+                updatedAtEpochMillis = nowEpochMillis,
+                nextAttemptAtEpochMillis = 0,
+                lastError = null,
+            )
+        }
     }
 
     override suspend fun recoverInterruptedOperations(
