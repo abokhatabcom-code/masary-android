@@ -15,6 +15,7 @@ data class ConfirmedProfileDelta(
     val levelNextXp: Int? = null,
     val todayXp: Int? = null,
     val todaySeconds: Int? = null,
+    val todayMinutes: Int? = null,
     val todayAttempts: Int? = null,
     val streakCurrentDays: Int? = null,
     val unreadNotifications: Int? = null,
@@ -78,6 +79,7 @@ class StudentLocalStore(
                         levelNextXp = it.levelNextXp,
                         todayXp = it.todayXp,
                         todaySeconds = it.todaySeconds,
+                        todayMinutes = it.todayMinutes,
                         todayAttempts = it.todayAttempts,
                         streakCurrentDays = it.streakCurrentDays,
                         unreadNotifications = it.unreadNotifications,
@@ -165,6 +167,7 @@ class StudentLocalStore(
                         levelNextXp = patch.levelNextXp?.coerceAtLeast(0) ?: current.levelNextXp,
                         todayXp = patch.todayXp?.coerceAtLeast(0) ?: current.todayXp,
                         todaySeconds = patch.todaySeconds?.coerceAtLeast(0) ?: current.todaySeconds,
+                        todayMinutes = patch.todayMinutes?.coerceAtLeast(0) ?: current.todayMinutes,
                         todayAttempts = patch.todayAttempts?.coerceAtLeast(0) ?: current.todayAttempts,
                         streakCurrentDays = patch.streakCurrentDays?.coerceAtLeast(0)
                             ?: current.streakCurrentDays,
