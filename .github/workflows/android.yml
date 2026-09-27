@@ -81,6 +81,13 @@ jobs:
           path: app-student/build/outputs/apk/debug/app-student-debug.apk
           if-no-files-found: error
 
+      - name: Upload student preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-student-preview-apk
+          path: app-student/build/outputs/apk/preview/app-student-preview.apk
+          if-no-files-found: error
+
       - name: Upload admin debug APK
         uses: actions/upload-artifact@v4
         with:
