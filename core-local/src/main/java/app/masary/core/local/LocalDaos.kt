@@ -96,6 +96,25 @@ interface PendingOperationDao {
         lastError: String?,
     )
 
+    @Query("""
+        UPDATE pending_operations
+        SET state = 'pending',
+            updatedAtEpochMillis = :nowEpochMillis,
+            nextAttemptAtEpochMillis = :nowEpochMillis,
+            lastError = CASE
+                WHEN lastError IS NULL OR lastError = '' THEN 'interrupted_sync'
+                ELSE lastError
+            END
+        WHERE studentId = :studentId
+          AND state = 'syncing'
+          AND updatedAtEpochMillis <= :staleBeforeEpochMillis
+    """)
+    suspend fun recoverInterrupted(
+        studentId: String,
+        staleBeforeEpochMillis: Long,
+        nowEpochMillis: Long,
+    ): Int
+
     @Query("DELETE FROM pending_operations WHERE operationId = :operationId")
     suspend fun delete(operationId: String)
 
