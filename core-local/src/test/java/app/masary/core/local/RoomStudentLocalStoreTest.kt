@@ -112,6 +112,42 @@ class RoomStudentLocalStoreTest {
     }
 
     @Test
+    fun recordingAnswerCannotStealAnotherStudentsOperationId() = runTest {
+        store.enqueueOperation(operation("shared-answer-op", STUDENT_A))
+        store.saveQuestionSession(questionSession("session-b", STUDENT_B))
+        val answer = QuestionAnswerEntity(
+            studentId = STUDENT_B,
+            sessionId = "session-b",
+            questionId = "q1",
+            answerJson = "{}",
+            localSequence = 1,
+            answeredAtEpochMillis = 500L,
+        )
+
+        try {
+            store.recordQuestionAnswer(
+                answer = answer,
+                nextQuestionIndex = 1,
+                sessionStatus = "in_progress",
+                operation = operation("shared-answer-op", STUDENT_B),
+            )
+            throw AssertionError("Cross-student operation id collision must be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
+
+        assertTrue(store.readQuestionAnswers(STUDENT_B, "session-b").isEmpty())
+        assertEquals(
+            0,
+            database.questionSessionDao().readSession(STUDENT_B, "session-b")?.currentQuestionIndex,
+        )
+        assertEquals(
+            STUDENT_A,
+            database.pendingOperationDao().read("shared-answer-op")?.studentId,
+        )
+    }
+
+    @Test
     fun syncingOperationSurvivesDatabaseReopenAndRecoversWithSameId() = runTest {
         store.enqueueOperation(operation("stable-operation", STUDENT_A))
         store.markOperationSyncing("stable-operation", nowEpochMillis = 1_000L)
