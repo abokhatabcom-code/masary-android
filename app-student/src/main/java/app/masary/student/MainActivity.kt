@@ -15,6 +15,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.datastore.preferences.preferencesDataStore
 import app.masary.core.datastore.DataStoreOnboardingStore
 import app.masary.core.datastore.DataStoreSessionManager
+import app.masary.core.local.MasaryLocalDatabase
+import app.masary.core.local.StudentLocalStore
 import app.masary.core.security.TokenStoreFactory
 import app.masary.core.ui.MasaryTheme
 import app.masary.feature.activitypreparation.ActivityPreparationRepositoryFactory
@@ -89,22 +91,26 @@ class MainActivity : ComponentActivity() {
         val tokenStore = TokenStoreFactory.create(applicationContext)
         val sessionManager = DataStoreSessionManager(sessionDataStore, tokenStore)
         val onboardingStore = DataStoreOnboardingStore(onboardingDataStore)
+        val localStore = StudentLocalStore(MasaryLocalDatabase.get(applicationContext))
         val authRepository = AuthRepositoryFactory.create(BuildConfig.MASARY_API_BASE_URL)
         val registrationRepository = AuthRepositoryFactory.createRegistration(BuildConfig.MASARY_API_BASE_URL)
         val homeRepository = HomeRepositoryFactory.create(
             sessionManager,
             BuildConfig.MASARY_API_BASE_URL,
             homeSnapshotDataStore,
+            localStore,
         )
         val subjectsRepository = SubjectsRepositoryFactory.create(
             sessionManager,
             BuildConfig.MASARY_API_BASE_URL,
             subjectsSnapshotDataStore,
+            localStore,
         )
         val subjectRepository = SubjectRepositoryFactory.create(
             sessionManager,
             BuildConfig.MASARY_API_BASE_URL,
             subjectSnapshotDataStore,
+            localStore,
         )
         val trainingCenterRepository = TrainingCenterRepositoryFactory.create(
             sessionManager,
