@@ -1,7 +1,6 @@
 package app.masary.feature.home.data
 
 import app.masary.core.datastore.SessionManager
-import app.masary.core.local.StudentLocalStore
 import app.masary.core.models.student.StudentLiveState
 import app.masary.core.models.auth.AuthTokens
 import app.masary.core.network.auth.StudentAuthApi
@@ -45,13 +44,13 @@ class NetworkHomeRepository(
     private val authApi: StudentAuthApi,
     private val sessionManager: SessionManager,
     private val snapshotStore: HomeSnapshotStore,
-    private val localStore: StudentLocalStore,
     private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
+    private val liveStateProvider: (String) -> Flow<StudentLiveState> = { flowOf(StudentLiveState()) },
 ) : HomeRepository {
 
     override fun observeLiveState(): Flow<StudentLiveState> =
         sessionManager.session.flatMapLatest { session ->
-            session?.let { localStore.observeLiveState(it.id) } ?: flowOf(StudentLiveState())
+            session?.let { liveStateProvider(it.id) } ?: flowOf(StudentLiveState())
         }
 
     override suspend fun loadHome(): Result<StudentHomeData> {
