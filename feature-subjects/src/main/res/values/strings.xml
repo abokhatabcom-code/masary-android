@@ -10,7 +10,7 @@
     <string name="subjects_incomplete">القائمة وصلت إلى حد الحماية؛ قد لا تكون جميع المواد ظاهرة.</string>
     <string name="subjects_hearts">%1$d قلوب</string>
     <string name="subjects_progress">تقدم المستوى %1$d%%</string>
-    <string name="subjects_progress_unavailable">تقدم المستوى غير متاح حاليًا</string>
+    <string name="subjects_progress_unavailable">لا توجد نقاط مسجلة للمادة بعد</string>
     <string name="subjects_last_activity">آخر نشاط محفوظ</string>
     <string name="subjects_access_available">متاحة</string>
     <string name="subjects_access_free">مجانية</string>
