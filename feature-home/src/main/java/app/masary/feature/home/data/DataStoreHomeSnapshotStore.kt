@@ -16,7 +16,6 @@ class DataStoreHomeSnapshotStore(
     private val dataStore: DataStore<Preferences>,
     private val gson: Gson = Gson(),
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
-    private val maxAgeMillis: Long = DEFAULT_MAX_AGE_MILLIS,
 ) : HomeSnapshotStore {
     override suspend fun read(studentId: String): StudentHomeData? {
         val values = dataStore.data.first()
@@ -24,8 +23,7 @@ class DataStoreHomeSnapshotStore(
         if (owner != studentId) return evictInvalidSnapshot()
 
         val savedAt = values[SAVED_AT] ?: return evictInvalidSnapshot()
-        val age = nowEpochMillis() - savedAt
-        if (values[SCHEMA_VERSION] != CURRENT_SCHEMA_VERSION || age !in 0..maxAgeMillis) {
+        if (values[SCHEMA_VERSION] != CURRENT_SCHEMA_VERSION) {
             return evictInvalidSnapshot()
         }
 
@@ -61,6 +59,5 @@ class DataStoreHomeSnapshotStore(
         val SAVED_AT = longPreferencesKey("home_snapshot_saved_at")
         val SCHEMA_VERSION = intPreferencesKey("home_snapshot_schema_version")
         const val CURRENT_SCHEMA_VERSION = 2
-        const val DEFAULT_MAX_AGE_MILLIS = 24L * 60L * 60L * 1_000L
     }
 }
