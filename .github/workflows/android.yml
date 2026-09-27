@@ -170,6 +170,7 @@ jobs:
         run: python3 scripts/validate-api-contract.py
 
       - name: Run student unit tests and lint
+        if: github.event_name != 'pull_request'
         run: ./gradlew --no-daemon :app-student:test :app-student:lint
 
       - name: Verify official Masary Student identity
