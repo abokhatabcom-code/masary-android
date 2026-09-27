@@ -383,36 +383,37 @@ private fun SubjectProgressCard(data: StudentSubjectPage) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SectionTitle(stringResource(R.string.subject_progress))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Metric(
-                    label = stringResource(R.string.subject_points),
-                    value = data.points.value
-                        ?.takeIf { data.points.available }
-                        ?.toString()
-                        ?: stringResource(R.string.subject_unavailable),
-                    modifier = Modifier.weight(1f),
-                )
-                Metric(
-                    label = stringResource(R.string.subject_level),
-                    value = data.level.value
-                        ?.takeIf { data.level.available }
-                        ?.toString()
-                        ?: stringResource(R.string.subject_unavailable),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            if (data.progress.available && data.progress.percent != null) {
-                LinearProgressIndicator(
-                    progress = { data.progress.percent.coerceIn(0, 100) / 100f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp),
-                    color = MasaryColors.brandGold,
-                    trackColor = MasaryColors.border,
-                )
-                Text("${data.progress.percent}%", color = MasaryColors.muted)
+            if (!data.points.available || data.points.value == null) {
+                SupportingText(stringResource(R.string.subject_no_points_yet))
             } else {
-                SupportingText(data.progress.reason)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Metric(
+                        label = stringResource(R.string.subject_points),
+                        value = data.points.value.toString(),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Metric(
+                        label = stringResource(R.string.subject_level),
+                        value = data.level.value
+                            ?.takeIf { data.level.available }
+                            ?.toString()
+                            ?: "—",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (data.progress.available && data.progress.percent != null) {
+                    LinearProgressIndicator(
+                        progress = { data.progress.percent.coerceIn(0, 100) / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
+                        color = MasaryColors.brandGold,
+                        trackColor = MasaryColors.border,
+                    )
+                    Text("${data.progress.percent}%", color = MasaryColors.muted)
+                } else {
+                    SupportingText(data.progress.reason)
+                }
             }
         }
     }
