@@ -11,6 +11,7 @@
     <string name="subject_level">مستوى المادة</string>
     <string name="subject_progress">تقدم المستوى</string>
     <string name="subject_unavailable">غير متاح حاليًا</string>
+    <string name="subject_no_points_yet">لا توجد نقاط مسجلة لهذه المادة بعد.</string>
     <string name="subject_hearts">قلوب المادة</string>
     <string name="subject_restore_unknown">تتجدد القلوب يوميًا عند بداية يوم جديد.</string>
     <string name="subject_training_center">مركز تدريب المادة</string>
