@@ -40,7 +40,48 @@ data class ConfirmedStudentDelta(
     val confirmedAtEpochMillis: Long,
 )
 
-class StudentLocalStore(
+interface StudentLocalStore {
+    fun observeProfile(studentId: String): Flow<StudentProfileStateEntity?>
+    fun observeSubject(studentId: String, subjectVersionId: Int): Flow<StudentSubjectStateEntity?>
+    fun observeSubjects(studentId: String): Flow<List<StudentSubjectStateEntity>>
+    fun observeOutstandingOperations(studentId: String): Flow<Int>
+    fun observeResumableQuestionSession(studentId: String): Flow<QuestionSessionEntity?>
+    fun observeLiveState(studentId: String): Flow<StudentLiveState>
+
+    suspend fun readDocument(
+        studentId: String,
+        kind: String,
+        documentId: String = CachedDocumentEntity.DEFAULT_DOCUMENT_ID,
+    ): CachedDocumentEntity?
+
+    suspend fun putDocument(
+        studentId: String,
+        kind: String,
+        payloadJson: String,
+        documentId: String = CachedDocumentEntity.DEFAULT_DOCUMENT_ID,
+        serverVersion: String? = null,
+        savedAtEpochMillis: Long = System.currentTimeMillis(),
+    )
+
+    suspend fun replaceProfileState(entity: StudentProfileStateEntity)
+    suspend fun replaceSubjectStates(entities: List<StudentSubjectStateEntity>)
+    suspend fun deleteDocumentKind(kind: String)
+    suspend fun applyConfirmedDelta(delta: ConfirmedStudentDelta)
+    suspend fun enqueueOperation(operation: PendingOperationEntity)
+
+    suspend fun readyOperations(
+        studentId: String,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+        limit: Int = 50,
+    ): List<PendingOperationEntity>
+
+    suspend fun saveQuestionSession(session: QuestionSessionEntity)
+    suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity)
+    suspend fun readQuestionAnswers(studentId: String, sessionId: String): List<QuestionAnswerEntity>
+    suspend fun clearStudent(studentId: String)
+}
+
+class RoomStudentLocalStore(
     private val database: MasaryLocalDatabase,
 ) {
     private val stateDao = database.studentStateDao()
@@ -48,22 +89,22 @@ class StudentLocalStore(
     private val operationDao = database.pendingOperationDao()
     private val sessionDao = database.questionSessionDao()
 
-    fun observeProfile(studentId: String): Flow<StudentProfileStateEntity?> =
+    override fun observeProfile(studentId: String): Flow<StudentProfileStateEntity?> =
         stateDao.observeProfile(studentId)
 
-    fun observeSubject(studentId: String, subjectVersionId: Int): Flow<StudentSubjectStateEntity?> =
+    override fun observeSubject(studentId: String, subjectVersionId: Int): Flow<StudentSubjectStateEntity?> =
         stateDao.observeSubject(studentId, subjectVersionId)
 
-    fun observeSubjects(studentId: String): Flow<List<StudentSubjectStateEntity>> =
+    override fun observeSubjects(studentId: String): Flow<List<StudentSubjectStateEntity>> =
         stateDao.observeSubjects(studentId)
 
-    fun observeOutstandingOperations(studentId: String): Flow<Int> =
+    override fun observeOutstandingOperations(studentId: String): Flow<Int> =
         operationDao.observeOutstandingCount(studentId)
 
-    fun observeResumableQuestionSession(studentId: String): Flow<QuestionSessionEntity?> =
+    override fun observeResumableQuestionSession(studentId: String): Flow<QuestionSessionEntity?> =
         sessionDao.observeResumableSession(studentId)
 
-    fun observeLiveState(studentId: String): Flow<StudentLiveState> =
+    override fun observeLiveState(studentId: String): Flow<StudentLiveState> =
         combine(
             stateDao.observeProfile(studentId),
             stateDao.observeSubjects(studentId),
@@ -105,13 +146,13 @@ class StudentLocalStore(
             )
         }
 
-    suspend fun readDocument(
+    override suspend fun readDocument(
         studentId: String,
         kind: String,
         documentId: String = CachedDocumentEntity.DEFAULT_DOCUMENT_ID,
     ): CachedDocumentEntity? = documentDao.read(studentId, kind, documentId)
 
-    suspend fun putDocument(
+    override suspend fun putDocument(
         studentId: String,
         kind: String,
         payloadJson: String,
@@ -133,12 +174,12 @@ class StudentLocalStore(
         )
     }
 
-    suspend fun replaceProfileState(entity: StudentProfileStateEntity) {
+    override suspend fun replaceProfileState(entity: StudentProfileStateEntity) {
         require(entity.studentId.isNotBlank()) { "studentId is required" }
         stateDao.upsertProfile(entity)
     }
 
-    suspend fun replaceSubjectStates(entities: List<StudentSubjectStateEntity>) {
+    override suspend fun replaceSubjectStates(entities: List<StudentSubjectStateEntity>) {
         if (entities.isEmpty()) return
         require(entities.all { it.studentId.isNotBlank() && it.subjectVersionId > 0 }) {
             "valid studentId and subjectVersionId are required"
@@ -146,12 +187,12 @@ class StudentLocalStore(
         stateDao.upsertSubjects(entities)
     }
 
-    suspend fun deleteDocumentKind(kind: String) {
+    override suspend fun deleteDocumentKind(kind: String) {
         require(kind.isNotBlank()) { "document kind is required" }
         documentDao.deleteKind(kind)
     }
 
-    suspend fun applyConfirmedDelta(delta: ConfirmedStudentDelta) {
+    override suspend fun applyConfirmedDelta(delta: ConfirmedStudentDelta) {
         require(delta.studentId.isNotBlank()) { "studentId is required" }
         database.withTransaction {
             delta.profile?.let { patch ->
@@ -209,29 +250,29 @@ class StudentLocalStore(
         }
     }
 
-    suspend fun enqueueOperation(operation: PendingOperationEntity) {
+    override suspend fun enqueueOperation(operation: PendingOperationEntity) {
         require(operation.operationId.isNotBlank()) { "operationId is required" }
         require(operation.studentId.isNotBlank()) { "studentId is required" }
         operationDao.upsert(operation)
     }
 
-    suspend fun readyOperations(
+    override suspend fun readyOperations(
         studentId: String,
         nowEpochMillis: Long = System.currentTimeMillis(),
         limit: Int = 50,
     ): List<PendingOperationEntity> =
         operationDao.ready(studentId, nowEpochMillis, limit.coerceIn(1, 100))
 
-    suspend fun saveQuestionSession(session: QuestionSessionEntity) =
+    override suspend fun saveQuestionSession(session: QuestionSessionEntity) =
         sessionDao.upsertSession(session)
 
-    suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity) =
+    override suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity) =
         sessionDao.upsertAnswer(answer)
 
-    suspend fun readQuestionAnswers(studentId: String, sessionId: String): List<QuestionAnswerEntity> =
+    override suspend fun readQuestionAnswers(studentId: String, sessionId: String): List<QuestionAnswerEntity> =
         sessionDao.readAnswers(studentId, sessionId)
 
-    suspend fun clearStudent(studentId: String) {
+    override suspend fun clearStudent(studentId: String) {
         database.withTransaction {
             stateDao.deleteProfile(studentId)
             stateDao.deleteSubjects(studentId)
