@@ -188,6 +188,7 @@ class NetworkQuestionSessionRepository(
                 ),
             )
             runCatching(onPendingAnswerSaved)
+            Unit
         }.recoverCatching { error ->
             if (error is CancellationException) throw error
             throw when (error) {
