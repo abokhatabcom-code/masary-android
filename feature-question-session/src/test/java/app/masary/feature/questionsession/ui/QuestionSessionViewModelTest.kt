@@ -9,6 +9,8 @@ import app.masary.feature.questionsession.domain.QuestionSessionInfo
 import app.masary.feature.questionsession.domain.QuestionSessionPackage
 import app.masary.feature.questionsession.domain.QuestionSessionProgress
 import app.masary.feature.questionsession.domain.QuestionSessionRepository
+import app.masary.feature.questionsession.domain.QuestionSessionResult
+import app.masary.feature.questionsession.domain.QuestionSessionScore
 import app.masary.feature.questionsession.domain.QuestionType
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -70,7 +72,7 @@ class QuestionSessionViewModelTest {
     }
 
     @Test
-    fun `last local answer enters completed local state`() = runTest(dispatcher) {
+    fun `last local answer stays completed local when server finish is unavailable`() = runTest(dispatcher) {
         val initial = packageAt(index = 1, version = "cached")
         val remote = CompletableDeferred<Result<QuestionSessionPackage>>()
         val repository = FakeRepository(snapshot = initial, remote = remote)
@@ -83,6 +85,39 @@ class QuestionSessionViewModelTest {
         assertTrue(model.state.value is QuestionSessionUiState.CompletedLocal)
         assertEquals(2, repository.savedNextIndex)
         assertTrue(repository.savedCompleted)
+    }
+
+    @Test
+    fun `last answer shows confirmed result only after server finish succeeds`() = runTest(dispatcher) {
+        val initial = packageAt(index = 1, version = "cached")
+        val remote = CompletableDeferred<Result<QuestionSessionPackage>>()
+        val expected = QuestionSessionResult(
+            sessionId = "activity-session-001",
+            completedAt = "2026-09-28 12:00:00",
+            replayed = false,
+            score = QuestionSessionScore(
+                correctAnswers = 2,
+                incorrectAnswers = 0,
+                totalQuestions = 2,
+                scorePercent = 100,
+            ),
+            confirmedDeltaAvailable = false,
+            confirmedDeltaReason = "لا توجد مكافآت مؤكدة.",
+        )
+        val repository = FakeRepository(
+            snapshot = initial,
+            remote = remote,
+            finishResult = Result.success(expected),
+        )
+        val model = QuestionSessionViewModel("activity-session-001", repository)
+
+        runCurrent()
+        model.submit(QuestionAnswerInput.Choice("option-a"))
+        runCurrent()
+
+        val state = model.state.value as QuestionSessionUiState.Result
+        assertEquals(100, state.data.score.scorePercent)
+        assertEquals(1, repository.finishCalls)
     }
 
     private fun packageAt(index: Int, version: String): QuestionSessionPackage {
@@ -123,12 +158,15 @@ class QuestionSessionViewModelTest {
     private class FakeRepository(
         snapshot: QuestionSessionPackage,
         private val remote: CompletableDeferred<Result<QuestionSessionPackage>>,
+        private val finishResult: Result<QuestionSessionResult> =
+            Result.failure(IllegalStateException("offline")),
     ) : QuestionSessionRepository {
         private var local = snapshot
         var savedQuestionId: String? = null
         var savedNextIndex: Int = -1
         var savedCompleted: Boolean = false
         var syncCalls: Int = 0
+        var finishCalls: Int = 0
 
         override suspend fun loadPackage(sessionId: String): Result<QuestionSessionPackage> =
             remote.await()
@@ -160,6 +198,13 @@ class QuestionSessionViewModelTest {
                     retryScheduled = 0,
                 ),
             )
+        }
+
+        override suspend fun loadResult(sessionId: String): QuestionSessionResult? = null
+
+        override suspend fun finishSession(sessionId: String): Result<QuestionSessionResult> {
+            finishCalls += 1
+            return finishResult
         }
     }
 }
