@@ -148,6 +148,32 @@ class RoomStudentLocalStoreTest {
     }
 
     @Test
+    fun oldestCompletedLocalQuestionSessionIgnoresInProgressRows() = runTest {
+        store.saveQuestionSession(
+            questionSession("session-newer", STUDENT_A).copy(
+                status = "completed_local",
+                updatedAtEpochMillis = 300L,
+            ),
+        )
+        store.saveQuestionSession(
+            questionSession("session-in-progress", STUDENT_A).copy(
+                status = "in_progress",
+                updatedAtEpochMillis = 50L,
+            ),
+        )
+        store.saveQuestionSession(
+            questionSession("session-older", STUDENT_A).copy(
+                status = "completed_local",
+                updatedAtEpochMillis = 200L,
+            ),
+        )
+
+        val completed = store.readOldestCompletedLocalQuestionSession(STUDENT_A)
+
+        assertEquals("session-older", completed?.sessionId)
+    }
+
+    @Test
     fun questionSessionAndAnswersSurviveDatabaseReopen() = runTest {
         val session = questionSession("session-resume", STUDENT_A).copy(currentQuestionIndex = 2)
         store.saveQuestionSession(session)
