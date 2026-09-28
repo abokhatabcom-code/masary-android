@@ -192,9 +192,16 @@ $pdo->exec("INSERT INTO api_activity_sessions(
 
 $package = api_question_session_package($pdo, ['user_id' => 42], 'lesson-session-0001');
 lesson_check(count($package['questions']) === 4, 'Lesson practice must expose the four supported questions for the selected lesson.');
+$types = array_values(array_unique(array_column($package['questions'], 'type')));
+sort($types);
 lesson_check(
-    array_values(array_unique(array_column($package['questions'], 'type'))) === ['choose','truefalse','fill','connect'],
-    'Lesson practice must preserve a deterministic mixed type order.',
+    $types === ['choose','connect','fill','truefalse'],
+    'Lesson practice must preserve all supported mixed types.',
+);
+$packageReplay = api_question_session_package($pdo, ['user_id' => 42], 'lesson-session-0001');
+lesson_check(
+    array_column($packageReplay['questions'], 'id') === array_column($package['questions'], 'id'),
+    'Lesson practice random order must be stable for the same session.',
 );
 lesson_check(
     !str_contains(json_encode($package, JSON_UNESCAPED_UNICODE), 'سؤال من درس آخر'),
