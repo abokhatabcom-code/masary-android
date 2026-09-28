@@ -1,5 +1,11 @@
 package app.masary.feature.questionsession.domain
 
+data class QuestionAnswerSyncSummary(
+    val attempted: Int,
+    val confirmed: Int,
+    val retryScheduled: Int,
+)
+
 interface QuestionSessionRepository {
     suspend fun loadPackage(sessionId: String): Result<QuestionSessionPackage>
     suspend fun loadSnapshot(sessionId: String): QuestionSessionPackage?
@@ -10,6 +16,7 @@ interface QuestionSessionRepository {
         nextQuestionIndex: Int,
         completed: Boolean,
     ): Result<Unit>
+    suspend fun syncPendingAnswers(): Result<QuestionAnswerSyncSummary>
 }
 
 open class QuestionSessionException(message: String, cause: Throwable? = null) :
