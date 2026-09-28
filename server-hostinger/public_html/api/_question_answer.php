@@ -3,6 +3,22 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_question_session.php';
 
+final class ApiQuestionAnswerRejected extends RuntimeException
+{
+    public function __construct(
+        public readonly string $apiCode,
+        public readonly int $status,
+        string $message,
+    ) {
+        parent::__construct($message);
+    }
+}
+
+function api_question_answer_reject(string $code, string $message, int $status): never
+{
+    throw new ApiQuestionAnswerRejected($code, $status, $message);
+}
+
 function api_question_answer_text(array $payload, string $key, int $maxLength = 128): string
 {
     $value = trim((string)($payload[$key] ?? ''));
@@ -394,7 +410,7 @@ function api_question_answer_stored_result(array $row, bool $replayed): array
 {
     $result = json_decode((string)($row['result_json'] ?? ''), true);
     if (!is_array($result)) {
-        api_error('answer_state_invalid', 'تعذر قراءة نتيجة الإجابة المخزنة.', 500);
+        api_question_answer_reject('answer_state_invalid', 'تعذر قراءة نتيجة الإجابة المخزنة.', 500);
     }
     $result['replayed'] = $replayed;
     return $result;
@@ -419,6 +435,8 @@ function api_question_answer_submit(
     $source = api_question_answer_resolve_source($pdo, $session, $request['question_id']);
     $requestHash = api_question_answer_request_hash($request);
     $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
+    $correct = api_question_answer_grade($session, $source, $request['answer']);
+    $totalQuestions = count(api_question_session_questions($pdo, $session));
 
     $ownsTransaction = !$pdo->inTransaction();
     if ($ownsTransaction) {
@@ -428,7 +446,7 @@ function api_question_answer_submit(
         $existingKey = api_question_answer_read_idempotency($pdo, $studentId, $keyHash);
         if ($existingKey) {
             if (!hash_equals((string)$existingKey['request_hash'], $requestHash)) {
-                api_error('idempotency_key_conflict', 'استُخدم مفتاح الإجابة لطلب مختلف.', 409);
+                api_question_answer_reject('idempotency_key_conflict', 'استُخدم مفتاح الإجابة لطلب مختلف.', 409);
             }
             $result = api_question_answer_stored_result($existingKey, true);
             if ($ownsTransaction) {
@@ -445,7 +463,7 @@ function api_question_answer_submit(
         );
         if ($existingQuestion) {
             if (!hash_equals((string)$existingQuestion['request_hash'], $requestHash)) {
-                api_error('question_already_answered', 'تم تثبيت إجابة مختلفة لهذا السؤال مسبقًا.', 409);
+                api_question_answer_reject('question_already_answered', 'تم تثبيت إجابة مختلفة لهذا السؤال مسبقًا.', 409);
             }
             $result = api_question_answer_stored_result($existingQuestion, true);
             if ($ownsTransaction) {
@@ -454,8 +472,6 @@ function api_question_answer_submit(
             return $result;
         }
 
-        $correct = api_question_answer_grade($session, $source, $request['answer']);
-        $totalQuestions = count(api_question_session_questions($pdo, $session));
         $countStatement = $pdo->prepare(
             'SELECT COUNT(*) FROM api_activity_answers WHERE user_id=? AND public_session_id=?',
         );
@@ -501,6 +517,11 @@ function api_question_answer_submit(
             $pdo->commit();
         }
         return $result;
+    } catch (ApiQuestionAnswerRejected $error) {
+        if ($ownsTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        api_error($error->apiCode, $error->getMessage(), $error->status);
     } catch (Throwable $error) {
         if ($ownsTransaction && $pdo->inTransaction()) {
             $pdo->rollBack();
