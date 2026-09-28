@@ -591,6 +591,21 @@ class NetworkQuestionSessionRepository(
     }
 }
 
+internal fun QuestionFinishResultDto.toDomain(): QuestionSessionResult =
+    QuestionSessionResult(
+        sessionId = sessionId.trim(),
+        completedAt = completedAt.trim(),
+        replayed = replayed,
+        score = QuestionSessionScore(
+            correctAnswers = result.correctAnswers,
+            incorrectAnswers = result.incorrectAnswers,
+            totalQuestions = result.totalQuestions,
+            scorePercent = result.scorePercent,
+        ),
+        confirmedDeltaAvailable = confirmedDelta.available,
+        confirmedDeltaReason = confirmedDelta.reason.trim(),
+    )
+
 internal fun QuestionSessionPackageDataDto.toDomain(): QuestionSessionPackage {
     val domainQuestions = questions.map(QuestionSessionQuestionDto::toDomain)
     return QuestionSessionPackage(
@@ -738,6 +753,16 @@ private fun stableAnswerOperationId(
         .digest("$studentId|$sessionId|$questionId".toByteArray(Charsets.UTF_8))
     val hex = bytes.joinToString("") { "%02x".format(it) }
     return "question-answer:$hex"
+}
+
+private fun stableFinishOperationId(
+    studentId: String,
+    sessionId: String,
+): String {
+    val bytes = MessageDigest.getInstance("SHA-256")
+        .digest("$studentId|$sessionId".toByteArray(Charsets.UTF_8))
+    val hex = bytes.joinToString("") { "%02x".format(it) }
+    return "question-finish:$hex"
 }
 
 private fun JsonObject.string(key: String): String =
