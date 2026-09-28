@@ -1,5 +1,6 @@
 package app.masary.feature.subject.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -97,6 +98,8 @@ fun StudentSubjectRoute(
         ),
     )
     val state by subjectViewModel.state.collectAsStateWithLifecycle()
+
+    BackHandler(onBack = onBack)
 
     LaunchedEffect(state) {
         if (state == SubjectUiState.SessionExpired) onSessionExpired()
