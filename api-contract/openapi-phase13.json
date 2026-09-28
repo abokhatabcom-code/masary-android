@@ -10,23 +10,104 @@
       "get": {
         "summary": "Read the authenticated student's question session package",
         "description": "يعيد حزمة العرض فقط لجلسة النشاط المملوكة للطالب. لا يغيّر حالة الجلسة ولا يعيد الإجابات الصحيحة.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "in": "query",
             "name": "session_id",
             "required": true,
-            "schema": { "type": "string", "minLength": 8, "maxLength": 128 }
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
-          "200": { "$ref": "#/components/responses/QuestionSessionPackageSuccess" },
-          "401": { "$ref": "#/components/responses/QuestionSessionPackageError" },
-          "404": { "$ref": "#/components/responses/QuestionSessionPackageError" },
-          "410": { "$ref": "#/components/responses/QuestionSessionPackageError" },
-          "422": { "$ref": "#/components/responses/QuestionSessionPackageError" },
-          "429": { "$ref": "#/components/responses/QuestionSessionPackageError" },
-          "503": { "$ref": "#/components/responses/QuestionSessionPackageError" }
+          "200": {
+            "$ref": "#/components/responses/QuestionSessionPackageSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/QuestionSessionPackageError"
+          },
+          "404": {
+            "$ref": "#/components/responses/QuestionSessionPackageError"
+          },
+          "410": {
+            "$ref": "#/components/responses/QuestionSessionPackageError"
+          },
+          "422": {
+            "$ref": "#/components/responses/QuestionSessionPackageError"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuestionSessionPackageError"
+          },
+          "503": {
+            "$ref": "#/components/responses/QuestionSessionPackageError"
+          }
+        }
+      }
+    },
+    "/api/v1/student/activity/answer": {
+      "post": {
+        "summary": "Submit one idempotent question answer",
+        "description": "يثبت إجابة واحدة لجلسة الطالب، ويعيد نتيجة التصحيح المؤكدة دون منح نقاط أو مستوى محليًا.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionAnswerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/QuestionAnswerSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/QuestionAnswerError"
+          },
+          "404": {
+            "$ref": "#/components/responses/QuestionAnswerError"
+          },
+          "409": {
+            "$ref": "#/components/responses/QuestionAnswerError"
+          },
+          "410": {
+            "$ref": "#/components/responses/QuestionAnswerError"
+          },
+          "422": {
+            "$ref": "#/components/responses/QuestionAnswerError"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuestionAnswerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/QuestionAnswerError"
+          }
         }
       }
     }
@@ -37,7 +118,9 @@
         "description": "Owned question session package envelope",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/QuestionSessionPackageResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/QuestionSessionPackageResponse"
+            }
           }
         }
       },
@@ -45,7 +128,29 @@
         "description": "API error envelope",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "QuestionAnswerSuccess": {
+        "description": "Confirmed answer result envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/QuestionAnswerResponse"
+            }
+          }
+        }
+      },
+      "QuestionAnswerError": {
+        "description": "API error envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       }
@@ -65,109 +170,209 @@
           "activity_mode"
         ],
         "properties": {
-          "id": { "type": "string", "minLength": 8, "maxLength": 128 },
-          "status": { "type": "string", "minLength": 1 },
-          "expires_at": { "type": "string", "minLength": 1 },
-          "subject_version_id": { "type": "integer", "minimum": 1 },
+          "id": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expires_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subject_version_id": {
+            "type": "integer",
+            "minimum": 1
+          },
           "unit_id": {
             "anyOf": [
-              { "type": "integer", "minimum": 1 },
-              { "type": "null" }
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "lesson_id": {
             "anyOf": [
-              { "type": "integer", "minimum": 1 },
-              { "type": "null" }
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "activity_type": {
             "type": "string",
-            "enum": ["choose_test", "true_false_test", "connect_test", "fill_test", "speed_test"]
+            "enum": [
+              "choose_test",
+              "true_false_test",
+              "connect_test",
+              "fill_test",
+              "speed_test"
+            ]
           },
           "activity_mode": {
             "type": "string",
-            "enum": ["practice", "speed"]
+            "enum": [
+              "practice",
+              "speed"
+            ]
           }
         }
       },
       "QuestionSessionProgress": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["current_index", "total_questions"],
+        "required": [
+          "current_index",
+          "total_questions"
+        ],
         "properties": {
-          "current_index": { "type": "integer", "minimum": 0 },
-          "total_questions": { "type": "integer", "minimum": 1 }
+          "current_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_questions": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       },
       "QuestionOption": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "text"],
+        "required": [
+          "id",
+          "text"
+        ],
         "properties": {
-          "id": { "type": "string", "minLength": 16 },
-          "text": { "type": "string", "minLength": 1 }
+          "id": {
+            "type": "string",
+            "minLength": 16
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "QuestionOptionsPayload": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["options"],
+        "required": [
+          "options"
+        ],
         "properties": {
           "options": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/QuestionOption" }
+            "items": {
+              "$ref": "#/components/schemas/QuestionOption"
+            }
           }
         }
       },
       "QuestionFillPayload": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["input_mode"],
+        "required": [
+          "input_mode"
+        ],
         "properties": {
-          "input_mode": { "type": "string", "enum": ["text"] }
+          "input_mode": {
+            "type": "string",
+            "enum": [
+              "text"
+            ]
+          }
         }
       },
       "QuestionConnectItem": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "text"],
+        "required": [
+          "id",
+          "text"
+        ],
         "properties": {
-          "id": { "type": "string", "minLength": 16 },
-          "text": { "type": "string", "minLength": 1 }
+          "id": {
+            "type": "string",
+            "minLength": 16
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "QuestionConnectPayload": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["left_items", "right_items"],
+        "required": [
+          "left_items",
+          "right_items"
+        ],
         "properties": {
           "left_items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/QuestionConnectItem" }
+            "items": {
+              "$ref": "#/components/schemas/QuestionConnectItem"
+            }
           },
           "right_items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/QuestionConnectItem" }
+            "items": {
+              "$ref": "#/components/schemas/QuestionConnectItem"
+            }
           }
         }
       },
       "QuestionSessionQuestion": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "type", "prompt", "payload"],
+        "required": [
+          "id",
+          "type",
+          "prompt",
+          "payload"
+        ],
         "properties": {
-          "id": { "type": "string", "minLength": 16 },
+          "id": {
+            "type": "string",
+            "minLength": 16
+          },
           "type": {
             "type": "string",
-            "enum": ["choose", "truefalse", "connect", "fill", "speed"]
+            "enum": [
+              "choose",
+              "truefalse",
+              "connect",
+              "fill",
+              "speed"
+            ]
           },
-          "prompt": { "type": "string", "minLength": 1 },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
           "payload": {
             "anyOf": [
-              { "$ref": "#/components/schemas/QuestionOptionsPayload" },
-              { "$ref": "#/components/schemas/QuestionFillPayload" },
-              { "$ref": "#/components/schemas/QuestionConnectPayload" }
+              {
+                "$ref": "#/components/schemas/QuestionOptionsPayload"
+              },
+              {
+                "$ref": "#/components/schemas/QuestionFillPayload"
+              },
+              {
+                "$ref": "#/components/schemas/QuestionConnectPayload"
+              }
             ]
           }
         }
@@ -175,27 +380,251 @@
       "QuestionSessionPackageData": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["version", "generated_at", "session", "progress", "questions"],
+        "required": [
+          "version",
+          "generated_at",
+          "session",
+          "progress",
+          "questions"
+        ],
         "properties": {
-          "version": { "type": "string", "minLength": 1 },
-          "generated_at": { "type": "string", "minLength": 1 },
-          "session": { "$ref": "#/components/schemas/QuestionSessionDescriptor" },
-          "progress": { "$ref": "#/components/schemas/QuestionSessionProgress" },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "generated_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "session": {
+            "$ref": "#/components/schemas/QuestionSessionDescriptor"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/QuestionSessionProgress"
+          },
           "questions": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/QuestionSessionQuestion" }
+            "items": {
+              "$ref": "#/components/schemas/QuestionSessionQuestion"
+            }
           }
         }
       },
       "QuestionSessionPackageResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["success", "data", "error", "request_id"],
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
         "properties": {
-          "success": { "const": true },
-          "data": { "$ref": "#/components/schemas/QuestionSessionPackageData" },
-          "error": { "type": "null" },
-          "request_id": { "type": "string", "minLength": 1 }
+          "success": {
+            "const": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/QuestionSessionPackageData"
+          },
+          "error": {
+            "type": "null"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "QuestionChoiceAnswer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "option_id"
+        ],
+        "properties": {
+          "kind": {
+            "const": "choice"
+          },
+          "option_id": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 64
+          }
+        }
+      },
+      "QuestionTextAnswer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "text"
+        ],
+        "properties": {
+          "kind": {
+            "const": "text"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      },
+      "QuestionConnectionAnswerPair": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "left_id",
+          "right_id"
+        ],
+        "properties": {
+          "left_id": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 64
+          },
+          "right_id": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 64
+          }
+        }
+      },
+      "QuestionConnectionsAnswer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "pairs"
+        ],
+        "properties": {
+          "kind": {
+            "const": "connections"
+          },
+          "pairs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionConnectionAnswerPair"
+            }
+          }
+        }
+      },
+      "QuestionAnswerRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id",
+          "question_id",
+          "answer"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "question_id": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 64
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuestionChoiceAnswer"
+              },
+              {
+                "$ref": "#/components/schemas/QuestionTextAnswer"
+              },
+              {
+                "$ref": "#/components/schemas/QuestionConnectionsAnswer"
+              }
+            ]
+          }
+        }
+      },
+      "QuestionAnswerProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "answered",
+          "total_questions",
+          "all_answered"
+        ],
+        "properties": {
+          "answered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_questions": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "all_answered": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QuestionAnswerResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id",
+          "question_id",
+          "accepted",
+          "correct",
+          "replayed",
+          "progress"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "question_id": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 64
+          },
+          "accepted": {
+            "const": true
+          },
+          "correct": {
+            "type": "boolean"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/QuestionAnswerProgress"
+          }
+        }
+      },
+      "QuestionAnswerResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/QuestionAnswerResult"
+          },
+          "error": {
+            "type": "null"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }
