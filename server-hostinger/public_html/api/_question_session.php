@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_student_training_center.php';
+require_once __DIR__ . '/_activity_preparation.php';
 require_once __DIR__ . '/_activity_preparation_lifecycle.php';
 
 const API_QUESTION_SESSION_MAX_QUESTIONS = 50;
