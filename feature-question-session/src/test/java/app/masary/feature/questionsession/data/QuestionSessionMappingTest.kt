@@ -1,6 +1,8 @@
 package app.masary.feature.questionsession.data
 
 import app.masary.core.network.question.QuestionConfirmedDeltaDto
+import app.masary.core.network.question.QuestionConfirmedProfileDeltaDto
+import app.masary.core.network.question.QuestionConfirmedSubjectDeltaDto
 import app.masary.core.network.question.QuestionFinishResultDto
 import app.masary.core.network.question.QuestionSessionDescriptorDto
 import app.masary.core.network.question.QuestionSessionScoreDto
@@ -8,9 +10,11 @@ import app.masary.core.network.question.QuestionSessionPackageDataDto
 import app.masary.core.network.question.QuestionSessionProgressDto
 import app.masary.core.network.question.QuestionSessionQuestionDto
 import app.masary.feature.questionsession.domain.QuestionPayload
+import app.masary.feature.questionsession.domain.QuestionSessionServiceException
 import app.masary.feature.questionsession.domain.QuestionType
 import com.google.gson.JsonParser
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -48,6 +52,42 @@ class QuestionSessionMappingTest {
         val options = domain.questions.single().payload as QuestionPayload.Options
         assertEquals(listOf("1", "4"), options.options.map { it.text })
         assertTrue(payload.keySet().none { it.contains("answer", ignoreCase = true) })
+    }
+
+    @Test
+    fun `confirmed student delta maps only for the expected owner`() {
+        val dto = QuestionConfirmedDeltaDto(
+            available = true,
+            reason = "",
+            studentId = "42",
+            profile = QuestionConfirmedProfileDeltaDto(
+                globalXp = 450,
+                gems = 12,
+                level = 2,
+                levelProgressPercent = 50,
+            ),
+            subjects = listOf(
+                QuestionConfirmedSubjectDeltaDto(
+                    subjectVersionId = 12,
+                    points = 180,
+                    level = 2,
+                    hearts = 3,
+                ),
+            ),
+            serverVersion = "result-v1",
+            confirmedAtEpochMillis = 1_790_000_000_000L,
+        )
+
+        val delta = dto.toLocalDelta(expectedStudentId = "42")
+
+        assertEquals("42", delta.studentId)
+        assertEquals(450, delta.profile?.globalXp)
+        assertEquals(12, delta.profile?.gems)
+        assertEquals(180, delta.subjects.single().points)
+        assertEquals("result-v1", delta.serverVersion)
+        assertThrows(QuestionSessionServiceException::class.java) {
+            dto.toLocalDelta(expectedStudentId = "99")
+        }
     }
 
     @Test
