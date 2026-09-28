@@ -3,6 +3,13 @@ package app.masary.feature.questionsession.domain
 interface QuestionSessionRepository {
     suspend fun loadPackage(sessionId: String): Result<QuestionSessionPackage>
     suspend fun loadSnapshot(sessionId: String): QuestionSessionPackage?
+    suspend fun saveLocalAnswer(
+        sessionId: String,
+        questionId: String,
+        answer: QuestionAnswerInput,
+        nextQuestionIndex: Int,
+        completed: Boolean,
+    ): Result<Unit>
 }
 
 open class QuestionSessionException(message: String, cause: Throwable? = null) :
