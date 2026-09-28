@@ -79,6 +79,41 @@ data class QuestionAnswerResponseDto(
     @SerializedName("request_id") val requestId: String = "",
 )
 
+data class QuestionFinishRequestDto(
+    @SerializedName("session_id") val sessionId: String,
+)
+
+data class QuestionSessionScoreDto(
+    @SerializedName("correct_answers") val correctAnswers: Int = 0,
+    @SerializedName("incorrect_answers") val incorrectAnswers: Int = 0,
+    @SerializedName("total_questions") val totalQuestions: Int = 0,
+    @SerializedName("score_percent") val scorePercent: Int = 0,
+)
+
+data class QuestionConfirmedDeltaDto(
+    val available: Boolean = false,
+    val reason: String = "",
+    val profile: JsonObject? = null,
+    val subjects: List<JsonObject> = emptyList(),
+)
+
+data class QuestionFinishResultDto(
+    @SerializedName("session_id") val sessionId: String = "",
+    val status: String = "",
+    @SerializedName("completed_at") val completedAt: String = "",
+    val replayed: Boolean = false,
+    val result: QuestionSessionScoreDto = QuestionSessionScoreDto(),
+    @SerializedName("confirmed_delta") val confirmedDelta: QuestionConfirmedDeltaDto =
+        QuestionConfirmedDeltaDto(),
+)
+
+data class QuestionFinishResponseDto(
+    val success: Boolean = false,
+    val data: QuestionFinishResultDto? = null,
+    val error: QuestionSessionApiErrorDto? = null,
+    @SerializedName("request_id") val requestId: String = "",
+)
+
 interface StudentQuestionSessionApi {
     @GET("/api/v1/student/activity/session")
     suspend fun sessionPackage(
@@ -92,4 +127,11 @@ interface StudentQuestionSessionApi {
         @Header("Idempotency-Key") idempotencyKey: String,
         @Body request: QuestionAnswerRequestDto,
     ): QuestionAnswerResponseDto
+
+    @POST("/api/v1/student/activity/finish")
+    suspend fun finishSession(
+        @Header("Authorization") authorization: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: QuestionFinishRequestDto,
+    ): QuestionFinishResponseDto
 }
