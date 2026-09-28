@@ -30,6 +30,7 @@ include(
     ":feature-subjects",
     ":feature-subject",
     ":feature-training-center",
+    ":feature-question-session",
     ":feature-activity-preparation",
     ":feature-notifications",
 )
