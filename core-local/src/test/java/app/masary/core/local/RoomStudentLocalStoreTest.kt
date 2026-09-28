@@ -148,6 +148,32 @@ class RoomStudentLocalStoreTest {
     }
 
     @Test
+    fun oldestCompletedLocalQuestionSessionIgnoresInProgressRows() = runTest {
+        store.saveQuestionSession(
+            questionSession("session-newer", STUDENT_A).copy(
+                status = "completed_local",
+                updatedAtEpochMillis = 300L,
+            ),
+        )
+        store.saveQuestionSession(
+            questionSession("session-in-progress", STUDENT_A).copy(
+                status = "in_progress",
+                updatedAtEpochMillis = 50L,
+            ),
+        )
+        store.saveQuestionSession(
+            questionSession("session-older", STUDENT_A).copy(
+                status = "completed_local",
+                updatedAtEpochMillis = 200L,
+            ),
+        )
+
+        val completed = store.readOldestCompletedLocalQuestionSession(STUDENT_A)
+
+        assertEquals("session-older", completed?.sessionId)
+    }
+
+    @Test
     fun questionSessionAndAnswersSurviveDatabaseReopen() = runTest {
         val session = questionSession("session-resume", STUDENT_A).copy(currentQuestionIndex = 2)
         store.saveQuestionSession(session)
@@ -171,6 +197,46 @@ class RoomStudentLocalStoreTest {
         assertEquals("session-resume", restoredSession?.sessionId)
         assertEquals(2, restoredSession?.currentQuestionIndex)
         assertEquals("q1", restoredAnswers.single().questionId)
+    }
+
+    @Test
+    fun offlineQuestionAnswerProgressAndPendingOperationSurviveDatabaseReopen() = runTest {
+        val session = questionSession("session-offline", STUDENT_A)
+        val operation = operation("offline-answer-op", STUDENT_A).copy(
+            payloadJson = """{"session_id":"session-offline","question_id":"q1"}""",
+        )
+        store.saveQuestionSession(session)
+
+        store.recordQuestionAnswer(
+            answer = QuestionAnswerEntity(
+                studentId = STUDENT_A,
+                sessionId = session.sessionId,
+                questionId = "q1",
+                answerJson = """{"kind":"choice","option_id":"opaque-option"}""",
+                localSequence = 1,
+                answeredAtEpochMillis = 500L,
+            ),
+            nextQuestionIndex = 1,
+            sessionStatus = "in_progress",
+            operation = operation,
+        )
+
+        database.close()
+        openDatabase()
+
+        val restoredSession =
+            database.questionSessionDao().readSession(STUDENT_A, session.sessionId)
+        val restoredAnswers = store.readQuestionAnswers(STUDENT_A, session.sessionId)
+        val restoredOperations = store.readyOperations(
+            studentId = STUDENT_A,
+            nowEpochMillis = 10_000L,
+            limit = 10,
+        )
+
+        assertEquals(1, restoredSession?.currentQuestionIndex)
+        assertEquals("q1", restoredAnswers.single().questionId)
+        assertEquals("offline-answer-op", restoredOperations.single().operationId)
+        assertEquals("question_answer", restoredOperations.single().type)
     }
 
     @Test

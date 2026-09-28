@@ -88,6 +88,8 @@ import app.masary.feature.home.domain.HomeSmartGuideStep
 import app.masary.feature.home.domain.HomeSubject
 import app.masary.feature.home.domain.StudentHomeData
 import app.masary.feature.notifications.NotificationPermissionState
+import app.masary.feature.questionsession.domain.QuestionSessionRepository
+import app.masary.feature.questionsession.ui.QuestionSessionRoute
 import app.masary.feature.subject.domain.SubjectRepository
 import app.masary.feature.subject.ui.StudentSubjectRoute
 import app.masary.feature.subjects.domain.SubjectsRepository
@@ -120,6 +122,7 @@ fun StudentHomeRoute(
     subjectsRepository: SubjectsRepository,
     subjectRepository: SubjectRepository,
     trainingCenterRepository: TrainingCenterRepository,
+    questionSessionRepository: QuestionSessionRepository,
     activityPreparationRepository: ActivityPreparationRepository,
     activityPreparationPendingStore: ActivityPreparationPendingStore,
     onLogout: () -> Unit,
@@ -396,13 +399,12 @@ fun StudentHomeRoute(
                     )
                 }
                 composable<ActivitySessionDestination> { entry ->
-                    ActivitySessionReadyScreen(entry.toRoute()) {
-                        navController.navigate(StudentDestination.Subjects) {
-                            popUpTo(StudentDestination.Home) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
+                    val destination = entry.toRoute<ActivitySessionDestination>()
+                    QuestionSessionRoute(
+                        sessionId = destination.sessionId,
+                        repository = questionSessionRepository,
+                        onBack = { navController.popBackStack() },
+                    )
                 }
             }
         }

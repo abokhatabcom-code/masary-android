@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":feature-subjects"))
     implementation(project(":feature-subject"))
     implementation(project(":feature-training-center"))
+    implementation(project(":feature-question-session"))
     implementation(project(":core-models"))
     implementation(project(":core-ui"))
     implementation(project(":core-network"))

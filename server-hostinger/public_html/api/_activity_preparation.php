@@ -549,6 +549,15 @@ function api_activity_response_from_row(array $row, bool $replayed): array
             'expires_at' => (string)($row['expires_at'] ?? ''),
         ];
     }
+    // Canonical row identity is authoritative. Never trust replay JSON for session ownership.
+    $stored['session_id'] = (string)($row['public_session_id'] ?? '');
+    $stored['status'] = (string)($row['status'] ?? ($stored['status'] ?? 'created'));
+    $stored['destination'] = (string)($row['destination'] ?? ($stored['destination'] ?? 'activity_session_pending_ui'));
+    $stored['expires_at'] = (string)($row['expires_at'] ?? ($stored['expires_at'] ?? ''));
+    $stored['debit'] = [
+        'heart_debited' => max(0, (int)($row['heart_debited'] ?? ($stored['debit']['heart_debited'] ?? 0))),
+        'gems_debited' => max(0, (int)($row['gems_debited'] ?? ($stored['debit']['gems_debited'] ?? 0))),
+    ];
     $stored['replayed'] = $replayed;
     return $stored;
 }

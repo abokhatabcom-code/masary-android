@@ -50,6 +50,7 @@ import app.masary.feature.home.ui.StudentHomeRoute
 import app.masary.feature.notifications.NotificationDestinationPolicy
 import app.masary.feature.notifications.NotificationPermissionState
 import app.masary.feature.notifications.NotificationSyncCoordinator
+import app.masary.feature.questionsession.domain.QuestionSessionRepository
 import app.masary.feature.subject.domain.SubjectRepository
 import app.masary.feature.subjects.domain.SubjectsRepository
 import app.masary.feature.trainingcenter.domain.TrainingCenterRepository
@@ -74,6 +75,7 @@ fun MasaryStudentApp(
     subjectsRepository: SubjectsRepository,
     subjectRepository: SubjectRepository,
     trainingCenterRepository: TrainingCenterRepository,
+    questionSessionRepository: QuestionSessionRepository,
     activityPreparationRepository: ActivityPreparationRepository,
     activityPreparationPendingStore: ActivityPreparationPendingStore,
     deviceName: String,
@@ -136,6 +138,7 @@ fun MasaryStudentApp(
                     subjectsRepository = subjectsRepository,
                     subjectRepository = subjectRepository,
                     trainingCenterRepository = trainingCenterRepository,
+                    questionSessionRepository = questionSessionRepository,
                     activityPreparationRepository = activityPreparationRepository,
                     activityPreparationPendingStore = activityPreparationPendingStore,
                     onLogout = {

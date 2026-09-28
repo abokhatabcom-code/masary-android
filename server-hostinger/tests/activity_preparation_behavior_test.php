@@ -279,6 +279,25 @@ activity_check(
 $status = api_activity_start_status($pdo, $session, $key);
 activity_check($status['session_id'] === $first['session_id'], 'Start status returned another session.');
 
+// A replay JSON snapshot is not authoritative for identity. Production resume must always
+// return the current row's public_session_id even if a stale snapshot exists.
+$staleReplay = json_encode([
+    'session_id' => 'stale-session-id-12345678',
+    'status' => 'created',
+    'destination' => 'activity_session_pending_ui',
+    'debit' => ['heart_debited' => 0, 'gems_debited' => 0],
+    'balances' => ['hearts' => 3, 'gems' => 0],
+    'expires_at' => '2099-01-01 00:00:00',
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+$updateReplay = $pdo->prepare('UPDATE api_activity_sessions SET response_json=? WHERE public_session_id=?');
+$updateReplay->execute([$staleReplay, $first['session_id']]);
+
+$canonicalStatus = api_activity_start_status($pdo, $session, $key);
+activity_check(
+    $canonicalStatus['session_id'] === $first['session_id'],
+    'Start status trusted a stale response_json session_id.',
+);
+
 $differentKey = api_activity_start_guarded(
     $pdo,
     $session,

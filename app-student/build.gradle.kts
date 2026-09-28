@@ -153,6 +153,7 @@ dependencies {
     implementation(project(":feature-subjects"))
     implementation(project(":feature-subject"))
     implementation(project(":feature-training-center"))
+    implementation(project(":feature-question-session"))
     implementation(project(":feature-activity-preparation"))
     implementation(project(":feature-notifications"))
     implementation(project(":core-datastore"))
@@ -181,6 +182,7 @@ tasks.matching { it.name == "testDebugUnitTest" }.configureEach {
         ":feature-subjects:testDebugUnitTest",
         ":feature-subject:testDebugUnitTest",
         ":feature-training-center:testDebugUnitTest",
+        ":feature-question-session:testDebugUnitTest",
         ":feature-activity-preparation:testDebugUnitTest",
         ":core-network:testDebugUnitTest",
         ":core-datastore:testDebugUnitTest",

@@ -72,7 +72,7 @@ const API_TRAINING_CENTER_TOOL_DEFINITIONS = [
         'tables' => [
             ['table' => 'speed_questions'],
             ['table' => 'questions_speed'],
-            ['table' => 'questions', 'types' => ['speed', 'speed_test']],
+            ['table' => 'questions', 'types' => ['speed', 'speed_test', 'mcq', 'choose', 'multiple_choice', 'choice']],
             ['table' => 'unit_questions', 'types' => ['speed', 'speed_test']],
         ],
     ],
@@ -110,6 +110,12 @@ function api_training_center_allowed_tables(): array
         'questions_speed',
         'questions',
         'unit_questions',
+        // Production question schema stores type-specific data in normalized child tables.
+        'question_mcq_options',
+        'question_tf',
+        'question_match_pairs',
+        'question_fill',
+        'question_fill_answers',
         'student_question_errors',
         'student_errors',
         'student_wrong_answers',
@@ -191,6 +197,9 @@ function api_training_center_count_questions(
         $parameters = [$subjectVersionId];
         if (isset($columns['is_active'])) {
             $where[] = 'q.is_active=1';
+        }
+        if (isset($columns['status'])) {
+            $where[] = "LOWER(TRIM(q.status))='active'";
         }
 
         $types = array_values(array_filter((array)($candidate['types'] ?? []), 'is_string'));

@@ -23,6 +23,9 @@ ROUTES = {
     "/api/v1/student/activity/preview": "v1/student/activity/preview.php",
     "/api/v1/student/activity/start": "v1/student/activity/start.php",
     "/api/v1/student/activity/start-status": "v1/student/activity/start-status.php",
+    "/api/v1/student/activity/session": "v1/student/activity/session.php",
+    "/api/v1/student/activity/answer": "v1/student/activity/answer.php",
+    "/api/v1/student/activity/finish": "v1/student/activity/finish.php",
     "/api/v1/student/push-token": "v1/student/push-token.php",
 }
 

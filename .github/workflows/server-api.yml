@@ -9,6 +9,7 @@ on:
       - "scripts/validate-hostinger-routes.py"
       - "scripts/smoke-phase12-production.py"
       - "scripts/smoke-phase12-5-production.py"
+      - "scripts/smoke-phase13-production.py"
       - ".github/workflows/server-api.yml"
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - "scripts/validate-hostinger-routes.py"
       - "scripts/smoke-phase12-production.py"
       - "scripts/smoke-phase12-5-production.py"
+      - "scripts/smoke-phase13-production.py"
       - ".github/workflows/server-api.yml"
   workflow_dispatch:
 
@@ -52,7 +54,7 @@ jobs:
         run: python3 scripts/validate-hostinger-routes.py
 
       - name: Validate production smoke script syntax
-        run: python3 -m py_compile scripts/smoke-phase12-production.py scripts/smoke-phase12-5-production.py
+        run: python3 -m py_compile scripts/smoke-phase12-production.py scripts/smoke-phase12-5-production.py scripts/smoke-phase13-production.py
 
       - name: Run isolated PHP behavioral tests
         shell: bash

@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "data": {
+    "session_id": "activity-session-001",
+    "question_id": "1f4f59eaa74c43f8c3d1c2a297b6df4a",
+    "accepted": true,
+    "correct": true,
+    "replayed": false,
+    "progress": {
+      "answered": 1,
+      "total_questions": 10,
+      "all_answered": false
+    }
+  },
+  "error": null,
+  "request_id": "contract-question-answer-001"
+}
