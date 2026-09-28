@@ -17,6 +17,8 @@ interface QuestionSessionRepository {
         completed: Boolean,
     ): Result<Unit>
     suspend fun syncPendingAnswers(): Result<QuestionAnswerSyncSummary>
+    suspend fun loadResult(sessionId: String): QuestionSessionResult?
+    suspend fun finishSession(sessionId: String): Result<QuestionSessionResult>
 }
 
 open class QuestionSessionException(message: String, cause: Throwable? = null) :
