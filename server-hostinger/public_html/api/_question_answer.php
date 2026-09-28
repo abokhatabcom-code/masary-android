@@ -156,8 +156,9 @@ function api_question_answer_resolve_normalized_source(
     array $session,
     string $questionType,
     string $questionId,
+    ?array $settings = null,
 ): ?array {
-    $rows = api_question_session_normalized_rows($pdo, $session, $questionType);
+    $rows = api_question_session_normalized_rows($pdo, $session, $questionType, $settings);
     if ($rows === null) {
         return null;
     }
@@ -192,12 +193,14 @@ function api_question_answer_resolve_lesson_practice_source(
     array $session,
     string $questionId,
 ): array {
-    foreach (['choose', 'truefalse', 'fill', 'connect'] as $questionType) {
+    $settings = api_question_session_lesson_settings($pdo, $session);
+    foreach (api_question_session_lesson_allowed_question_types($settings) as $questionType) {
         $source = api_question_answer_resolve_normalized_source(
             $pdo,
             $session,
             $questionType,
             $questionId,
+            $settings,
         );
         if ($source !== null) {
             return $source;
