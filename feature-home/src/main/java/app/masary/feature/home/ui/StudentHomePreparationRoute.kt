@@ -151,19 +151,45 @@ fun StudentHomeRoute(
         else -> StudentDestination.Home
     }
 
-    fun navigate(destination: StudentDestination) {
-        if (destination is StudentDestination.SubjectDetails) {
-            // Subject details are parameterized pages. Never restore another subject's saved
-            // destination state merely because both pages share the same route type.
-            navController.navigate(destination) {
+    fun showSubjectsList() {
+        if (navController.currentDestination?.hasRoute<StudentDestination.Subjects>() == true) return
+
+        // When the list already exists below SubjectDetails, pop back to the same entry.
+        // This preserves its ViewModel, cached data and scroll position with no reload.
+        val restoredExistingList = navController.popBackStack(
+            route = StudentDestination.Subjects,
+            inclusive = false,
+        )
+        if (!restoredExistingList) {
+            // SubjectDetails can also be opened from Home/Continue Learning. In that case
+            // create the Subjects parent explicitly, never restoring a saved child detail.
+            navController.navigate(StudentDestination.Subjects) {
                 launchSingleTop = true
+                popUpTo(StudentDestination.Home) { saveState = false }
                 restoreState = false
             }
-        } else {
-            navController.navigate(destination) {
-                launchSingleTop = true
-                popUpTo(StudentDestination.Home) { saveState = true }
-                restoreState = true
+        }
+    }
+
+    fun navigate(destination: StudentDestination) {
+        when (destination) {
+            StudentDestination.Subjects -> showSubjectsList()
+
+            is StudentDestination.SubjectDetails -> {
+                // Subject details are parameterized pages. Never restore another subject's saved
+                // destination state merely because both pages share the same route type.
+                navController.navigate(destination) {
+                    launchSingleTop = true
+                    restoreState = false
+                }
+            }
+
+            else -> {
+                navController.navigate(destination) {
+                    launchSingleTop = true
+                    popUpTo(StudentDestination.Home) { saveState = true }
+                    restoreState = true
+                }
             }
         }
     }
@@ -304,7 +330,7 @@ fun StudentHomeRoute(
                         repository = subjectRepository,
                         subjectName = destination.subjectName,
                         curriculumLabel = destination.curriculumLabel,
-                        onBack = { navController.popBackStack() },
+                        onBack = ::showSubjectsList,
                         onSessionExpired = onLogout,
                         onTrainingCenter = { subjectVersionId ->
                             if (subjectVersionId > 0) {
