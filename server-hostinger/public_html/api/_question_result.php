@@ -111,7 +111,6 @@ function api_question_result_finish(
     }
 
     $request = api_question_result_request($payload);
-    $session = api_question_session_owned_row($pdo, $studentId, $request['session_id']);
     $requestHash = api_question_result_request_hash($request);
     $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
 
@@ -150,6 +149,9 @@ function api_question_result_finish(
             return $result;
         }
 
+        // Only a new completion needs an active owned activity session.
+        // Stored final results remain replayable after the activity expiry time.
+        $session = api_question_session_owned_row($pdo, $studentId, $request['session_id']);
         $questions = api_question_session_questions($pdo, $session);
         $totalQuestions = count($questions);
         if ($totalQuestions <= 0) {
