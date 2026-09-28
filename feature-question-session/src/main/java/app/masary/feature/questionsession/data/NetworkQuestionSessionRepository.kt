@@ -1,6 +1,9 @@
 package app.masary.feature.questionsession.data
 
 import app.masary.core.datastore.SessionManager
+import app.masary.core.local.ConfirmedProfileDelta
+import app.masary.core.local.ConfirmedStudentDelta
+import app.masary.core.local.ConfirmedSubjectDelta
 import app.masary.core.local.PendingOperationEntity
 import app.masary.core.local.QuestionAnswerEntity
 import app.masary.core.local.QuestionSessionEntity
@@ -9,6 +12,9 @@ import app.masary.core.models.auth.AuthTokens
 import app.masary.core.network.auth.StudentAuthApi
 import app.masary.core.network.auth.StudentRefreshRequestDto
 import app.masary.core.network.question.QuestionAnswerRequestDto
+import app.masary.core.network.question.QuestionConfirmedDeltaDto
+import app.masary.core.network.question.QuestionConfirmedProfileDeltaDto
+import app.masary.core.network.question.QuestionConfirmedSubjectDeltaDto
 import app.masary.core.network.question.QuestionFinishRequestDto
 import app.masary.core.network.question.QuestionFinishResultDto
 import app.masary.core.network.question.QuestionSessionPackageDataDto
@@ -313,13 +319,13 @@ class NetworkQuestionSessionRepository(
                 tokens = refreshTokens(tokens.refreshToken)
                 requestFinish(tokens, idempotencyKey, request)
             }
-            if (data.confirmedDelta.available) {
-                throw QuestionSessionServiceException(
-                    "أعاد الخادم تغيرات نقاط تحتاج عقدًا مثبتًا قبل تطبيقها محليًا.",
-                )
-            }
             val result = data.toDomain().also {
                 validateResult(it, safeSessionId)
+            }
+            if (data.confirmedDelta.available) {
+                localStore.applyConfirmedDelta(
+                    data.confirmedDelta.toLocalDelta(expectedStudentId = studentId),
+                )
             }
             val now = nowEpochMillis()
             localStore.putDocument(
@@ -589,6 +595,61 @@ class NetworkQuestionSessionRepository(
         }
         else -> QuestionSessionServiceException(cause = error)
     }
+}
+
+private fun QuestionConfirmedDeltaDto.toLocalDelta(
+    expectedStudentId: String,
+): ConfirmedStudentDelta {
+    if (!available) {
+        throw QuestionSessionServiceException("لا توجد تغييرات طالب مؤكدة لتطبيقها.")
+    }
+    val owner = studentId?.trim().orEmpty()
+    val confirmedAt = confirmedAtEpochMillis ?: 0L
+    if (owner != expectedStudentId || confirmedAt <= 0L) {
+        throw QuestionSessionServiceException("تعذر التحقق من ملكية تغييرات النتيجة المؤكدة.")
+    }
+    val mappedSubjects = subjects.map(QuestionConfirmedSubjectDeltaDto::toLocalDelta)
+    if (mappedSubjects.map(ConfirmedSubjectDelta::subjectVersionId).toSet().size != mappedSubjects.size) {
+        throw QuestionSessionServiceException("تحتوي تغييرات المواد المؤكدة على مادة مكررة.")
+    }
+    return ConfirmedStudentDelta(
+        studentId = owner,
+        profile = profile?.toLocalDelta(),
+        subjects = mappedSubjects,
+        serverVersion = serverVersion?.trim()?.takeIf(String::isNotBlank),
+        confirmedAtEpochMillis = confirmedAt,
+    )
+}
+
+private fun QuestionConfirmedProfileDeltaDto.toLocalDelta(): ConfirmedProfileDelta =
+    ConfirmedProfileDelta(
+        globalXp = globalXp,
+        gems = gems,
+        level = level,
+        levelProgressPercent = levelProgressPercent,
+        levelNextXp = levelNextXp,
+        todayXp = todayXp,
+        todaySeconds = todaySeconds,
+        todayMinutes = todayMinutes,
+        todayAttempts = todayAttempts,
+        streakCurrentDays = streakCurrentDays,
+        unreadNotifications = unreadNotifications,
+        smartGuideCompletedSteps = smartGuideCompletedSteps,
+        smartGuideTotalSteps = smartGuideTotalSteps,
+        smartGuideCompletionPercent = smartGuideCompletionPercent,
+    )
+
+private fun QuestionConfirmedSubjectDeltaDto.toLocalDelta(): ConfirmedSubjectDelta {
+    if (subjectVersionId <= 0) {
+        throw QuestionSessionServiceException("معرف المادة في التغييرات المؤكدة غير صالح.")
+    }
+    return ConfirmedSubjectDelta(
+        subjectVersionId = subjectVersionId,
+        points = points,
+        level = level,
+        levelProgressPercent = levelProgressPercent,
+        hearts = hearts,
+    )
 }
 
 internal fun QuestionFinishResultDto.toDomain(): QuestionSessionResult =
