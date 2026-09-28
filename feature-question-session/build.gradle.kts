@@ -19,6 +19,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core-models"))
     implementation(project(":core-network"))
     implementation(project(":core-datastore"))
     implementation(project(":core-local"))
