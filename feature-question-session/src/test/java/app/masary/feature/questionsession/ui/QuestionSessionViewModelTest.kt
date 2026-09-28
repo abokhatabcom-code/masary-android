@@ -1,6 +1,7 @@
 package app.masary.feature.questionsession.ui
 
 import app.masary.feature.questionsession.domain.QuestionAnswerInput
+import app.masary.feature.questionsession.domain.QuestionAnswerSyncSummary
 import app.masary.feature.questionsession.domain.QuestionItem
 import app.masary.feature.questionsession.domain.QuestionOption
 import app.masary.feature.questionsession.domain.QuestionPayload
@@ -46,6 +47,7 @@ class QuestionSessionViewModelTest {
         assertEquals("cached", state.data.version)
         assertTrue(state.isRefreshing)
         assertEquals(1, state.data.progress.currentIndex)
+        assertEquals(1, repository.syncCalls)
     }
 
     @Test
@@ -64,6 +66,7 @@ class QuestionSessionViewModelTest {
         assertEquals("q1", repository.savedQuestionId)
         assertEquals(1, repository.savedNextIndex)
         assertEquals(false, repository.savedCompleted)
+        assertEquals(2, repository.syncCalls)
     }
 
     @Test
@@ -125,6 +128,7 @@ class QuestionSessionViewModelTest {
         var savedQuestionId: String? = null
         var savedNextIndex: Int = -1
         var savedCompleted: Boolean = false
+        var syncCalls: Int = 0
 
         override suspend fun loadPackage(sessionId: String): Result<QuestionSessionPackage> =
             remote.await()
@@ -145,6 +149,17 @@ class QuestionSessionViewModelTest {
                 progress = local.progress.copy(currentIndex = nextQuestionIndex),
             )
             return Result.success(Unit)
+        }
+
+        override suspend fun syncPendingAnswers(): Result<QuestionAnswerSyncSummary> {
+            syncCalls += 1
+            return Result.success(
+                QuestionAnswerSyncSummary(
+                    attempted = 0,
+                    confirmed = 0,
+                    retryScheduled = 0,
+                ),
+            )
         }
     }
 }
