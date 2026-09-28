@@ -94,6 +94,7 @@ interface StudentLocalStore {
 
     suspend fun saveQuestionSession(session: QuestionSessionEntity)
     suspend fun readQuestionSession(studentId: String, sessionId: String): QuestionSessionEntity?
+    suspend fun readOldestCompletedLocalQuestionSession(studentId: String): QuestionSessionEntity?
     suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity)
     suspend fun recordQuestionAnswer(
         answer: QuestionAnswerEntity,
@@ -389,6 +390,13 @@ class RoomStudentLocalStore(
         require(studentId.isNotBlank()) { "studentId is required" }
         require(sessionId.isNotBlank()) { "sessionId is required" }
         return sessionDao.readSession(studentId, sessionId)
+    }
+
+    override suspend fun readOldestCompletedLocalQuestionSession(
+        studentId: String,
+    ): QuestionSessionEntity? {
+        require(studentId.isNotBlank()) { "studentId is required" }
+        return sessionDao.readOldestCompletedLocalSession(studentId)
     }
 
     override suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity) =
