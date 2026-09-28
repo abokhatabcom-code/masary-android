@@ -1,0 +1,37 @@
+name: Phase 13 Production Readiness Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "smoke/phase13-production"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      MASARY_SMOKE_BASE_URL: https://masary.app/
+      MASARY_SMOKE_ACCESS_TOKEN: ${{ secrets.MASARY_SMOKE_ACCESS_TOKEN }}
+      MASARY_SMOKE_USERNAME: ${{ secrets.MASARY_SMOKE_USERNAME }}
+      MASARY_SMOKE_PASSWORD: ${{ secrets.MASARY_SMOKE_PASSWORD }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify smoke credentials are configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${MASARY_SMOKE_ACCESS_TOKEN:-}" ]]; then
+            exit 0
+          fi
+          if [[ -z "${MASARY_SMOKE_USERNAME:-}" || -z "${MASARY_SMOKE_PASSWORD:-}" ]]; then
+            echo "Configure MASARY_SMOKE_ACCESS_TOKEN or MASARY_SMOKE_USERNAME + MASARY_SMOKE_PASSWORD." >&2
+            exit 1
+          fi
+
+      - name: Run non-mutating phase 13 production readiness smoke
+        run: python3 scripts/smoke-phase13-production.py
