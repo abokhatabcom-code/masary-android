@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "data": {
+    "session_id": "activity-session-001",
+    "status": "completed",
+    "completed_at": "2026-09-28 12:00:00",
+    "replayed": false,
+    "result": {
+      "correct_answers": 8,
+      "incorrect_answers": 2,
+      "total_questions": 10,
+      "score_percent": 80
+    },
+    "confirmed_delta": {
+      "available": false,
+      "reason": "لم تُثبت بعد قاعدة XP والمستوى والمكافآت لهذه الأنشطة.",
+      "profile": null,
+      "subjects": []
+    }
+  },
+  "error": null,
+  "request_id": "contract-question-finish-001"
+}
