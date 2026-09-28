@@ -223,13 +223,20 @@ result_check(
     'Session completed_at was not stored.',
 );
 
+$pdo->exec(
+    "UPDATE api_activity_sessions SET expires_at='2000-01-01 00:00:00' "
+    . "WHERE public_session_id='activity-result-complete-001'"
+);
 $replayed = api_question_result_finish(
     $pdo,
     ['user_id' => 42],
     ['session_id' => 'activity-result-complete-001'],
     'question-result-key-00000001',
 );
-result_check($replayed['replayed'] === true, 'Same finish idempotency key was not replayed.');
+result_check(
+    $replayed['replayed'] === true,
+    'Stored final result must replay even after activity expiry.',
+);
 
 $secondKey = api_question_result_finish(
     $pdo,
