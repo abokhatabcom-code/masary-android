@@ -17,6 +17,7 @@ import app.masary.feature.questionsession.data.NetworkQuestionSessionRepository
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import retrofit2.HttpException
 
@@ -70,7 +71,27 @@ class QuestionAnswerSyncWorker(
             val summary = repository.syncPendingAnswers().getOrElse { error ->
                 return classifyFailure(error)
             }
-            if (summary.retryScheduled > 0) Result.retry() else Result.success()
+            if (summary.retryScheduled > 0) {
+                return Result.retry()
+            }
+
+            // A failed answer can be waiting for its local backoff window and therefore
+            // not appear in the ready batch yet. Never try to finish while any answer
+            // operation remains outstanding.
+            if (localStore.observeOutstandingOperations(studentData.id).first() > 0) {
+                return Result.retry()
+            }
+
+            var completed = localStore.readOldestCompletedLocalQuestionSession(studentData.id)
+            var finalized = 0
+            while (completed != null && finalized < 10) {
+                repository.finishSession(completed.sessionId).getOrElse { error ->
+                    return classifyFailure(error)
+                }
+                finalized += 1
+                completed = localStore.readOldestCompletedLocalQuestionSession(studentData.id)
+            }
+            Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
