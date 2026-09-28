@@ -93,6 +93,7 @@ interface StudentLocalStore {
     ): List<PendingOperationEntity>
 
     suspend fun saveQuestionSession(session: QuestionSessionEntity)
+    suspend fun readQuestionSession(studentId: String, sessionId: String): QuestionSessionEntity?
     suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity)
     suspend fun recordQuestionAnswer(
         answer: QuestionAnswerEntity,
@@ -379,6 +380,15 @@ class RoomStudentLocalStore(
             }
             sessionDao.upsertSession(session)
         }
+    }
+
+    override suspend fun readQuestionSession(
+        studentId: String,
+        sessionId: String,
+    ): QuestionSessionEntity? {
+        require(studentId.isNotBlank()) { "studentId is required" }
+        require(sessionId.isNotBlank()) { "sessionId is required" }
+        return sessionDao.readSession(studentId, sessionId)
     }
 
     override suspend fun saveQuestionAnswer(answer: QuestionAnswerEntity) =
