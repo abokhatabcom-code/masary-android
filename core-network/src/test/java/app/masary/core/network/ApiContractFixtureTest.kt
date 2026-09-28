@@ -11,6 +11,7 @@ import app.masary.core.network.auth.StudentMeResponseDto
 import app.masary.core.network.auth.StudentRefreshResponseDto
 import app.masary.core.network.home.StudentHomeResponseDto
 import app.masary.core.network.subject.StudentSubjectDetailResponseDto
+import app.masary.core.network.question.QuestionAnswerResponseDto
 import app.masary.core.network.question.QuestionSessionPackageResponseDto
 import app.masary.core.network.subjects.StudentSubjectsResponseDto
 import app.masary.core.network.training.StudentTrainingCenterResponseDto
@@ -135,6 +136,17 @@ class ApiContractFixtureTest {
         assertEquals(1, questionSession.data?.questions?.size)
         assertEquals("choose", questionSession.data?.questions?.first()?.type)
         assertEquals(4, questionSession.data?.questions?.first()?.payload?.getAsJsonArray("options")?.size())
+
+        val answer = parse(
+            "question-answer-success.json",
+            QuestionAnswerResponseDto::class.java,
+        )
+        assertTrue(answer.success)
+        assertEquals("activity-session-001", answer.data?.sessionId)
+        assertTrue(answer.data?.accepted == true)
+        assertTrue(answer.data?.correct == true)
+        assertFalse(answer.data?.replayed == true)
+        assertEquals(1, answer.data?.progress?.answered)
     }
 
     @Test
@@ -152,6 +164,7 @@ class ApiContractFixtureTest {
             gson.fromJson(json, ActivityPreparationPreviewResponseDto::class.java),
             gson.fromJson(json, ActivityStartResponseDto::class.java),
             gson.fromJson(json, QuestionSessionPackageResponseDto::class.java),
+            gson.fromJson(json, QuestionAnswerResponseDto::class.java),
         ).forEach { response ->
             val success = response.javaClass.getMethod("getSuccess").invoke(response) as Boolean
             assertFalse(success)
