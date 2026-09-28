@@ -9,6 +9,8 @@ import app.masary.core.network.question.QuestionSessionScoreDto
 import app.masary.core.network.question.QuestionSessionPackageDataDto
 import app.masary.core.network.question.QuestionSessionProgressDto
 import app.masary.core.network.question.QuestionSessionQuestionDto
+import app.masary.feature.questionsession.domain.QuestionItem
+import app.masary.feature.questionsession.domain.QuestionOption
 import app.masary.feature.questionsession.domain.QuestionPayload
 import app.masary.feature.questionsession.domain.QuestionSessionServiceException
 import app.masary.feature.questionsession.domain.QuestionType
@@ -52,6 +54,29 @@ class QuestionSessionMappingTest {
         val options = domain.questions.single().payload as QuestionPayload.Options
         assertEquals(listOf("1", "4"), options.options.map { it.text })
         assertTrue(payload.keySet().none { it.contains("answer", ignoreCase = true) })
+    }
+
+    @Test
+    fun `lesson practice accepts supported mixed question types and rejects speed`() {
+        val options = QuestionPayload.Options(
+            listOf(
+                QuestionOption("option-a", "A"),
+                QuestionOption("option-b", "B"),
+            ),
+        )
+        val mixed = listOf(
+            QuestionItem("q1", QuestionType.Choose, "choose", options),
+            QuestionItem("q2", QuestionType.TrueFalse, "tf", options),
+        )
+
+        validateQuestionTypes("lesson_practice", mixed)
+
+        assertThrows(QuestionSessionServiceException::class.java) {
+            validateQuestionTypes(
+                "lesson_practice",
+                mixed + QuestionItem("q3", QuestionType.Speed, "speed", options),
+            )
+        }
     }
 
     @Test
