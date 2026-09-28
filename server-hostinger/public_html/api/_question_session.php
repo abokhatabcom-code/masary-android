@@ -403,11 +403,34 @@ function api_question_session_questions(PDO $pdo, array $session): array
     );
 }
 
+function api_question_session_answered_count(
+    PDO $pdo,
+    int $studentId,
+    string $sessionId,
+): int {
+    if (!api_activity_table_exists($pdo, 'api_activity_answers')) {
+        return 0;
+    }
+    try {
+        $statement = $pdo->prepare(
+            'SELECT COUNT(*) FROM api_activity_answers WHERE user_id=? AND public_session_id=?',
+        );
+        $statement->execute([$studentId, $sessionId]);
+        return max(0, (int)$statement->fetchColumn());
+    } catch (Throwable) {
+        return 0;
+    }
+}
+
 function api_question_session_package(PDO $pdo, array $authSession, string $sessionId): array
 {
     $studentId = (int)($authSession['user_id'] ?? 0);
     $session = api_question_session_owned_row($pdo, $studentId, $sessionId);
     $questions = api_question_session_questions($pdo, $session);
+    $answered = min(
+        api_question_session_answered_count($pdo, $studentId, (string)$session['public_session_id']),
+        count($questions),
+    );
 
     $data = [
         'generated_at' => gmdate(DATE_ATOM),
@@ -426,7 +449,7 @@ function api_question_session_package(PDO $pdo, array $authSession, string $sess
             'activity_mode' => (string)($session['activity_mode'] ?? ''),
         ],
         'progress' => [
-            'current_index' => 0,
+            'current_index' => $answered,
             'total_questions' => count($questions),
         ],
         'questions' => $questions,
