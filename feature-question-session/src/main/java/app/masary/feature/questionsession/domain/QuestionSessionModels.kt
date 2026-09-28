@@ -64,3 +64,15 @@ data class QuestionSessionPackage(
     val questions: List<QuestionItem>,
     val snapshotSavedAtEpochMillis: Long? = null,
 )
+
+
+data class ConnectAnswerPair(
+    val leftId: String,
+    val rightId: String,
+)
+
+sealed interface QuestionAnswerInput {
+    data class Choice(val optionId: String) : QuestionAnswerInput
+    data class Text(val value: String) : QuestionAnswerInput
+    data class Connections(val pairs: List<ConnectAnswerPair>) : QuestionAnswerInput
+}
