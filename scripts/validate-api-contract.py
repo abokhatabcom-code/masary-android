@@ -73,6 +73,8 @@ EXPECTED = {
     "/api/v1/student/activity/start": (("post",), "server-hostinger/public_html/api/v1/student/activity/start.php"),
     "/api/v1/student/activity/start-status": (("get",), "server-hostinger/public_html/api/v1/student/activity/start-status.php"),
     "/api/v1/student/activity/session": (("get",), "server-hostinger/public_html/api/v1/student/activity/session.php"),
+    "/api/v1/student/activity/answer": (("post",), "server-hostinger/public_html/api/v1/student/activity/answer.php"),
+    "/api/v1/student/activity/finish": (("post",), "server-hostinger/public_html/api/v1/student/activity/finish.php"),
 }
 
 PUBLIC_ROUTES = {
@@ -103,12 +105,16 @@ FIXTURE_SCHEMAS = {
     "activity-preview-success.json": "ActivityPreparationPreviewResponse",
     "activity-start-success.json": "ActivityStartResponse",
     "question-session-success.json": "QuestionSessionPackageResponse",
+    "question-answer-success.json": "QuestionAnswerResponse",
+    "question-finish-success.json": "QuestionFinishResponse",
     "error.json": "ErrorResponse",
 }
 
 REQUEST_FIXTURES = {
     "push-token-request.json": "AndroidPushTokenRequest",
     "activity-preview-request.json": "ActivityPreparationRequest",
+    "question-answer-request.json": "QuestionAnswerRequest",
+    "question-finish-request.json": "QuestionFinishRequest",
 }
 
 
@@ -229,6 +235,8 @@ require_session_query("/api/v1/student/activity/session")
 
 require_idempotency_header("/api/v1/student/activity/start", "post")
 require_idempotency_header("/api/v1/student/activity/start-status", "get")
+require_idempotency_header("/api/v1/student/activity/answer", "post")
+require_idempotency_header("/api/v1/student/activity/finish", "post")
 
 server_urls = {item["url"] for item in BASE_CONTRACT.get("servers", [])}
 require(
