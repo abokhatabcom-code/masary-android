@@ -309,6 +309,73 @@ function api_question_session_normalized_types(string $questionType): array
     };
 }
 
+function api_question_session_lesson_content_node_id(
+    PDO $pdo,
+    array $session,
+): ?int {
+    $lessonId = (int)($session['lesson_id'] ?? 0);
+    if ($lessonId <= 0) {
+        return null;
+    }
+    $columns = api_question_session_columns($pdo, 'lessons');
+    if (!isset($columns['id'], $columns['content_node_id'])) {
+        return null;
+    }
+
+    $where = ['id=?'];
+    $params = [$lessonId];
+    $subjectVersionId = (int)($session['subject_version_id'] ?? 0);
+    $unitId = (int)($session['unit_id'] ?? 0);
+    if ($subjectVersionId > 0 && isset($columns['subject_version_id'])) {
+        $where[] = 'subject_version_id=?';
+        $params[] = $subjectVersionId;
+    }
+    if ($unitId > 0 && isset($columns['unit_id'])) {
+        $where[] = 'unit_id=?';
+        $params[] = $unitId;
+    }
+    if (isset($columns['is_active'])) {
+        $where[] = 'is_active=1';
+    }
+
+    try {
+        $statement = $pdo->prepare(
+            'SELECT content_node_id FROM lessons WHERE ' . implode(' AND ', $where) . ' LIMIT 1',
+        );
+        $statement->execute($params);
+        $contentNodeId = (int)$statement->fetchColumn();
+        return $contentNodeId > 0 ? $contentNodeId : null;
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function api_question_session_normalized_scope(
+    PDO $pdo,
+    array $session,
+    array $columns,
+): ?array {
+    $lessonId = (int)($session['lesson_id'] ?? 0);
+    if ($lessonId > 0) {
+        if (isset($columns['lesson_id'])) {
+            return ['joins' => '', 'where' => 'q.lesson_id=?', 'params' => [$lessonId]];
+        }
+        if (isset($columns['content_node_id'])) {
+            $contentNodeId = api_question_session_lesson_content_node_id($pdo, $session);
+            if ($contentNodeId === null) {
+                // Never broaden a lesson practice to the whole unit if its lesson mapping is missing.
+                return null;
+            }
+            return [
+                'joins' => '',
+                'where' => 'q.content_node_id=?',
+                'params' => [$contentNodeId],
+            ];
+        }
+    }
+    return api_question_session_scope($session, $columns);
+}
+
 function api_question_session_normalized_rows(
     PDO $pdo,
     array $session,
@@ -320,7 +387,7 @@ function api_question_session_normalized_rows(
             return null;
         }
     }
-    $scope = api_question_session_scope($session, $columns);
+    $scope = api_question_session_normalized_scope($pdo, $session, $columns);
     if ($scope === null) {
         return [];
     }
@@ -568,9 +635,61 @@ function api_question_session_normalized_questions(
     return $questions;
 }
 
+function api_question_session_lesson_practice_questions(
+    PDO $pdo,
+    array $session,
+): array {
+    if ((int)($session['lesson_id'] ?? 0) <= 0) {
+        api_error(
+            'question_source_unavailable',
+            'جلسة تدريب الدرس لا تحتوي معرف درس صالحًا.',
+            503,
+        );
+    }
+
+    $buckets = [];
+    foreach (['choose', 'truefalse', 'fill', 'connect'] as $questionType) {
+        $questions = api_question_session_normalized_questions($pdo, $session, $questionType);
+        $buckets[$questionType] = is_array($questions) ? array_values($questions) : [];
+    }
+
+    // Deterministic round-robin keeps lesson practice mixed even when one type has many rows.
+    $mixed = [];
+    $index = 0;
+    while (count($mixed) < API_QUESTION_SESSION_MAX_QUESTIONS) {
+        $added = false;
+        foreach (['choose', 'truefalse', 'fill', 'connect'] as $questionType) {
+            if (isset($buckets[$questionType][$index])) {
+                $mixed[] = $buckets[$questionType][$index];
+                $added = true;
+                if (count($mixed) >= API_QUESTION_SESSION_MAX_QUESTIONS) {
+                    break;
+                }
+            }
+        }
+        if (!$added) {
+            break;
+        }
+        $index += 1;
+    }
+
+    if ($mixed === []) {
+        api_error(
+            'question_source_unavailable',
+            'لا توجد أسئلة مدعومة ومؤكدة لهذا الدرس.',
+            503,
+        );
+    }
+    return $mixed;
+}
+
 function api_question_session_questions(PDO $pdo, array $session): array
 {
     $activityType = (string)($session['activity_type'] ?? '');
+    if ($activityType === 'lesson_practice') {
+        return api_question_session_lesson_practice_questions($pdo, $session);
+    }
+
     $questionType = api_question_session_question_type($activityType);
     $definition = api_question_session_tool_definition($activityType);
     if ($questionType === null || $definition === null || !empty($definition['review'])) {
