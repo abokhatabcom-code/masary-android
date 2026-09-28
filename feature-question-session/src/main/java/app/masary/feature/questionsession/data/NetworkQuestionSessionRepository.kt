@@ -543,17 +543,10 @@ class NetworkQuestionSessionRepository(
             throw QuestionSessionServiceException("موضع جلسة الأسئلة غير صالح.")
         }
 
-        val expectedType = when (packageData.session.activityType) {
-            "choose_test" -> QuestionType.Choose
-            "true_false_test" -> QuestionType.TrueFalse
-            "connect_test" -> QuestionType.Connect
-            "fill_test" -> QuestionType.Fill
-            "speed_test" -> QuestionType.Speed
-            else -> throw QuestionSessionSourceUnavailableException()
-        }
-        if (packageData.questions.any { it.type != expectedType }) {
-            throw QuestionSessionServiceException("نوع سؤال لا يطابق نوع النشاط.")
-        }
+        validateQuestionTypes(
+            activityType = packageData.session.activityType,
+            questions = packageData.questions,
+        )
         if (packageData.questions.map(QuestionItem::id).toSet().size != packageData.questions.size) {
             throw QuestionSessionServiceException("تحتوي الجلسة على معرف سؤال مكرر.")
         }
@@ -595,6 +588,29 @@ class NetworkQuestionSessionRepository(
             else -> QuestionSessionServiceException(cause = error)
         }
         else -> QuestionSessionServiceException(cause = error)
+    }
+}
+
+internal fun validateQuestionTypes(
+    activityType: String,
+    questions: List<QuestionItem>,
+) {
+    val allowedTypes = when (activityType) {
+        "choose_test" -> setOf(QuestionType.Choose)
+        "true_false_test" -> setOf(QuestionType.TrueFalse)
+        "connect_test" -> setOf(QuestionType.Connect)
+        "fill_test" -> setOf(QuestionType.Fill)
+        "speed_test" -> setOf(QuestionType.Speed)
+        "lesson_practice" -> setOf(
+            QuestionType.Choose,
+            QuestionType.TrueFalse,
+            QuestionType.Connect,
+            QuestionType.Fill,
+        )
+        else -> throw QuestionSessionSourceUnavailableException()
+    }
+    if (questions.any { it.type !in allowedTypes }) {
+        throw QuestionSessionServiceException("نوع سؤال لا يطابق نوع النشاط.")
     }
 }
 
