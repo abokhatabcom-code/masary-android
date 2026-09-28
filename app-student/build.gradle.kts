@@ -14,8 +14,8 @@ android {
         applicationId = "app.masary.student"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1209
-        versionName = "1.12.9"
+        versionCode = 1210
+        versionName = "1.12.10"
     }
 
     fun injectedUrl(property: String, variable: String, fallback: String): String =

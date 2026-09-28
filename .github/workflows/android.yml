@@ -48,8 +48,8 @@ jobs:
           strings = Path("app-student/src/main/res/values/strings.xml").read_text(encoding="utf-8")
           for marker in (
               'applicationId = "app.masary.student"',
-              'versionCode = 1209',
-              'versionName = "1.12.9"',
+              'versionCode = 1210',
+              'versionName = "1.12.10"',
           ):
               if marker not in gradle:
                   raise SystemExit(f"Missing official identity marker: {marker}")
@@ -184,8 +184,8 @@ jobs:
 
           required = [
               'applicationId = "app.masary.student"',
-              'versionCode = 1209',
-              'versionName = "1.12.9"',
+              'versionCode = 1210',
+              'versionName = "1.12.10"',
           ]
           for marker in required:
               if marker not in gradle:
@@ -215,10 +215,10 @@ jobs:
               Path("app-student/build/outputs/apk/release/output-metadata.json").read_text(encoding="utf-8")
           )
           element = metadata["elements"][0]
-          if int(element["versionCode"]) != 1209:
-              raise SystemExit("Official APK versionCode must be 1209.")
-          if str(element["versionName"]) != "1.12.9":
-              raise SystemExit("Official APK versionName must be 1.12.9.")
+          if int(element["versionCode"]) != 1210:
+              raise SystemExit("Official APK versionCode must be 1210.")
+          if str(element["versionName"]) != "1.12.10":
+              raise SystemExit("Official APK versionName must be 1.12.10.")
           PY
 
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
