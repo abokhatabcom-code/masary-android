@@ -51,6 +51,7 @@ import app.masary.feature.questionsession.domain.QuestionItem
 import app.masary.feature.questionsession.domain.QuestionPayload
 import app.masary.feature.questionsession.domain.QuestionSessionPackage
 import app.masary.feature.questionsession.domain.QuestionSessionRepository
+import app.masary.feature.questionsession.domain.QuestionSessionResult
 import app.masary.feature.questionsession.domain.QuestionType
 
 @Composable
@@ -118,6 +119,12 @@ private fun QuestionSessionScreen(
 
                 is QuestionSessionUiState.CompletedLocal -> CompletedState(
                     message = state.message,
+                    onBack = onBack,
+                    modifier = Modifier.padding(paddingValues),
+                )
+
+                is QuestionSessionUiState.Result -> ConfirmedResultState(
+                    result = state.data,
                     onBack = onBack,
                     modifier = Modifier.padding(paddingValues),
                 )
@@ -406,6 +413,67 @@ private fun ConnectRenderer(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(if (enabled) "تثبيت التوصيل والمتابعة" else "جارٍ الحفظ…")
+        }
+    }
+}
+
+@Composable
+private fun ConfirmedResultState(
+    result: QuestionSessionResult,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = MasaryColors.brandGold,
+                )
+                Text(
+                    "تم تأكيد النتيجة",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MasaryColors.brandNavy,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "${result.score.scorePercent}%",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MasaryColors.brandNavy,
+                )
+                Text(
+                    text = "الإجابات الصحيحة: ${result.score.correctAnswers}",
+                    color = MasaryColors.brandNavy,
+                )
+                Text(
+                    text = "الإجابات الخاطئة: ${result.score.incorrectAnswers}",
+                    color = MasaryColors.brandNavy,
+                )
+                Text(
+                    text = "إجمالي الأسئلة: ${result.score.totalQuestions}",
+                    color = MasaryColors.muted,
+                )
+                if (!result.confirmedDeltaAvailable &&
+                    result.confirmedDeltaReason.isNotBlank()
+                ) {
+                    Text(
+                        text = result.confirmedDeltaReason,
+                        color = MasaryColors.muted,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                    Text("العودة")
+                }
+            }
         }
     }
 }
