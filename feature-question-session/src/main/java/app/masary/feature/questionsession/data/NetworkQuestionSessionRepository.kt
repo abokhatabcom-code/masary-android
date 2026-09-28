@@ -8,12 +8,14 @@ import app.masary.core.local.StudentLocalStore
 import app.masary.core.models.auth.AuthTokens
 import app.masary.core.network.auth.StudentAuthApi
 import app.masary.core.network.auth.StudentRefreshRequestDto
+import app.masary.core.network.question.QuestionAnswerRequestDto
 import app.masary.core.network.question.QuestionSessionPackageDataDto
 import app.masary.core.network.question.QuestionSessionQuestionDto
 import app.masary.core.network.question.StudentQuestionSessionApi
 import app.masary.feature.questionsession.domain.ConnectItem
 import app.masary.feature.questionsession.domain.ConnectAnswerPair
 import app.masary.feature.questionsession.domain.QuestionAnswerInput
+import app.masary.feature.questionsession.domain.QuestionAnswerSyncSummary
 import app.masary.feature.questionsession.domain.QuestionItem
 import app.masary.feature.questionsession.domain.QuestionOption
 import app.masary.feature.questionsession.domain.QuestionPayload
@@ -179,6 +181,137 @@ class NetworkQuestionSessionRepository(
                 else -> QuestionSessionServiceException("تعذر حفظ الإجابة محليًا.", error)
             }
         }
+    }
+
+    override suspend fun syncPendingAnswers(): Result<QuestionAnswerSyncSummary> {
+        val studentId = sessionManager.session.first()?.id
+            ?: return Result.failure(QuestionSessionExpiredException("انتهت جلسة الدخول."))
+
+        return runCatching {
+            localStore.recoverInterruptedOperations(studentId)
+            val ready = localStore.readyOperations(
+                studentId = studentId,
+                limit = 50,
+            ).filter { it.type == "question_answer" }
+
+            if (ready.isEmpty()) {
+                return@runCatching QuestionAnswerSyncSummary(
+                    attempted = 0,
+                    confirmed = 0,
+                    retryScheduled = 0,
+                )
+            }
+
+            var tokens = sessionManager.readTokens()
+                ?: throw QuestionSessionExpiredException("انتهت جلسة الدخول.")
+            if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
+                tokens = refreshTokens(tokens.refreshToken)
+            }
+
+            var attempted = 0
+            var confirmed = 0
+            var retryScheduled = 0
+
+            for (operation in ready) {
+                attempted += 1
+                localStore.markOperationSyncing(operation.operationId)
+                try {
+                    val request = operation.toAnswerRequest()
+                    val result = try {
+                        requestAnswer(tokens, operation.operationId, request)
+                    } catch (error: HttpException) {
+                        if (error.code() != 401) throw error
+                        tokens = refreshTokens(tokens.refreshToken)
+                        requestAnswer(tokens, operation.operationId, request)
+                    }
+
+                    if (result.sessionId != request.sessionId ||
+                        result.questionId != request.questionId ||
+                        !result.accepted
+                    ) {
+                        throw QuestionSessionServiceException(
+                            "تعذر التحقق من تأكيد الإجابة من الخادم.",
+                        )
+                    }
+
+                    localStore.markOperationConfirmed(operation.operationId)
+                    confirmed += 1
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    val mapped = mapFailure(error)
+                    localStore.markOperationFailed(
+                        operationId = operation.operationId,
+                        error = mapped.message,
+                    )
+                    retryScheduled += 1
+                    // Preserve local answer order. A later run resumes from this exact operation_id.
+                    break
+                }
+            }
+
+            QuestionAnswerSyncSummary(
+                attempted = attempted,
+                confirmed = confirmed,
+                retryScheduled = retryScheduled,
+            )
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw mapFailure(error)
+        }
+    }
+
+    private suspend fun requestAnswer(
+        tokens: AuthTokens,
+        idempotencyKey: String,
+        request: QuestionAnswerRequestDto,
+    ) = questionApi.submitAnswer(
+        authorization = "Bearer ${tokens.accessToken}",
+        idempotencyKey = idempotencyKey,
+        request = request,
+    ).let { response ->
+        val data = response.data
+        if (!response.success || data == null) {
+            val message = response.error?.message.orEmpty()
+            when (response.error?.code.orEmpty()) {
+                "unauthorized", "invalid_refresh_token", "refresh_expired" ->
+                    throw QuestionSessionExpiredException(
+                        message.ifBlank { "انتهت جلسة الدخول." },
+                    )
+                "activity_session_expired", "activity_session_abandoned" ->
+                    throw QuestionSessionExpiredException(
+                        message.ifBlank { "انتهت صلاحية جلسة النشاط." },
+                    )
+                "activity_session_not_found", "invalid_session", "question_not_found" ->
+                    throw QuestionSessionNotFoundException(
+                        message.ifBlank { "الإجابة لا تنتمي إلى جلسة صالحة." },
+                    )
+                else -> throw QuestionSessionServiceException(
+                    message.ifBlank { "تعذر مزامنة الإجابة الآن." },
+                )
+            }
+        }
+        data
+    }
+
+    private fun PendingOperationEntity.toAnswerRequest(): QuestionAnswerRequestDto {
+        val payload = try {
+            gson.fromJson(payloadJson, JsonObject::class.java)
+        } catch (error: Exception) {
+            throw QuestionSessionServiceException("بيانات الإجابة المحلية غير صالحة.", error)
+        }
+        val sessionId = payload.string("session_id")
+        val questionId = payload.string("question_id")
+        val answer = payload.getAsJsonObject("answer")
+            ?: throw QuestionSessionServiceException("الإجابة المحلية مفقودة.")
+        if (sessionId.length !in 8..128 || questionId.isBlank()) {
+            throw QuestionSessionServiceException("هوية الإجابة المحلية غير صالحة.")
+        }
+        return QuestionAnswerRequestDto(
+            sessionId = sessionId,
+            questionId = questionId,
+            answer = answer.deepCopy(),
+        )
     }
 
     private suspend fun requestPackage(
