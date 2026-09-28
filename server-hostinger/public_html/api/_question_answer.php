@@ -187,12 +187,35 @@ function api_question_answer_resolve_normalized_source(
     return null;
 }
 
+function api_question_answer_resolve_lesson_practice_source(
+    PDO $pdo,
+    array $session,
+    string $questionId,
+): array {
+    foreach (['choose', 'truefalse', 'fill', 'connect'] as $questionType) {
+        $source = api_question_answer_resolve_normalized_source(
+            $pdo,
+            $session,
+            $questionType,
+            $questionId,
+        );
+        if ($source !== null) {
+            return $source;
+        }
+    }
+    api_error('question_not_found', 'السؤال غير متاح داخل درس هذه الجلسة.', 404);
+}
+
 function api_question_answer_resolve_source(
     PDO $pdo,
     array $session,
     string $questionId,
 ): array {
     $activityType = (string)($session['activity_type'] ?? '');
+    if ($activityType === 'lesson_practice') {
+        return api_question_answer_resolve_lesson_practice_source($pdo, $session, $questionId);
+    }
+
     $questionType = api_question_session_question_type($activityType);
     $definition = api_question_session_tool_definition($activityType);
     if ($questionType === null || $definition === null || !empty($definition['review'])) {
