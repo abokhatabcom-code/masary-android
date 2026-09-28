@@ -90,11 +90,39 @@ data class QuestionSessionScoreDto(
     @SerializedName("score_percent") val scorePercent: Int = 0,
 )
 
+data class QuestionConfirmedProfileDeltaDto(
+    @SerializedName("global_xp") val globalXp: Int? = null,
+    val gems: Int? = null,
+    val level: Int? = null,
+    @SerializedName("level_progress_percent") val levelProgressPercent: Int? = null,
+    @SerializedName("level_next_xp") val levelNextXp: Int? = null,
+    @SerializedName("today_xp") val todayXp: Int? = null,
+    @SerializedName("today_seconds") val todaySeconds: Int? = null,
+    @SerializedName("today_minutes") val todayMinutes: Int? = null,
+    @SerializedName("today_attempts") val todayAttempts: Int? = null,
+    @SerializedName("streak_current_days") val streakCurrentDays: Int? = null,
+    @SerializedName("unread_notifications") val unreadNotifications: Int? = null,
+    @SerializedName("smart_guide_completed_steps") val smartGuideCompletedSteps: Int? = null,
+    @SerializedName("smart_guide_total_steps") val smartGuideTotalSteps: Int? = null,
+    @SerializedName("smart_guide_completion_percent") val smartGuideCompletionPercent: Int? = null,
+)
+
+data class QuestionConfirmedSubjectDeltaDto(
+    @SerializedName("subject_version_id") val subjectVersionId: Int = 0,
+    val points: Int? = null,
+    val level: Int? = null,
+    @SerializedName("level_progress_percent") val levelProgressPercent: Int? = null,
+    val hearts: Int? = null,
+)
+
 data class QuestionConfirmedDeltaDto(
     val available: Boolean = false,
     val reason: String = "",
-    val profile: JsonObject? = null,
-    val subjects: List<JsonObject> = emptyList(),
+    @SerializedName("student_id") val studentId: String? = null,
+    val profile: QuestionConfirmedProfileDeltaDto? = null,
+    val subjects: List<QuestionConfirmedSubjectDeltaDto> = emptyList(),
+    @SerializedName("server_version") val serverVersion: String? = null,
+    @SerializedName("confirmed_at_epoch_millis") val confirmedAtEpochMillis: Long? = null,
 )
 
 data class QuestionFinishResultDto(
