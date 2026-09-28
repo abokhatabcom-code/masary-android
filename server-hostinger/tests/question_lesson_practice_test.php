@@ -91,8 +91,27 @@ $pdo->exec("CREATE TABLE questions(
     unit_id INTEGER,
     content_node_id INTEGER,
     type TEXT NOT NULL,
+    difficulty TEXT NOT NULL DEFAULT 'medium',
     question_text TEXT,
     status TEXT NOT NULL
+)");
+$pdo->exec("CREATE TABLE version_test_settings(
+    subject_version_id INTEGER PRIMARY KEY,
+    questions_per_attempt INTEGER NOT NULL DEFAULT 10,
+    allowed_types_json TEXT NOT NULL DEFAULT '[]',
+    allowed_difficulties_json TEXT NOT NULL DEFAULT '[]',
+    question_order TEXT NOT NULL DEFAULT 'random',
+    shuffle_mcq_options INTEGER NOT NULL DEFAULT 1,
+    shuffle_match_right INTEGER NOT NULL DEFAULT 1
+)");
+$pdo->exec("CREATE TABLE unit_test_settings(
+    unit_id INTEGER PRIMARY KEY,
+    questions_per_attempt INTEGER NOT NULL DEFAULT 10,
+    allowed_types_json TEXT NOT NULL DEFAULT '[]',
+    allowed_difficulties_json TEXT NOT NULL DEFAULT '[]',
+    question_order TEXT NOT NULL DEFAULT 'random',
+    shuffle_mcq_options INTEGER NOT NULL DEFAULT 1,
+    shuffle_match_right INTEGER NOT NULL DEFAULT 1
 )");
 $pdo->exec("CREATE TABLE question_mcq_options(
     id INTEGER PRIMARY KEY,
@@ -129,12 +148,19 @@ $pdo->exec("INSERT INTO lessons VALUES
     (304,25,64,369,1)
 ");
 $pdo->exec("INSERT INTO questions VALUES
-    (3451,25,64,368,'mcq','أي مشكلة إيمانية يشير إليها الدرس؟','active'),
-    (3466,25,64,368,'tf','تعظيم الله يؤثر في السلوك.','active'),
-    (3482,25,64,368,'fill','من آثار الإيمان بعظمة الله الخوف من الله و____ منه.','active'),
-    (3485,25,64,368,'match','صِل وسيلة ترسيخ عظمة الله بالنتيجة المرتبطة بها.','active'),
-    (3999,25,64,369,'mcq','سؤال من درس آخر في نفس الوحدة','active')
+    (3451,25,64,368,'mcq','medium','أي مشكلة إيمانية يشير إليها الدرس؟','active'),
+    (3466,25,64,368,'tf','easy','تعظيم الله يؤثر في السلوك.','active'),
+    (3482,25,64,368,'fill','hard','من آثار الإيمان بعظمة الله الخوف من الله و____ منه.','active'),
+    (3485,25,64,368,'match','medium','صِل وسيلة ترسيخ عظمة الله بالنتيجة المرتبطة بها.','active'),
+    (3999,25,64,369,'mcq','medium','سؤال من درس آخر في نفس الوحدة','active')
 ");
+$pdo->exec("INSERT INTO version_test_settings(
+    subject_version_id,questions_per_attempt,allowed_types_json,allowed_difficulties_json,
+    question_order,shuffle_mcq_options,shuffle_match_right
+) VALUES(
+    25,10,'["tf","mcq","fill","match"]','["easy","medium","hard"]',
+    'fixed',0,0
+)");
 $pdo->exec("INSERT INTO question_mcq_options VALUES
     (1001,3451,'ضعف الحفظ',0,1),
     (1002,3451,'عدم تعظيم الله بالشكل المطلوب',1,2),
@@ -232,5 +258,33 @@ $matchResult = api_question_answer_submit($pdo, ['user_id' => 42], [
     ],
 ], 'lesson-answer-match-0000001');
 lesson_check($matchResult['correct'] === true, 'Lesson mixed match grading failed.');
+
+// Unit override from /admin/tests/ must become authoritative over the version defaults.
+$pdo->exec("INSERT INTO unit_test_settings(
+    unit_id,questions_per_attempt,allowed_types_json,allowed_difficulties_json,
+    question_order,shuffle_mcq_options,shuffle_match_right
+) VALUES(
+    64,1,'["tf","mcq"]','["easy"]','fixed',1,1
+)");
+$pdo->exec("INSERT INTO api_activity_sessions(
+    public_session_id,user_id,subject_version_id,unit_id,lesson_id,
+    activity_type,activity_mode,source,guide_step_id,status,
+    idempotency_key_hash,request_hash,request_json,response_json,destination,
+    heart_debited,gems_debited,expires_at,started_at,completed_at,created_at,updated_at
+) VALUES(
+    'lesson-settings-0002',42,25,64,303,
+    'lesson_practice','learn','lesson',NULL,'created',
+    'keyhash2','requesthash2','{}','{}','activity_session_pending_ui',
+    0,0,'2099-01-01 00:00:00',NULL,NULL,'2026-09-28 00:00:00','2026-09-28 00:00:00'
+)");
+$filtered = api_question_session_package($pdo, ['user_id' => 42], 'lesson-settings-0002');
+lesson_check(
+    count($filtered['questions']) === 1,
+    'Admin questions_per_attempt must limit lesson practice.',
+);
+lesson_check(
+    $filtered['questions'][0]['type'] === 'truefalse',
+    'Admin type and difficulty filters must control lesson practice.',
+);
 
 echo "Lesson practice question tests passed.\n";
