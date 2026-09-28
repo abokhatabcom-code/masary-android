@@ -14,6 +14,9 @@ import app.masary.core.network.auth.StudentRefreshRequestDto
 import app.masary.core.security.TokenStore
 import app.masary.core.security.TokenStoreFactory
 import app.masary.feature.questionsession.data.NetworkQuestionSessionRepository
+import app.masary.feature.questionsession.domain.QuestionSessionNetworkException
+import app.masary.feature.questionsession.domain.QuestionSessionServiceException
+import app.masary.feature.questionsession.domain.QuestionSessionSourceUnavailableException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -118,14 +121,22 @@ class QuestionAnswerSyncWorker(
     }
 
     private fun classifyFailure(error: Throwable): Result = when (error) {
-        is IOException -> Result.retry()
+        is IOException,
+        is QuestionSessionNetworkException,
+        is QuestionSessionSourceUnavailableException,
+        -> retryWithLimit()
+
+        is QuestionSessionServiceException -> retryWithLimit()
         is HttpException -> when {
-            error.code() == 408 || error.code() == 425 || error.code() == 429 -> Result.retry()
-            error.code() >= 500 -> Result.retry()
+            error.code() == 408 || error.code() == 425 || error.code() == 429 -> retryWithLimit()
+            error.code() >= 500 -> retryWithLimit()
             else -> Result.failure()
         }
         else -> Result.failure()
     }
+
+    private fun retryWithLimit(): Result =
+        if (runAttemptCount < 5) Result.retry() else Result.failure()
 }
 
 private class WorkerSessionManager(
