@@ -158,7 +158,7 @@ $pdo->exec("INSERT INTO version_test_settings(
     subject_version_id,questions_per_attempt,allowed_types_json,allowed_difficulties_json,
     question_order,shuffle_mcq_options,shuffle_match_right
 ) VALUES(
-    25,10,'["tf","mcq","fill","match"]','["easy","medium","hard"]',
+    25,10,'[\"tf\",\"mcq\",\"fill\",\"match\"]','[\"easy\",\"medium\",\"hard\"]',
     'fixed',0,0
 )");
 $pdo->exec("INSERT INTO question_mcq_options VALUES
@@ -264,7 +264,7 @@ $pdo->exec("INSERT INTO unit_test_settings(
     unit_id,questions_per_attempt,allowed_types_json,allowed_difficulties_json,
     question_order,shuffle_mcq_options,shuffle_match_right
 ) VALUES(
-    64,1,'["tf","mcq"]','["easy"]','fixed',1,1
+    64,1,'[\"tf\",\"mcq\"]','[\"easy\"]','fixed',1,1
 )");
 $pdo->exec("INSERT INTO api_activity_sessions(
     public_session_id,user_id,subject_version_id,unit_id,lesson_id,
