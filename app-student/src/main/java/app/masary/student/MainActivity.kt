@@ -23,6 +23,7 @@ import app.masary.feature.activitypreparation.ActivityPreparationRepositoryFacto
 import app.masary.feature.auth.data.AuthRepositoryFactory
 import app.masary.feature.home.data.HomeRepositoryFactory
 import app.masary.feature.notifications.*
+import app.masary.feature.questionsession.data.QuestionSessionRepositoryFactory
 import app.masary.feature.subject.data.SubjectRepositoryFactory
 import app.masary.feature.subjects.data.SubjectsRepositoryFactory
 import app.masary.feature.trainingcenter.data.TrainingCenterRepositoryFactory
@@ -122,6 +123,11 @@ class MainActivity : ComponentActivity() {
             BuildConfig.MASARY_API_BASE_URL,
             activityPreparationDataStore,
         )
+        val questionSessionRepository = QuestionSessionRepositoryFactory.create(
+            sessionManager = sessionManager,
+            localStore = localStore,
+            baseUrl = BuildConfig.MASARY_API_BASE_URL,
+        )
 
         setContent {
             MasaryTheme {
@@ -135,6 +141,7 @@ class MainActivity : ComponentActivity() {
                     subjectsRepository = subjectsRepository,
                     subjectRepository = subjectRepository,
                     trainingCenterRepository = trainingCenterRepository,
+                    questionSessionRepository = questionSessionRepository,
                     activityPreparationRepository = activityPreparation.repository,
                     activityPreparationPendingStore = activityPreparation.pendingStore,
                     deviceName = Build.MODEL.ifBlank { "Android" },
