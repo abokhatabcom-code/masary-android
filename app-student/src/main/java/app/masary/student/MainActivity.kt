@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
             activityPreparationDataStore,
         )
         val questionSessionRepository = QuestionSessionRepositoryFactory.create(
+            context = applicationContext,
             sessionManager = sessionManager,
             localStore = localStore,
             baseUrl = BuildConfig.MASARY_API_BASE_URL,
