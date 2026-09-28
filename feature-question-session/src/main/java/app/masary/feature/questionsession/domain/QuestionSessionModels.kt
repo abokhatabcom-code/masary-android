@@ -76,3 +76,20 @@ sealed interface QuestionAnswerInput {
     data class Text(val value: String) : QuestionAnswerInput
     data class Connections(val pairs: List<ConnectAnswerPair>) : QuestionAnswerInput
 }
+
+
+data class QuestionSessionScore(
+    val correctAnswers: Int,
+    val incorrectAnswers: Int,
+    val totalQuestions: Int,
+    val scorePercent: Int,
+)
+
+data class QuestionSessionResult(
+    val sessionId: String,
+    val completedAt: String,
+    val replayed: Boolean,
+    val score: QuestionSessionScore,
+    val confirmedDeltaAvailable: Boolean,
+    val confirmedDeltaReason: String,
+)
