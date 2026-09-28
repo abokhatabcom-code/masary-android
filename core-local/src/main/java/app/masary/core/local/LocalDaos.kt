@@ -136,6 +136,9 @@ interface QuestionSessionDao {
     @Query("SELECT * FROM question_sessions WHERE studentId = :studentId AND status IN ('ready', 'in_progress', 'completed_local') ORDER BY updatedAtEpochMillis DESC LIMIT 1")
     fun observeResumableSession(studentId: String): Flow<QuestionSessionEntity?>
 
+    @Query("SELECT * FROM question_sessions WHERE studentId = :studentId AND status = 'completed_local' ORDER BY updatedAtEpochMillis ASC LIMIT 1")
+    suspend fun readOldestCompletedLocalSession(studentId: String): QuestionSessionEntity?
+
     @Upsert
     suspend fun upsertAnswer(entity: QuestionAnswerEntity)
 
