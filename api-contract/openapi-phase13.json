@@ -767,7 +767,7 @@
           "profile": {
             "anyOf": [
               {
-                "type": "object"
+                "$ref": "#/components/schemas/QuestionConfirmedProfileDelta"
               },
               {
                 "type": "null"
@@ -777,8 +777,34 @@
           "subjects": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/QuestionConfirmedSubjectDelta"
             }
+          },
+          "student_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "server_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirmed_at_epoch_millis": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -839,6 +865,97 @@
           "request_id": {
             "type": "string",
             "minLength": 1
+          }
+        }
+      },
+      "QuestionConfirmedProfileDelta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "global_xp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "gems": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "level_progress_percent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "level_next_xp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "today_xp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "today_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "today_minutes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "today_attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "streak_current_days": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unread_notifications": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "smart_guide_completed_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "smart_guide_total_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "smart_guide_completion_percent": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "QuestionConfirmedSubjectDelta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject_version_id"
+        ],
+        "properties": {
+          "subject_version_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "points": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "level_progress_percent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hearts": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }
