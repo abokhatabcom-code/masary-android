@@ -2,8 +2,10 @@ package app.masary.core.network.question
 
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.POST
 import retrofit2.http.Query
 
 data class QuestionSessionApiErrorDto(
@@ -49,10 +51,45 @@ data class QuestionSessionPackageResponseDto(
     @SerializedName("request_id") val requestId: String = "",
 )
 
+data class QuestionAnswerRequestDto(
+    @SerializedName("session_id") val sessionId: String,
+    @SerializedName("question_id") val questionId: String,
+    val answer: JsonObject,
+)
+
+data class QuestionAnswerProgressDto(
+    val answered: Int = 0,
+    @SerializedName("total_questions") val totalQuestions: Int = 0,
+    @SerializedName("all_answered") val allAnswered: Boolean = false,
+)
+
+data class QuestionAnswerResultDto(
+    @SerializedName("session_id") val sessionId: String = "",
+    @SerializedName("question_id") val questionId: String = "",
+    val accepted: Boolean = false,
+    val correct: Boolean = false,
+    val replayed: Boolean = false,
+    val progress: QuestionAnswerProgressDto = QuestionAnswerProgressDto(),
+)
+
+data class QuestionAnswerResponseDto(
+    val success: Boolean = false,
+    val data: QuestionAnswerResultDto? = null,
+    val error: QuestionSessionApiErrorDto? = null,
+    @SerializedName("request_id") val requestId: String = "",
+)
+
 interface StudentQuestionSessionApi {
     @GET("/api/v1/student/activity/session")
     suspend fun sessionPackage(
         @Header("Authorization") authorization: String,
         @Query("session_id") sessionId: String,
     ): QuestionSessionPackageResponseDto
+
+    @POST("/api/v1/student/activity/answer")
+    suspend fun submitAnswer(
+        @Header("Authorization") authorization: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: QuestionAnswerRequestDto,
+    ): QuestionAnswerResponseDto
 }
