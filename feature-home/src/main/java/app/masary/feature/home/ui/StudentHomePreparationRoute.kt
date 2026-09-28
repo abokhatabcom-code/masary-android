@@ -152,10 +152,19 @@ fun StudentHomeRoute(
     }
 
     fun navigate(destination: StudentDestination) {
-        navController.navigate(destination) {
-            launchSingleTop = true
-            popUpTo(StudentDestination.Home) { saveState = true }
-            restoreState = true
+        if (destination is StudentDestination.SubjectDetails) {
+            // Subject details are parameterized pages. Never restore another subject's saved
+            // destination state merely because both pages share the same route type.
+            navController.navigate(destination) {
+                launchSingleTop = true
+                restoreState = false
+            }
+        } else {
+            navController.navigate(destination) {
+                launchSingleTop = true
+                popUpTo(StudentDestination.Home) { saveState = true }
+                restoreState = true
+            }
         }
     }
 
@@ -205,6 +214,19 @@ fun StudentHomeRoute(
         -> null
     }
 
+    fun subjectDestination(
+        subjectVersionId: Int,
+        explicitName: String = "",
+        explicitCurriculum: String = "",
+    ): StudentDestination.SubjectDetails {
+        val summary = data?.subjects?.firstOrNull { it.subjectVersionId == subjectVersionId }
+        return StudentDestination.SubjectDetails(
+            subjectVersionId = subjectVersionId,
+            subjectName = explicitName.ifBlank { summary?.name.orEmpty() },
+            curriculumLabel = explicitCurriculum,
+        )
+    }
+
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
             containerColor = MasaryColors.background,
@@ -234,7 +256,9 @@ fun StudentHomeRoute(
                         onGuide = { navigate(StudentDestination.Guide) },
                         onStep = ::prepare,
                         onSubjects = { navigate(StudentDestination.Subjects) },
-                        onSubject = { navigate(StudentDestination.SubjectDetails(it)) },
+                        onSubject = { subjectVersionId ->
+                            navigate(subjectDestination(subjectVersionId))
+                        },
                         onProfile = { navigate(StudentDestination.Profile) },
                     )
                 }
@@ -246,9 +270,15 @@ fun StudentHomeRoute(
                 composable<StudentDestination.Subjects> {
                     StudentSubjectsRoute(
                         repository = subjectsRepository,
-                        onSubject = { subjectVersionId ->
+                        onSubject = { subjectVersionId, subjectName, curriculumLabel ->
                             if (subjectVersionId > 0) {
-                                navigate(StudentDestination.SubjectDetails(subjectVersionId))
+                                navigate(
+                                    subjectDestination(
+                                        subjectVersionId = subjectVersionId,
+                                        explicitName = subjectName,
+                                        explicitCurriculum = curriculumLabel,
+                                    ),
+                                )
                             }
                         },
                         onSessionExpired = onLogout,
@@ -272,6 +302,8 @@ fun StudentHomeRoute(
                     StudentSubjectRoute(
                         subjectVersionId = destination.subjectVersionId,
                         repository = subjectRepository,
+                        subjectName = destination.subjectName,
+                        curriculumLabel = destination.curriculumLabel,
                         onBack = { navController.popBackStack() },
                         onSessionExpired = onLogout,
                         onTrainingCenter = { subjectVersionId ->

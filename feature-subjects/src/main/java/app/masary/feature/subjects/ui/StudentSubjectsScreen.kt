@@ -62,7 +62,7 @@ import app.masary.feature.subjects.domain.SubjectsRepository
 fun StudentSubjectsRoute(
     repository: SubjectsRepository,
     onSessionExpired: () -> Unit,
-    onSubject: (Int) -> Unit,
+    onSubject: (subjectVersionId: Int, subjectName: String, curriculumLabel: String) -> Unit,
 ) {
     val subjectsViewModel: StudentSubjectsViewModel = viewModel(
         factory = StudentSubjectsViewModelFactory(repository),
@@ -142,7 +142,7 @@ private fun SubjectsContent(
     isRefreshing: Boolean,
     refreshMessage: String?,
     onRefresh: () -> Unit,
-    onSubject: (Int) -> Unit,
+    onSubject: (subjectVersionId: Int, subjectName: String, curriculumLabel: String) -> Unit,
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -238,13 +238,18 @@ private fun EmptySubjects(reason: String) {
 }
 
 @Composable
-private fun SubjectCard(subject: StudentSubject, onSubject: (Int) -> Unit) {
+private fun SubjectCard(
+    subject: StudentSubject,
+    onSubject: (subjectVersionId: Int, subjectName: String, curriculumLabel: String) -> Unit,
+) {
     val blocked = subject.access.available && subject.access.status == SubjectAccessStatus.Blocked
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = !blocked) {
-                if (subject.subjectVersionId > 0) onSubject(subject.subjectVersionId)
+                if (subject.subjectVersionId > 0) {
+                    onSubject(subject.subjectVersionId, subject.name, subject.curriculumLabel)
+                }
             },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),

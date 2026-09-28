@@ -57,11 +57,75 @@ class StudentSubjectViewModelTest {
         runCurrent()
         val cachedState = viewModel.state.value as SubjectUiState.Content
         assertEquals("cached", cachedState.data.version)
-        assertTrue(cachedState.isRefreshing)
+        assertEquals(false, cachedState.isRefreshing)
 
         response.complete(Result.success(fresh))
         runCurrent()
         assertEquals("fresh", (viewModel.state.value as SubjectUiState.Content).data.version)
+    }
+
+    @Test
+    fun `mismatched cached subject is never displayed while requested subject loads`() = runTest(dispatcher) {
+        val wrongCached = subject("wrong").copy(
+            subjectVersionId = 13,
+            identity = subject("wrong").identity.copy(name = "التربية الإسلامية"),
+        )
+        val response = CompletableDeferred<Result<StudentSubjectPage>>()
+        val viewModel = StudentSubjectViewModel(
+            subjectVersionId = 12,
+            repository = object : SubjectRepository {
+                override fun observeLiveState() = flowOf(StudentLiveState())
+                override suspend fun loadSnapshot(subjectVersionId: Int) = wrongCached
+                override suspend fun loadSubject(subjectVersionId: Int) = response.await()
+                override suspend fun clearSnapshots() = Unit
+            },
+            requestedSubjectName = "الأحياء",
+        )
+
+        runCurrent()
+
+        val loading = viewModel.state.value as SubjectUiState.Loading
+        assertEquals(12, loading.subjectVersionId)
+        assertEquals("الأحياء", loading.subjectName)
+
+        response.complete(Result.success(subject("fresh").copy(
+            identity = subject("fresh").identity.copy(name = "الأحياء"),
+        )))
+        runCurrent()
+
+        val content = viewModel.state.value as SubjectUiState.Content
+        assertEquals(12, content.data.subjectVersionId)
+        assertEquals("الأحياء", content.data.identity.name)
+    }
+
+    @Test
+    fun `mismatched server response cannot replace correct cached subject`() = runTest(dispatcher) {
+        val cached = subject("cached").copy(
+            identity = subject("cached").identity.copy(name = "الأحياء"),
+            snapshot = SubjectSnapshotMetadata(1L),
+        )
+        val response = CompletableDeferred<Result<StudentSubjectPage>>()
+        val viewModel = StudentSubjectViewModel(12, object : SubjectRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
+            override suspend fun loadSnapshot(subjectVersionId: Int) = cached
+            override suspend fun loadSubject(subjectVersionId: Int) = response.await()
+            override suspend fun clearSnapshots() = Unit
+        })
+
+        runCurrent()
+        response.complete(
+            Result.success(
+                subject("wrong").copy(
+                    subjectVersionId = 13,
+                    identity = subject("wrong").identity.copy(name = "التربية الإسلامية"),
+                ),
+            ),
+        )
+        runCurrent()
+
+        val content = viewModel.state.value as SubjectUiState.Content
+        assertEquals(12, content.data.subjectVersionId)
+        assertEquals("الأحياء", content.data.identity.name)
     }
 
     @Test

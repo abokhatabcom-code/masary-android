@@ -80,6 +80,8 @@ import java.util.Date
 fun StudentSubjectRoute(
     subjectVersionId: Int,
     repository: SubjectRepository,
+    subjectName: String = "",
+    curriculumLabel: String = "",
     onBack: () -> Unit,
     onSessionExpired: () -> Unit,
     onTrainingCenter: (Int) -> Unit,
@@ -87,7 +89,12 @@ fun StudentSubjectRoute(
 ) {
     val subjectViewModel: StudentSubjectViewModel = viewModel(
         key = "subject-$subjectVersionId",
-        factory = StudentSubjectViewModelFactory(subjectVersionId, repository),
+        factory = StudentSubjectViewModelFactory(
+            subjectVersionId = subjectVersionId,
+            repository = repository,
+            subjectName = subjectName,
+            curriculumLabel = curriculumLabel,
+        ),
     )
     val state by subjectViewModel.state.collectAsStateWithLifecycle()
 
@@ -97,9 +104,16 @@ fun StudentSubjectRoute(
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         when (val current = state) {
-            SubjectUiState.Loading,
-            SubjectUiState.SessionExpired,
-            -> SubjectLoading(onBack)
+            is SubjectUiState.Loading -> SubjectLoading(
+                onBack = onBack,
+                subjectName = current.subjectName,
+                curriculumLabel = current.curriculumLabel,
+            )
+            SubjectUiState.SessionExpired -> SubjectLoading(
+                onBack = onBack,
+                subjectName = subjectName,
+                curriculumLabel = curriculumLabel,
+            )
 
             is SubjectUiState.NotFound -> SubjectMessage(
                 title = stringResource(R.string.subject_not_found),
@@ -115,15 +129,25 @@ fun StudentSubjectRoute(
                 onRetry = subjectViewModel::refresh,
             )
 
-            is SubjectUiState.Content -> SubjectContent(
-                data = current.data,
-                isRefreshing = current.isRefreshing,
-                refreshMessage = current.refreshMessage,
-                onRefresh = subjectViewModel::refresh,
-                onBack = onBack,
-                onTrainingCenter = onTrainingCenter,
-                onLessonPreparation = onLessonPreparation,
-            )
+            is SubjectUiState.Content -> {
+                if (current.data.subjectVersionId != subjectVersionId) {
+                    SubjectLoading(
+                        onBack = onBack,
+                        subjectName = subjectName,
+                        curriculumLabel = curriculumLabel,
+                    )
+                } else {
+                    SubjectContent(
+                        data = current.data,
+                        isRefreshing = current.isRefreshing,
+                        refreshMessage = current.refreshMessage,
+                        onRefresh = subjectViewModel::refresh,
+                        onBack = onBack,
+                        onTrainingCenter = onTrainingCenter,
+                        onLessonPreparation = onLessonPreparation,
+                    )
+                }
+            }
         }
     }
 }
@@ -963,8 +987,12 @@ private fun SubjectBanner(message: String) {
 }
 
 @Composable
-private fun SubjectLoading(onBack: () -> Unit) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+private fun SubjectLoading(
+    onBack: () -> Unit,
+    subjectName: String,
+    curriculumLabel: String,
+) {
+    Box(Modifier.fillMaxSize()) {
         IconButton(
             onClick = onBack,
             modifier = Modifier
@@ -976,12 +1004,41 @@ private fun SubjectLoading(onBack: () -> Unit) {
                 contentDescription = stringResource(R.string.subject_back),
             )
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            MasaryBrandMark(size = 72.dp)
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            MasaryBrandMark(size = 64.dp)
             Spacer(Modifier.height(16.dp))
-            CircularProgressIndicator(color = MasaryColors.brandGold)
+            Text(
+                text = subjectName.ifBlank { stringResource(R.string.subject_loading) },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MasaryColors.brandNavy,
+                textAlign = TextAlign.Center,
+            )
+            curriculumLabel.takeIf(String::isNotBlank)?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = it,
+                    color = MasaryColors.muted,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Spacer(Modifier.height(18.dp))
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = MasaryColors.brandGold,
+                trackColor = MasaryColors.border,
+            )
             Spacer(Modifier.height(10.dp))
-            Text(stringResource(R.string.subject_loading), color = MasaryColors.muted)
+            Text(
+                text = stringResource(R.string.subject_background_loading),
+                color = MasaryColors.muted,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }

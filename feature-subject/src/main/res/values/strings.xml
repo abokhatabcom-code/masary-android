@@ -2,6 +2,7 @@
 <resources>
     <string name="subject_back">رجوع</string>
     <string name="subject_loading">جاري تحميل المادة…</string>
+    <string name="subject_background_loading">نجهّز هذه المادة فقط، وأي تحديث لاحق سيظهر داخل الصفحة بدون إعادة تحميلها.</string>
     <string name="subject_load_error">تعذر تحميل المادة</string>
     <string name="subject_not_found">المادة غير متاحة</string>
     <string name="subject_retry">إعادة المحاولة</string>
