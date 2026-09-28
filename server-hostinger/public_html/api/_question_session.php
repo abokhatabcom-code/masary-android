@@ -5,7 +5,7 @@ require_once __DIR__ . '/_student_training_center.php';
 require_once __DIR__ . '/_activity_preparation.php';
 require_once __DIR__ . '/_activity_preparation_lifecycle.php';
 
-const API_QUESTION_SESSION_MAX_QUESTIONS = 50;
+const API_QUESTION_SESSION_MAX_QUESTIONS = 60;
 
 function api_question_session_public_id(string $value): string
 {
@@ -100,6 +100,125 @@ function api_question_session_question_type(string $activityType): ?string
         'speed_test' => 'speed',
         default => null,
     };
+}
+
+function api_question_session_default_test_settings(): array
+{
+    return [
+        'questions_per_attempt' => 10,
+        'allowed_types' => ['tf', 'mcq', 'fill', 'direct', 'match'],
+        'allowed_difficulties' => ['easy', 'medium', 'hard'],
+        'question_order' => 'random',
+        'shuffle_mcq_options' => 1,
+        'shuffle_match_right' => 1,
+    ];
+}
+
+function api_question_session_merge_test_settings(array $base, array $row): array
+{
+    if ($row === []) {
+        return $base;
+    }
+    $types = json_decode((string)($row['allowed_types_json'] ?? '[]'), true);
+    $difficulties = json_decode((string)($row['allowed_difficulties_json'] ?? '[]'), true);
+
+    $base['questions_per_attempt'] = max(
+        1,
+        min(
+            API_QUESTION_SESSION_MAX_QUESTIONS,
+            (int)($row['questions_per_attempt'] ?? $base['questions_per_attempt']),
+        ),
+    );
+    if (is_array($types) && $types !== []) {
+        $base['allowed_types'] = array_values(array_unique(array_map('strval', $types)));
+    }
+    if (is_array($difficulties) && $difficulties !== []) {
+        $base['allowed_difficulties'] = array_values(
+            array_unique(array_map('strval', $difficulties)),
+        );
+    }
+    $base['question_order'] = (string)($row['question_order'] ?? $base['question_order']) === 'fixed'
+        ? 'fixed'
+        : 'random';
+    foreach (['shuffle_mcq_options', 'shuffle_match_right'] as $key) {
+        if (array_key_exists($key, $row)) {
+            $base[$key] = (int)$row[$key] === 1 ? 1 : 0;
+        }
+    }
+    return $base;
+}
+
+function api_question_session_test_setting_row(
+    PDO $pdo,
+    string $table,
+    string $keyColumn,
+    int $keyValue,
+): array {
+    if ($keyValue <= 0 || !in_array($table, ['version_test_settings', 'unit_test_settings'], true)) {
+        return [];
+    }
+    try {
+        $statement = $pdo->prepare(
+            'SELECT * FROM ' . $table . ' WHERE ' . $keyColumn . '=? LIMIT 1',
+        );
+        $statement->execute([$keyValue]);
+        return $statement->fetch(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable) {
+        return [];
+    }
+}
+
+function api_question_session_lesson_settings(PDO $pdo, array $session): array
+{
+    $settings = api_question_session_default_test_settings();
+    $subjectVersionId = (int)($session['subject_version_id'] ?? 0);
+    $unitId = (int)($session['unit_id'] ?? 0);
+
+    $settings = api_question_session_merge_test_settings(
+        $settings,
+        api_question_session_test_setting_row(
+            $pdo,
+            'version_test_settings',
+            'subject_version_id',
+            $subjectVersionId,
+        ),
+    );
+    $settings = api_question_session_merge_test_settings(
+        $settings,
+        api_question_session_test_setting_row(
+            $pdo,
+            'unit_test_settings',
+            'unit_id',
+            $unitId,
+        ),
+    );
+    return $settings;
+}
+
+function api_question_session_lesson_allowed_question_types(array $settings): array
+{
+    $map = [
+        'mcq' => 'choose',
+        'tf' => 'truefalse',
+        'fill' => 'fill',
+        'match' => 'connect',
+    ];
+    $allowed = [];
+    foreach ((array)($settings['allowed_types'] ?? []) as $adminType) {
+        $wireType = $map[strtolower(trim((string)$adminType))] ?? null;
+        if ($wireType !== null && !in_array($wireType, $allowed, true)) {
+            $allowed[] = $wireType;
+        }
+    }
+    return $allowed;
+}
+
+function api_question_session_stable_sort_key(
+    string $sessionId,
+    string $scope,
+    string $value,
+): string {
+    return hash_hmac('sha256', $sessionId . '|' . $scope . '|' . $value, api_server_secret());
 }
 
 function api_question_session_opaque_id(
@@ -380,6 +499,7 @@ function api_question_session_normalized_rows(
     PDO $pdo,
     array $session,
     string $questionType,
+    ?array $settings = null,
 ): ?array {
     $columns = api_question_session_columns($pdo, 'questions');
     foreach (['id', 'type', 'question_text'] as $required) {
@@ -408,6 +528,22 @@ function api_question_session_normalized_rows(
     if (isset($columns['is_active'])) {
         $where[] = 'q.is_active=1';
     }
+    if ($settings !== null && isset($columns['difficulty'])) {
+        $difficulties = array_values(
+            array_filter(
+                array_map(
+                    static fn(mixed $value): string => strtolower(trim((string)$value)),
+                    (array)($settings['allowed_difficulties'] ?? []),
+                ),
+                static fn(string $value): bool => $value !== '',
+            ),
+        );
+        if ($difficulties !== []) {
+            $where[] = 'LOWER(TRIM(q.difficulty)) IN ('
+                . implode(',', array_fill(0, count($difficulties), '?')) . ')';
+            array_push($params, ...$difficulties);
+        }
+    }
 
     try {
         $statement = $pdo->prepare(
@@ -428,6 +564,7 @@ function api_question_session_normalized_mcq_options(
     PDO $pdo,
     string $sessionId,
     string $questionId,
+    bool $shuffle = false,
 ): array {
     $columns = api_question_session_columns($pdo, 'question_mcq_options');
     if (!isset($columns['id'], $columns['question_id'], $columns['option_text'])) {
@@ -456,7 +593,28 @@ function api_question_session_normalized_mcq_options(
                 'text' => $text,
             ];
         }
-        return count($options) >= 2 ? $options : [];
+        if (count($options) < 2) {
+            return [];
+        }
+        if ($shuffle) {
+            usort(
+                $options,
+                static fn(array $left, array $right): int =>
+                    strcmp(
+                        api_question_session_stable_sort_key(
+                            $sessionId,
+                            'mcq:' . $questionId,
+                            (string)$left['id'],
+                        ),
+                        api_question_session_stable_sort_key(
+                            $sessionId,
+                            'mcq:' . $questionId,
+                            (string)$right['id'],
+                        ),
+                    ),
+            );
+        }
+        return $options;
     } catch (Throwable) {
         return [];
     }
@@ -509,6 +667,7 @@ function api_question_session_normalized_match_pairs(
     PDO $pdo,
     string $sessionId,
     string $questionId,
+    bool $shuffleRight = true,
 ): ?array {
     $columns = api_question_session_columns($pdo, 'question_match_pairs');
     if (
@@ -554,10 +713,27 @@ function api_question_session_normalized_match_pairs(
         if (count($leftItems) < 2 || count($leftItems) !== count($rightItems)) {
             return null;
         }
+        if ($shuffleRight) {
+            usort(
+                $rightItems,
+                static fn(array $left, array $right): int =>
+                    strcmp(
+                        api_question_session_stable_sort_key(
+                            $sessionId,
+                            'match:' . $questionId,
+                            (string)$left['id'],
+                        ),
+                        api_question_session_stable_sort_key(
+                            $sessionId,
+                            'match:' . $questionId,
+                            (string)$right['id'],
+                        ),
+                    ),
+            );
+        }
         return [
             'left_items' => $leftItems,
-            // Do not preserve source pair order on the right side.
-            'right_items' => array_reverse($rightItems),
+            'right_items' => $rightItems,
         ];
     } catch (Throwable) {
         return null;
@@ -568,8 +744,10 @@ function api_question_session_normalized_questions(
     PDO $pdo,
     array $session,
     string $questionType,
+    ?array $settings = null,
+    bool $includeSourceMeta = false,
 ): ?array {
-    $rows = api_question_session_normalized_rows($pdo, $session, $questionType);
+    $rows = api_question_session_normalized_rows($pdo, $session, $questionType, $settings);
     if ($rows === null) {
         return null;
     }
@@ -589,6 +767,7 @@ function api_question_session_normalized_questions(
                 $pdo,
                 $sessionId,
                 $rowId,
+                (int)($settings['shuffle_mcq_options'] ?? 0) === 1,
             );
             if ($options === []) {
                 continue;
@@ -618,6 +797,8 @@ function api_question_session_normalized_questions(
                 $pdo,
                 $sessionId,
                 $rowId,
+                $settings === null
+                    || (int)($settings['shuffle_match_right'] ?? 1) === 1,
             );
             if ($matchPayload === null) {
                 continue;
@@ -625,12 +806,16 @@ function api_question_session_normalized_questions(
             $payload = $matchPayload;
         }
 
-        $questions[] = [
+        $question = [
             'id' => api_question_session_opaque_id($sessionId, 'questions', $rowId),
             'type' => $questionType,
             'prompt' => $prompt,
             'payload' => $payload,
         ];
+        if ($includeSourceMeta) {
+            $question['_source_id'] = (int)$rowId;
+        }
+        $questions[] = $question;
     }
     return $questions;
 }
@@ -647,40 +832,77 @@ function api_question_session_lesson_practice_questions(
         );
     }
 
-    $buckets = [];
-    foreach (['choose', 'truefalse', 'fill', 'connect'] as $questionType) {
-        $questions = api_question_session_normalized_questions($pdo, $session, $questionType);
-        $buckets[$questionType] = is_array($questions) ? array_values($questions) : [];
-    }
-
-    // Deterministic round-robin keeps lesson practice mixed even when one type has many rows.
-    $mixed = [];
-    $index = 0;
-    while (count($mixed) < API_QUESTION_SESSION_MAX_QUESTIONS) {
-        $added = false;
-        foreach (['choose', 'truefalse', 'fill', 'connect'] as $questionType) {
-            if (isset($buckets[$questionType][$index])) {
-                $mixed[] = $buckets[$questionType][$index];
-                $added = true;
-                if (count($mixed) >= API_QUESTION_SESSION_MAX_QUESTIONS) {
-                    break;
-                }
-            }
-        }
-        if (!$added) {
-            break;
-        }
-        $index += 1;
-    }
-
-    if ($mixed === []) {
+    $settings = api_question_session_lesson_settings($pdo, $session);
+    $allowedQuestionTypes = api_question_session_lesson_allowed_question_types($settings);
+    if ($allowedQuestionTypes === []) {
         api_error(
             'question_source_unavailable',
-            'لا توجد أسئلة مدعومة ومؤكدة لهذا الدرس.',
+            'إعدادات الاختبار الحالية لا تسمح بأنواع أسئلة يدعمها تطبيق الطالب.',
             503,
         );
     }
-    return $mixed;
+
+    $questions = [];
+    foreach ($allowedQuestionTypes as $questionType) {
+        $bucket = api_question_session_normalized_questions(
+            $pdo,
+            $session,
+            $questionType,
+            $settings,
+            true,
+        );
+        if (is_array($bucket) && $bucket !== []) {
+            array_push($questions, ...$bucket);
+        }
+    }
+
+    if ($questions === []) {
+        api_error(
+            'question_source_unavailable',
+            'لا توجد أسئلة مدعومة ومؤكدة لهذا الدرس وفق إعدادات الاختبار الحالية.',
+            503,
+        );
+    }
+
+    $sessionId = (string)($session['public_session_id'] ?? '');
+    if ((string)($settings['question_order'] ?? 'random') === 'fixed') {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                ((int)($left['_source_id'] ?? 0)) <=> ((int)($right['_source_id'] ?? 0)),
+        );
+    } else {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                strcmp(
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'lesson-order',
+                        (string)($left['_source_id'] ?? ''),
+                    ),
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'lesson-order',
+                        (string)($right['_source_id'] ?? ''),
+                    ),
+                ),
+        );
+    }
+
+    $limit = max(
+        1,
+        min(
+            API_QUESTION_SESSION_MAX_QUESTIONS,
+            (int)($settings['questions_per_attempt'] ?? 10),
+        ),
+    );
+    $questions = array_slice($questions, 0, $limit);
+    foreach ($questions as &$question) {
+        unset($question['_source_id']);
+    }
+    unset($question);
+    return $questions;
 }
 
 function api_question_session_questions(PDO $pdo, array $session): array
