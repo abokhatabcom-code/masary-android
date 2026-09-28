@@ -200,6 +200,46 @@ class RoomStudentLocalStoreTest {
     }
 
     @Test
+    fun offlineQuestionAnswerProgressAndPendingOperationSurviveDatabaseReopen() = runTest {
+        val session = questionSession("session-offline", STUDENT_A)
+        val operation = operation("offline-answer-op", STUDENT_A).copy(
+            payloadJson = """{"session_id":"session-offline","question_id":"q1"}""",
+        )
+        store.saveQuestionSession(session)
+
+        store.recordQuestionAnswer(
+            answer = QuestionAnswerEntity(
+                studentId = STUDENT_A,
+                sessionId = session.sessionId,
+                questionId = "q1",
+                answerJson = """{"kind":"choice","option_id":"opaque-option"}""",
+                localSequence = 1,
+                answeredAtEpochMillis = 500L,
+            ),
+            nextQuestionIndex = 1,
+            sessionStatus = "in_progress",
+            operation = operation,
+        )
+
+        database.close()
+        openDatabase()
+
+        val restoredSession =
+            database.questionSessionDao().readSession(STUDENT_A, session.sessionId)
+        val restoredAnswers = store.readQuestionAnswers(STUDENT_A, session.sessionId)
+        val restoredOperations = store.readyOperations(
+            studentId = STUDENT_A,
+            nowEpochMillis = 10_000L,
+            limit = 10,
+        )
+
+        assertEquals(1, restoredSession?.currentQuestionIndex)
+        assertEquals("q1", restoredAnswers.single().questionId)
+        assertEquals("offline-answer-op", restoredOperations.single().operationId)
+        assertEquals("question_answer", restoredOperations.single().type)
+    }
+
+    @Test
     fun syncingOperationSurvivesDatabaseReopenAndRecoversWithSameId() = runTest {
         store.enqueueOperation(operation("stable-operation", STUDENT_A))
         store.markOperationSyncing("stable-operation", nowEpochMillis = 1_000L)
