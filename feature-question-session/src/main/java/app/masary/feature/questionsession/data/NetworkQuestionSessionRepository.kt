@@ -9,6 +9,8 @@ import app.masary.core.models.auth.AuthTokens
 import app.masary.core.network.auth.StudentAuthApi
 import app.masary.core.network.auth.StudentRefreshRequestDto
 import app.masary.core.network.question.QuestionAnswerRequestDto
+import app.masary.core.network.question.QuestionFinishRequestDto
+import app.masary.core.network.question.QuestionFinishResultDto
 import app.masary.core.network.question.QuestionSessionPackageDataDto
 import app.masary.core.network.question.QuestionSessionQuestionDto
 import app.masary.core.network.question.StudentQuestionSessionApi
@@ -27,6 +29,8 @@ import app.masary.feature.questionsession.domain.QuestionSessionNotFoundExceptio
 import app.masary.feature.questionsession.domain.QuestionSessionPackage
 import app.masary.feature.questionsession.domain.QuestionSessionProgress
 import app.masary.feature.questionsession.domain.QuestionSessionRepository
+import app.masary.feature.questionsession.domain.QuestionSessionResult
+import app.masary.feature.questionsession.domain.QuestionSessionScore
 import app.masary.feature.questionsession.domain.QuestionSessionServiceException
 import app.masary.feature.questionsession.domain.QuestionSessionSourceUnavailableException
 import app.masary.feature.questionsession.domain.QuestionType
@@ -38,6 +42,8 @@ import java.security.MessageDigest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
+
+private const val QUESTION_RESULT_DOCUMENT_KIND = "question_session_result"
 
 class NetworkQuestionSessionRepository(
     private val questionApi: StudentQuestionSessionApi,
@@ -260,6 +266,133 @@ class NetworkQuestionSessionRepository(
         }.recoverCatching { error ->
             if (error is CancellationException) throw error
             throw mapFailure(error)
+        }
+    }
+
+    override suspend fun loadResult(sessionId: String): QuestionSessionResult? {
+        val safeSessionId = sessionId.trim()
+        if (safeSessionId.length !in 8..128) return null
+        val studentId = sessionManager.session.first()?.id ?: return null
+        return try {
+            val document = localStore.readDocument(
+                studentId = studentId,
+                kind = QUESTION_RESULT_DOCUMENT_KIND,
+                documentId = safeSessionId,
+            ) ?: return null
+            gson.fromJson(document.payloadJson, QuestionSessionResult::class.java)
+                ?.also { validateResult(it, safeSessionId) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun finishSession(sessionId: String): Result<QuestionSessionResult> {
+        val safeSessionId = sessionId.trim()
+        if (safeSessionId.length !in 8..128) {
+            return Result.failure(QuestionSessionNotFoundException())
+        }
+        val studentId = sessionManager.session.first()?.id
+            ?: return Result.failure(QuestionSessionExpiredException("انتهت جلسة الدخول."))
+
+        loadResult(safeSessionId)?.let { return Result.success(it) }
+
+        return runCatching {
+            var tokens = sessionManager.readTokens()
+                ?: throw QuestionSessionExpiredException("انتهت جلسة الدخول.")
+            if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
+                tokens = refreshTokens(tokens.refreshToken)
+            }
+            val request = QuestionFinishRequestDto(safeSessionId)
+            val idempotencyKey = stableFinishOperationId(studentId, safeSessionId)
+            val data = try {
+                requestFinish(tokens, idempotencyKey, request)
+            } catch (error: HttpException) {
+                if (error.code() != 401) throw error
+                tokens = refreshTokens(tokens.refreshToken)
+                requestFinish(tokens, idempotencyKey, request)
+            }
+            if (data.confirmedDelta.available) {
+                throw QuestionSessionServiceException(
+                    "أعاد الخادم تغيرات نقاط تحتاج عقدًا مثبتًا قبل تطبيقها محليًا.",
+                )
+            }
+            val result = data.toDomain().also {
+                validateResult(it, safeSessionId)
+            }
+            val now = nowEpochMillis()
+            localStore.putDocument(
+                studentId = studentId,
+                kind = QUESTION_RESULT_DOCUMENT_KIND,
+                documentId = safeSessionId,
+                payloadJson = gson.toJson(result),
+                serverVersion = data.completedAt,
+                savedAtEpochMillis = now,
+            )
+            localStore.readQuestionSession(studentId, safeSessionId)?.let { local ->
+                localStore.saveQuestionSession(
+                    local.copy(
+                        status = "completed_confirmed",
+                        updatedAtEpochMillis = now,
+                        completedAtEpochMillis = local.completedAtEpochMillis ?: now,
+                    ),
+                )
+            }
+            result
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw mapFailure(error)
+        }
+    }
+
+    private suspend fun requestFinish(
+        tokens: AuthTokens,
+        idempotencyKey: String,
+        request: QuestionFinishRequestDto,
+    ): QuestionFinishResultDto {
+        val response = questionApi.finishSession(
+            authorization = "Bearer ${tokens.accessToken}",
+            idempotencyKey = idempotencyKey,
+            request = request,
+        )
+        val data = response.data
+        if (!response.success || data == null) {
+            val message = response.error?.message.orEmpty()
+            when (response.error?.code.orEmpty()) {
+                "unauthorized", "invalid_refresh_token", "refresh_expired" ->
+                    throw QuestionSessionExpiredException(
+                        message.ifBlank { "انتهت جلسة الدخول." },
+                    )
+                "activity_session_expired", "activity_session_abandoned" ->
+                    throw QuestionSessionExpiredException(
+                        message.ifBlank { "انتهت صلاحية جلسة النشاط." },
+                    )
+                "activity_session_not_found", "invalid_session" ->
+                    throw QuestionSessionNotFoundException(
+                        message.ifBlank { "جلسة النشاط غير متاحة." },
+                    )
+                else -> throw QuestionSessionServiceException(
+                    message.ifBlank { "تعذر إنهاء جلسة الأسئلة الآن." },
+                )
+            }
+        }
+        return data
+    }
+
+    private fun validateResult(
+        result: QuestionSessionResult,
+        expectedSessionId: String,
+    ) {
+        if (result.sessionId != expectedSessionId ||
+            result.completedAt.isBlank() ||
+            result.score.totalQuestions <= 0 ||
+            result.score.correctAnswers < 0 ||
+            result.score.incorrectAnswers < 0 ||
+            result.score.correctAnswers + result.score.incorrectAnswers != result.score.totalQuestions ||
+            result.score.scorePercent !in 0..100
+        ) {
+            throw QuestionSessionServiceException("نتيجة جلسة الأسئلة غير صالحة.")
         }
     }
 
