@@ -155,6 +155,9 @@ class QuestionSessionViewModel(
 
             repository.loadPackage(sessionId)
                 .onSuccess { data ->
+                    if (_state.value is QuestionSessionUiState.Result) {
+                        return@onSuccess
+                    }
                     if (data.progress.currentIndex >= data.questions.size) {
                         _state.value = QuestionSessionUiState.CompletedLocal(data)
                         triggerPendingAnswerSync(data.session.id)
@@ -163,6 +166,9 @@ class QuestionSessionViewModel(
                     }
                 }
                 .onFailure { error ->
+                    if (_state.value is QuestionSessionUiState.Result) {
+                        return@onFailure
+                    }
                     if (snapshot != null) {
                         _state.value = if (snapshot.progress.currentIndex >= snapshot.questions.size) {
                             QuestionSessionUiState.CompletedLocal(
