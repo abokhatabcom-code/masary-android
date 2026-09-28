@@ -520,19 +520,18 @@ function api_question_answer_grade_normalized_fill(
     try {
         $fill = $pdo->prepare('SELECT blanks_count FROM question_fill WHERE question_id=? LIMIT 1');
         $fill->execute([(string)$source['row_id']]);
-        if ((int)$fill->fetchColumn() !== 1) {
-            api_error('grading_source_unavailable', 'صيغة هذا السؤال تحتاج دعم أكثر من فراغ.', 503);
-        }
+        $blanksCount = (int)$fill->fetchColumn();
         $statement = $pdo->prepare(
             'SELECT answer_text FROM question_fill_answers '
             . 'WHERE question_id=? AND blank_index=1 ORDER BY id ASC',
         );
         $statement->execute([(string)$source['row_id']]);
         $accepted = $statement->fetchAll(PDO::FETCH_COLUMN) ?: [];
-    } catch (QuestionAnswerTestError $error) {
-        throw $error;
     } catch (Throwable) {
         api_error('grading_source_unavailable', 'تعذر قراءة إجابات التصحيح لهذا السؤال.', 503);
+    }
+    if ($blanksCount !== 1) {
+        api_error('grading_source_unavailable', 'صيغة هذا السؤال تحتاج دعم أكثر من فراغ.', 503);
     }
 
     $actual = api_question_answer_normalized_value((string)($answer['text'] ?? ''));
