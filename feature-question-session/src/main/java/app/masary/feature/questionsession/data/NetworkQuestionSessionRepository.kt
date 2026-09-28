@@ -597,7 +597,7 @@ class NetworkQuestionSessionRepository(
     }
 }
 
-private fun QuestionConfirmedDeltaDto.toLocalDelta(
+internal fun QuestionConfirmedDeltaDto.toLocalDelta(
     expectedStudentId: String,
 ): ConfirmedStudentDelta {
     if (!available) {
