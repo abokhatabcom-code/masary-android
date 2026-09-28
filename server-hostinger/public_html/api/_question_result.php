@@ -112,23 +112,9 @@ function api_question_result_finish(
 
     $request = api_question_result_request($payload);
     $session = api_question_session_owned_row($pdo, $studentId, $request['session_id']);
-    $questions = api_question_session_questions($pdo, $session);
-    $totalQuestions = count($questions);
-    if ($totalQuestions <= 0) {
-        api_error('question_source_unavailable', 'لا توجد أسئلة مؤكدة لهذه الجلسة.', 503);
-    }
-
-    $count = $pdo->prepare(
-        'SELECT COUNT(*) FROM api_activity_answers WHERE user_id=? AND public_session_id=?',
-    );
-    $count->execute([$studentId, $request['session_id']]);
-    $answered = max(0, (int)$count->fetchColumn());
-    if ($answered < $totalQuestions) {
-        api_error('session_incomplete', 'لا يمكن إنهاء الجلسة قبل تثبيت جميع الإجابات.', 409);
-    }
-
     $requestHash = api_question_result_request_hash($request);
     $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
+
     $ownsTransaction = !$pdo->inTransaction();
     if ($ownsTransaction) {
         $pdo->beginTransaction();
@@ -162,6 +148,29 @@ function api_question_result_finish(
                 $pdo->commit();
             }
             return $result;
+        }
+
+        $questions = api_question_session_questions($pdo, $session);
+        $totalQuestions = count($questions);
+        if ($totalQuestions <= 0) {
+            api_question_result_reject(
+                'question_source_unavailable',
+                'لا توجد أسئلة مؤكدة لهذه الجلسة.',
+                503,
+            );
+        }
+
+        $count = $pdo->prepare(
+            'SELECT COUNT(*) FROM api_activity_answers WHERE user_id=? AND public_session_id=?',
+        );
+        $count->execute([$studentId, $request['session_id']]);
+        $answered = max(0, (int)$count->fetchColumn());
+        if ($answered < $totalQuestions) {
+            api_question_result_reject(
+                'session_incomplete',
+                'لا يمكن إنهاء الجلسة قبل تثبيت جميع الإجابات.',
+                409,
+            );
         }
 
         $score = api_question_result_score($pdo, $studentId, $request['session_id']);
