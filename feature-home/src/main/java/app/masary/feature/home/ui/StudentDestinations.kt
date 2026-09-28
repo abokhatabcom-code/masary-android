@@ -14,6 +14,8 @@ internal sealed interface StudentDestination {
     @Serializable
     data class SubjectDetails(
         val subjectVersionId: Int,
+        val subjectName: String = "",
+        val curriculumLabel: String = "",
         val unitId: Int? = null,
         val actionKey: String? = null,
     ) : StudentDestination

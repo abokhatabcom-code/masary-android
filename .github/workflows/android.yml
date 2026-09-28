@@ -48,8 +48,8 @@ jobs:
           strings = Path("app-student/src/main/res/values/strings.xml").read_text(encoding="utf-8")
           for marker in (
               'applicationId = "app.masary.student"',
-              'versionCode = 1207',
-              'versionName = "1.12.7"',
+              'versionCode = 1210',
+              'versionName = "1.12.10"',
           ):
               if marker not in gradle:
                   raise SystemExit(f"Missing official identity marker: {marker}")
@@ -81,6 +81,13 @@ jobs:
           path: app-student/build/outputs/apk/debug/app-student-debug.apk
           if-no-files-found: error
 
+      - name: Upload student preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: masary-student-preview-apk
+          path: app-student/build/outputs/apk/preview/app-student-preview.apk
+          if-no-files-found: error
+
       - name: Upload admin debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -96,7 +103,7 @@ jobs:
           if-no-files-found: error
 
   build-signed-production-student-apk:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.head_ref == 'phase-12-6-local-first-implementation')
     runs-on: ubuntu-latest
     env:
       MASARY_DEVELOPMENT_BASE_URL: ${{ vars.MASARY_DEVELOPMENT_BASE_URL }}
@@ -163,6 +170,7 @@ jobs:
         run: python3 scripts/validate-api-contract.py
 
       - name: Run student unit tests and lint
+        if: github.event_name != 'pull_request'
         run: ./gradlew --no-daemon :app-student:test :app-student:lint
 
       - name: Verify official Masary Student identity
@@ -176,8 +184,8 @@ jobs:
 
           required = [
               'applicationId = "app.masary.student"',
-              'versionCode = 1207',
-              'versionName = "1.12.7"',
+              'versionCode = 1210',
+              'versionName = "1.12.10"',
           ]
           for marker in required:
               if marker not in gradle:
@@ -207,10 +215,10 @@ jobs:
               Path("app-student/build/outputs/apk/release/output-metadata.json").read_text(encoding="utf-8")
           )
           element = metadata["elements"][0]
-          if int(element["versionCode"]) != 1207:
-              raise SystemExit("Official APK versionCode must be 1207.")
-          if str(element["versionName"]) != "1.12.7":
-              raise SystemExit("Official APK versionName must be 1.12.7.")
+          if int(element["versionCode"]) != 1210:
+              raise SystemExit("Official APK versionCode must be 1210.")
+          if str(element["versionName"]) != "1.12.10":
+              raise SystemExit("Official APK versionName must be 1.12.10.")
           PY
 
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"

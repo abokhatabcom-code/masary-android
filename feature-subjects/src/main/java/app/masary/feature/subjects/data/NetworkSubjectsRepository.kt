@@ -1,6 +1,7 @@
 package app.masary.feature.subjects.data
 
 import app.masary.core.datastore.SessionManager
+import app.masary.core.models.student.StudentLiveState
 import app.masary.core.models.auth.AuthTokens
 import app.masary.core.network.auth.StudentAuthApi
 import app.masary.core.network.auth.StudentRefreshRequestDto
@@ -23,7 +24,10 @@ import app.masary.feature.subjects.domain.SubjectsSessionExpiredException
 import app.masary.feature.subjects.domain.SubjectsSnapshotStore
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import retrofit2.HttpException
 
 class NetworkSubjectsRepository(
@@ -31,8 +35,14 @@ class NetworkSubjectsRepository(
     private val authApi: StudentAuthApi,
     private val sessionManager: SessionManager,
     private val snapshotStore: SubjectsSnapshotStore,
+    private val liveStateProvider: (String) -> Flow<StudentLiveState> = { flowOf(StudentLiveState()) },
     private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
 ) : SubjectsRepository {
+    override fun observeLiveState(): Flow<StudentLiveState> =
+        sessionManager.session.flatMapLatest { session ->
+            session?.let { liveStateProvider(it.id) } ?: flowOf(StudentLiveState())
+        }
+
     override suspend fun loadSubjects(): Result<StudentSubjectsData> {
         val studentId = sessionManager.session.first()?.id
             ?: return Result.failure(SubjectsSessionExpiredException())

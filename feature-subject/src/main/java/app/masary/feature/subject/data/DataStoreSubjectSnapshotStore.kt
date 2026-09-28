@@ -16,7 +16,6 @@ class DataStoreSubjectSnapshotStore(
     private val dataStore: DataStore<Preferences>,
     private val gson: Gson = Gson(),
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
-    private val maxAgeMillis: Long = DEFAULT_MAX_AGE_MILLIS,
 ) : SubjectSnapshotStore {
     override suspend fun read(studentId: String, subjectVersionId: Int): StudentSubjectPage? {
         if (studentId.isBlank() || subjectVersionId <= 0) return null
@@ -25,11 +24,6 @@ class DataStoreSubjectSnapshotStore(
             return evictAll()
         }
         val savedAt = values[savedAtKey(subjectVersionId)] ?: return null
-        val age = nowEpochMillis() - savedAt
-        if (age !in 0..maxAgeMillis) {
-            evictSubject(subjectVersionId)
-            return null
-        }
         val json = values[payloadKey(subjectVersionId)] ?: return null
         val decoded = runCatching { gson.fromJson(json, StudentSubjectPage::class.java) }.getOrNull()
         if (
@@ -87,6 +81,5 @@ class DataStoreSubjectSnapshotStore(
         val OWNER = stringPreferencesKey("subject_page_owner")
         val SCHEMA_VERSION = intPreferencesKey("subject_page_schema_version")
         const val CURRENT_SCHEMA_VERSION = 2
-        const val DEFAULT_MAX_AGE_MILLIS = 24L * 60L * 60L * 1_000L
     }
 }

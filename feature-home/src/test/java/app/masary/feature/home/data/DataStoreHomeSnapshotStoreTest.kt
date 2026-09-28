@@ -24,18 +24,16 @@ class DataStoreHomeSnapshotStoreTest {
     }
 
     @Test
-    fun `expired snapshot is evicted`() = runTest {
+    fun `confirmed snapshot remains available after a long offline period`() = runTest {
         var now = 1_000L
         val store = DataStoreHomeSnapshotStore(
             MemoryPreferencesDataStore(),
             nowEpochMillis = { now },
-            maxAgeMillis = 100L,
         )
         store.write("42", home("42"))
 
-        now = 1_101L
-        assertNull(store.read("42"))
-        assertNull(store.read("42"))
+        now += 30L * 24L * 60L * 60L * 1_000L
+        assertEquals("42", store.read("42")?.student?.id)
     }
 
     @Test

@@ -37,6 +37,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import app.masary.core.datastore.OnboardingStore
 import app.masary.core.datastore.SessionManager
+import app.masary.core.local.StudentLocalStore
 import app.masary.core.ui.MasaryBrandLockup
 import app.masary.core.ui.MasaryColors
 import app.masary.feature.activitypreparation.ActivityPreparationPendingStore
@@ -66,6 +67,7 @@ private enum class AppRoute(val route: String) {
 fun MasaryStudentApp(
     onboardingStore: OnboardingStore,
     sessionManager: SessionManager,
+    localStore: StudentLocalStore,
     authRepository: AuthRepository,
     registrationRepository: RegistrationRepository,
     homeRepository: HomeRepository,
@@ -146,6 +148,7 @@ fun MasaryStudentApp(
                             )
                             if (prepared) {
                                 try {
+                                    localStore.clearStudent(authenticated.session.id)
                                     homeRepository.clearSnapshot()
                                     subjectsRepository.clearSnapshot()
                                     subjectRepository.clearSnapshots()

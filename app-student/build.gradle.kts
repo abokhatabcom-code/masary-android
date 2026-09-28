@@ -14,8 +14,8 @@ android {
         applicationId = "app.masary.student"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1207
-        versionName = "1.12.7"
+        versionCode = 1210
+        versionName = "1.12.10"
     }
 
     fun injectedUrl(property: String, variable: String, fallback: String): String =
@@ -156,6 +156,7 @@ dependencies {
     implementation(project(":feature-activity-preparation"))
     implementation(project(":feature-notifications"))
     implementation(project(":core-datastore"))
+    implementation(project(":core-local"))
     implementation(project(":core-security"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -184,5 +185,6 @@ tasks.matching { it.name == "testDebugUnitTest" }.configureEach {
         ":core-network:testDebugUnitTest",
         ":core-datastore:testDebugUnitTest",
         ":core-security:testDebugUnitTest",
+        ":core-local:testDebugUnitTest",
     )
 }

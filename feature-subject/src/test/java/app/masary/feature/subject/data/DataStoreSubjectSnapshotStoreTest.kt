@@ -58,19 +58,18 @@ class DataStoreSubjectSnapshotStoreTest {
     }
 
     @Test
-    fun `expired subject snapshot is removed without deleting siblings`() = runTest {
+    fun `confirmed subject snapshots remain available after a long offline period`() = runTest {
         var now = 1_000L
         val store = DataStoreSubjectSnapshotStore(
             MemorySubjectPreferencesDataStore(),
             nowEpochMillis = { now },
-            maxAgeMillis = 100L,
         )
         store.write("42", 12, subject("42", 12, "v12"))
-        now = 1_050L
+        now += 15L * 24L * 60L * 60L * 1_000L
         store.write("42", 13, subject("42", 13, "v13"))
-        now = 1_101L
+        now += 15L * 24L * 60L * 60L * 1_000L
 
-        assertNull(store.read("42", 12))
+        assertEquals("v12", store.read("42", 12)?.version)
         assertEquals("v13", store.read("42", 13)?.version)
     }
 

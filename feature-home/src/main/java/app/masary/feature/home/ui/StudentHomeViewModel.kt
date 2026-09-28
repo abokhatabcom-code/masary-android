@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.domain.HomeSessionExpiredException
 import app.masary.feature.home.domain.StudentHomeData
+import app.masary.core.models.student.StudentLiveState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +21,28 @@ class StudentHomeViewModel(
     private var loadJob: Job? = null
 
     init {
+        observeLiveState()
         loadHome()
+    }
+
+    private fun observeLiveState() {
+        viewModelScope.launch {
+            repository.observeLiveState().collect { liveState ->
+                when (val current = _state.value) {
+                    is HomeUiState.Content -> {
+                        _state.value = current.copy(data = current.data.applyLiveState(liveState))
+                    }
+                    is HomeUiState.Error -> {
+                        current.previousData?.let { previous ->
+                            _state.value = current.copy(previousData = previous.applyLiveState(liveState))
+                        }
+                    }
+                    HomeUiState.Loading,
+                    HomeUiState.SessionExpired,
+                    -> Unit
+                }
+            }
+        }
     }
 
     fun refresh() {
@@ -76,4 +98,65 @@ class StudentHomeViewModelFactory(
         require(modelClass.isAssignableFrom(StudentHomeViewModel::class.java))
         return StudentHomeViewModel(repository) as T
     }
+}
+
+
+private fun StudentHomeData.applyLiveState(liveState: StudentLiveState): StudentHomeData {
+    val profile = liveState.profile
+    val updatedSummary = profile?.let {
+        summary.copy(
+            globalXp = it.globalXp ?: summary.globalXp,
+            gems = it.gems ?: summary.gems,
+            level = it.level ?: summary.level,
+            levelPercent = it.levelProgressPercent ?: summary.levelPercent,
+            levelNextXp = it.levelNextXp ?: summary.levelNextXp,
+        )
+    } ?: summary
+    val updatedToday = profile?.let {
+        today.copy(
+            xp = it.todayXp ?: today.xp,
+            seconds = it.todaySeconds ?: today.seconds,
+            minutes = it.todayMinutes ?: today.minutes,
+            attempts = it.todayAttempts ?: today.attempts,
+        )
+    } ?: today
+    val updatedStreak = profile?.let {
+        streak.copy(currentDays = it.streakCurrentDays ?: streak.currentDays)
+    } ?: streak
+    val updatedNotifications = profile?.let {
+        notifications.copy(unreadCount = it.unreadNotifications ?: notifications.unreadCount)
+    } ?: notifications
+    val updatedGuide = profile?.let {
+        val completedSteps = it.smartGuideCompletedSteps ?: smartGuide.completedSteps
+        val totalSteps = it.smartGuideTotalSteps ?: smartGuide.totalSteps
+        smartGuide.copy(
+            completedSteps = completedSteps,
+            totalSteps = totalSteps,
+            completionPercent = it.smartGuideCompletionPercent ?: smartGuide.completionPercent,
+            isComplete = totalSteps > 0 && completedSteps >= totalSteps,
+        )
+    } ?: smartGuide
+    val updatedSubjects = subjects.map { subject ->
+        liveState.subjects[subject.subjectVersionId]?.let { local ->
+            subject.copy(
+                hearts = local.hearts ?: subject.hearts,
+                progressPercent = local.levelProgressPercent ?: subject.progressPercent,
+                points = local.points ?: subject.points,
+                level = local.level ?: subject.level,
+            )
+        } ?: subject
+    }
+    return copy(
+        summary = updatedSummary,
+        today = updatedToday,
+        streak = updatedStreak,
+        notifications = updatedNotifications,
+        smartGuide = updatedGuide,
+        indicators = indicators.copy(
+            totalXp = updatedSummary.globalXp,
+            gems = updatedSummary.gems,
+            streakDays = updatedStreak.currentDays,
+        ),
+        subjects = updatedSubjects,
+    )
 }

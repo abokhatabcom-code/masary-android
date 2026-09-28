@@ -4,6 +4,10 @@ import app.masary.feature.home.domain.HomeRepository
 import app.masary.feature.home.domain.HomeSnapshotMetadata
 import app.masary.feature.home.domain.HomeStudent
 import app.masary.feature.home.domain.StudentHomeData
+import app.masary.core.models.student.StudentLiveState
+import app.masary.core.models.student.StudentProfileLiveState
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import com.google.gson.Gson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +35,7 @@ class StudentHomeViewModelTest {
         val fresh = home("fresh")
         val response = CompletableDeferred<Result<StudentHomeData>>()
         val viewModel = StudentHomeViewModel(object : HomeRepository {
+            override fun observeLiveState() = flowOf(StudentLiveState())
             override suspend fun loadSnapshot() = snapshot
             override suspend fun loadHome() = response.await()
             override suspend fun clearSnapshot() = Unit
@@ -44,6 +49,91 @@ class StudentHomeViewModelTest {
         response.complete(Result.success(fresh))
         runCurrent()
         assertEquals("fresh", (viewModel.state.value as HomeUiState.Content).data.student.id)
+    }
+
+    @Test fun `partial confirmed profile delta preserves unrelated Home values`() = runTest(dispatcher) {
+        val cached = home("42").copy(snapshot = HomeSnapshotMetadata(1))
+        val response = CompletableDeferred<Result<StudentHomeData>>()
+        val live = MutableStateFlow(StudentLiveState())
+        val viewModel = StudentHomeViewModel(object : HomeRepository {
+            override fun observeLiveState() = live
+            override suspend fun loadSnapshot() = cached
+            override suspend fun loadHome() = response.await()
+            override suspend fun clearSnapshot() = Unit
+        })
+
+        runCurrent()
+        val before = (viewModel.state.value as HomeUiState.Content).data
+
+        live.value = StudentLiveState(
+            profile = StudentProfileLiveState(
+                studentId = "42",
+                gems = before.summary.gems + 5,
+                confirmedAtEpochMillis = 2,
+            ),
+        )
+        runCurrent()
+
+        val after = (viewModel.state.value as HomeUiState.Content).data
+        assertEquals(before.summary.gems + 5, after.summary.gems)
+        assertEquals(before.summary.globalXp, after.summary.globalXp)
+        assertEquals(before.summary.level, after.summary.level)
+        assertEquals(before.today, after.today)
+        assertEquals(before.streak.currentDays, after.streak.currentDays)
+        assertEquals(before.smartGuide.completedSteps, after.smartGuide.completedSteps)
+
+        response.complete(Result.success(cached.copy(snapshot = null)))
+        runCurrent()
+    }
+
+    @Test fun `confirmed live state updates Home without a second network request`() = runTest(dispatcher) {
+        val cached = home("42").copy(snapshot = HomeSnapshotMetadata(1))
+        val response = CompletableDeferred<Result<StudentHomeData>>()
+        val live = MutableStateFlow(StudentLiveState())
+        var networkCalls = 0
+        val viewModel = StudentHomeViewModel(object : HomeRepository {
+            override fun observeLiveState() = live
+            override suspend fun loadSnapshot() = cached
+            override suspend fun loadHome(): Result<StudentHomeData> {
+                networkCalls += 1
+                return response.await()
+            }
+            override suspend fun clearSnapshot() = Unit
+        })
+
+        runCurrent()
+        live.value = StudentLiveState(
+            profile = StudentProfileLiveState(
+                studentId = "42",
+                globalXp = 990,
+                gems = 17,
+                level = 4,
+                levelProgressPercent = 30,
+                levelNextXp = 1_200,
+                todayXp = 45,
+                todaySeconds = 600,
+                todayMinutes = 10,
+                todayAttempts = 3,
+                streakCurrentDays = 6,
+                unreadNotifications = 2,
+                smartGuideCompletedSteps = 2,
+                smartGuideTotalSteps = 4,
+                smartGuideCompletionPercent = 50,
+                serverVersion = "confirmed-2",
+                confirmedAtEpochMillis = 2,
+            ),
+        )
+        runCurrent()
+
+        val state = viewModel.state.value as HomeUiState.Content
+        assertEquals(990, state.data.summary.globalXp)
+        assertEquals(17, state.data.summary.gems)
+        assertEquals(45, state.data.today.xp)
+        assertEquals(6, state.data.streak.currentDays)
+        assertEquals(1, networkCalls)
+
+        response.complete(Result.success(cached.copy(snapshot = null)))
+        runCurrent()
     }
 
     private fun home(id: String): StudentHomeData {

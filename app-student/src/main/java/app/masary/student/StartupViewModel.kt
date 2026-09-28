@@ -124,10 +124,14 @@ class StartupViewModel(
             }
             .onFailure { error ->
                 val failure = error as? AuthFailureException
-                if (failure?.kind == AuthFailureKind.SESSION_REJECTED) {
-                    clearRejectedSession()
-                } else {
-                    _state.value = StartupState.RecoverableError
+                when (failure?.kind) {
+                    AuthFailureKind.SESSION_REJECTED -> clearRejectedSession()
+                    AuthFailureKind.NETWORK,
+                    AuthFailureKind.SERVER,
+                    -> _state.value = StartupState.Authenticated(session)
+                    AuthFailureKind.INVALID_CREDENTIALS,
+                    null,
+                    -> _state.value = StartupState.RecoverableError
                 }
             }
     }

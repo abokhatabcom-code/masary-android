@@ -151,11 +151,46 @@ fun StudentHomeRoute(
         else -> StudentDestination.Home
     }
 
+    fun showSubjectsList() {
+        if (navController.currentDestination?.hasRoute<StudentDestination.Subjects>() == true) return
+
+        // When the list already exists below SubjectDetails, pop back to the same entry.
+        // This preserves its ViewModel, cached data and scroll position with no reload.
+        val restoredExistingList = navController.popBackStack(
+            route = StudentDestination.Subjects,
+            inclusive = false,
+        )
+        if (!restoredExistingList) {
+            // SubjectDetails can also be opened from Home/Continue Learning. In that case
+            // create the Subjects parent explicitly, never restoring a saved child detail.
+            navController.navigate(StudentDestination.Subjects) {
+                launchSingleTop = true
+                popUpTo(StudentDestination.Home) { saveState = false }
+                restoreState = false
+            }
+        }
+    }
+
     fun navigate(destination: StudentDestination) {
-        navController.navigate(destination) {
-            launchSingleTop = true
-            popUpTo(StudentDestination.Home) { saveState = true }
-            restoreState = true
+        when (destination) {
+            StudentDestination.Subjects -> showSubjectsList()
+
+            is StudentDestination.SubjectDetails -> {
+                // Subject details are parameterized pages. Never restore another subject's saved
+                // destination state merely because both pages share the same route type.
+                navController.navigate(destination) {
+                    launchSingleTop = true
+                    restoreState = false
+                }
+            }
+
+            else -> {
+                navController.navigate(destination) {
+                    launchSingleTop = true
+                    popUpTo(StudentDestination.Home) { saveState = true }
+                    restoreState = true
+                }
+            }
         }
     }
 
@@ -205,6 +240,19 @@ fun StudentHomeRoute(
         -> null
     }
 
+    fun subjectDestination(
+        subjectVersionId: Int,
+        explicitName: String = "",
+        explicitCurriculum: String = "",
+    ): StudentDestination.SubjectDetails {
+        val summary = data?.subjects?.firstOrNull { it.subjectVersionId == subjectVersionId }
+        return StudentDestination.SubjectDetails(
+            subjectVersionId = subjectVersionId,
+            subjectName = explicitName.ifBlank { summary?.name.orEmpty() },
+            curriculumLabel = explicitCurriculum,
+        )
+    }
+
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
             containerColor = MasaryColors.background,
@@ -234,7 +282,9 @@ fun StudentHomeRoute(
                         onGuide = { navigate(StudentDestination.Guide) },
                         onStep = ::prepare,
                         onSubjects = { navigate(StudentDestination.Subjects) },
-                        onSubject = { navigate(StudentDestination.SubjectDetails(it)) },
+                        onSubject = { subjectVersionId ->
+                            navigate(subjectDestination(subjectVersionId))
+                        },
                         onProfile = { navigate(StudentDestination.Profile) },
                     )
                 }
@@ -246,9 +296,15 @@ fun StudentHomeRoute(
                 composable<StudentDestination.Subjects> {
                     StudentSubjectsRoute(
                         repository = subjectsRepository,
-                        onSubject = { subjectVersionId ->
+                        onSubject = { subjectVersionId, subjectName, curriculumLabel ->
                             if (subjectVersionId > 0) {
-                                navigate(StudentDestination.SubjectDetails(subjectVersionId))
+                                navigate(
+                                    subjectDestination(
+                                        subjectVersionId = subjectVersionId,
+                                        explicitName = subjectName,
+                                        explicitCurriculum = curriculumLabel,
+                                    ),
+                                )
                             }
                         },
                         onSessionExpired = onLogout,
@@ -272,7 +328,9 @@ fun StudentHomeRoute(
                     StudentSubjectRoute(
                         subjectVersionId = destination.subjectVersionId,
                         repository = subjectRepository,
-                        onBack = { navController.popBackStack() },
+                        subjectName = destination.subjectName,
+                        curriculumLabel = destination.curriculumLabel,
+                        onBack = ::showSubjectsList,
                         onSessionExpired = onLogout,
                         onTrainingCenter = { subjectVersionId ->
                             if (subjectVersionId > 0) {
