@@ -1,6 +1,9 @@
 package app.masary.feature.questionsession.data
 
+import app.masary.core.network.question.QuestionConfirmedDeltaDto
+import app.masary.core.network.question.QuestionFinishResultDto
 import app.masary.core.network.question.QuestionSessionDescriptorDto
+import app.masary.core.network.question.QuestionSessionScoreDto
 import app.masary.core.network.question.QuestionSessionPackageDataDto
 import app.masary.core.network.question.QuestionSessionProgressDto
 import app.masary.core.network.question.QuestionSessionQuestionDto
@@ -45,6 +48,33 @@ class QuestionSessionMappingTest {
         val options = domain.questions.single().payload as QuestionPayload.Options
         assertEquals(listOf("1", "4"), options.options.map { it.text })
         assertTrue(payload.keySet().none { it.contains("answer", ignoreCase = true) })
+    }
+
+    @Test
+    fun `confirmed finish maps server score without local rewards`() {
+        val dto = QuestionFinishResultDto(
+            sessionId = "activity-session-001",
+            status = "completed",
+            completedAt = "2026-09-28 12:00:00",
+            replayed = false,
+            result = QuestionSessionScoreDto(
+                correctAnswers = 8,
+                incorrectAnswers = 2,
+                totalQuestions = 10,
+                scorePercent = 80,
+            ),
+            confirmedDelta = QuestionConfirmedDeltaDto(
+                available = false,
+                reason = "لم تُثبت المكافآت.",
+            ),
+        )
+
+        val domain = dto.toDomain()
+
+        assertEquals(8, domain.score.correctAnswers)
+        assertEquals(2, domain.score.incorrectAnswers)
+        assertEquals(80, domain.score.scorePercent)
+        assertEquals(false, domain.confirmedDeltaAvailable)
     }
 
     @Test
