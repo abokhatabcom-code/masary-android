@@ -4,6 +4,7 @@ import app.masary.core.network.activity.StudentActivityPreparationApi
 import app.masary.core.network.auth.StudentAuthApi
 import app.masary.core.network.home.StudentHomeApi
 import app.masary.core.network.notifications.StudentPushTokenApi
+import app.masary.core.network.question.StudentQuestionSessionApi
 import app.masary.core.network.subject.StudentSubjectApi
 import app.masary.core.network.subjects.StudentSubjectsApi
 import app.masary.core.network.training.StudentTrainingCenterApi
@@ -72,6 +73,17 @@ object MasaryNetwork {
 
     fun studentPushTokenApi(baseUrl: String, client: OkHttpClient = defaultClient()): StudentPushTokenApi =
         retrofit(validateBaseUrl(baseUrl), client).create(StudentPushTokenApi::class.java)
+
+    fun studentQuestionSessionApi(
+        baseUrl: String,
+        client: OkHttpClient = defaultClient(),
+    ): StudentQuestionSessionApi = studentQuestionSessionApi(validateBaseUrl(baseUrl), client)
+
+    fun studentQuestionSessionApi(
+        baseUrl: HttpUrl,
+        client: OkHttpClient = defaultClient(),
+    ): StudentQuestionSessionApi =
+        retrofit(baseUrl, client).create(StudentQuestionSessionApi::class.java)
 
     private fun retrofit(baseUrl: HttpUrl, client: OkHttpClient): Retrofit =
         Retrofit.Builder()
