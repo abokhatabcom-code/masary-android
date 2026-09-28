@@ -1,6 +1,8 @@
 package app.masary.feature.questionsession.data
 
 import app.masary.core.datastore.SessionManager
+import app.masary.core.local.PendingOperationEntity
+import app.masary.core.local.QuestionAnswerEntity
 import app.masary.core.local.QuestionSessionEntity
 import app.masary.core.local.StudentLocalStore
 import app.masary.core.models.auth.AuthTokens
@@ -10,9 +12,12 @@ import app.masary.core.network.question.QuestionSessionPackageDataDto
 import app.masary.core.network.question.QuestionSessionQuestionDto
 import app.masary.core.network.question.StudentQuestionSessionApi
 import app.masary.feature.questionsession.domain.ConnectItem
+import app.masary.feature.questionsession.domain.ConnectAnswerPair
+import app.masary.feature.questionsession.domain.QuestionAnswerInput
 import app.masary.feature.questionsession.domain.QuestionItem
 import app.masary.feature.questionsession.domain.QuestionOption
 import app.masary.feature.questionsession.domain.QuestionPayload
+import app.masary.feature.questionsession.domain.QuestionSessionException
 import app.masary.feature.questionsession.domain.QuestionSessionExpiredException
 import app.masary.feature.questionsession.domain.QuestionSessionInfo
 import app.masary.feature.questionsession.domain.QuestionSessionNetworkException
@@ -27,6 +32,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import java.io.IOException
+import java.security.MessageDigest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
@@ -64,7 +70,7 @@ class NetworkQuestionSessionRepository(
                 validatePackage(it, safeSessionId)
             }
             persistVerifiedPackage(studentId, data, domain)
-            domain
+            loadSnapshot(safeSessionId) ?: domain
         }.recoverCatching { error ->
             if (error is CancellationException) throw error
             throw mapFailure(error)
@@ -90,6 +96,88 @@ class NetworkQuestionSessionRepository(
             throw error
         } catch (_: Exception) {
             null
+        }
+    }
+
+    override suspend fun saveLocalAnswer(
+        sessionId: String,
+        questionId: String,
+        answer: QuestionAnswerInput,
+        nextQuestionIndex: Int,
+        completed: Boolean,
+    ): Result<Unit> {
+        val safeSessionId = sessionId.trim()
+        val safeQuestionId = questionId.trim()
+        if (safeSessionId.length !in 8..128 || safeQuestionId.isBlank()) {
+            return Result.failure(QuestionSessionNotFoundException())
+        }
+        val studentId = sessionManager.session.first()?.id
+            ?: return Result.failure(QuestionSessionExpiredException("انتهت جلسة الدخول."))
+
+        return runCatching {
+            val session = localStore.readQuestionSession(studentId, safeSessionId)
+                ?: throw QuestionSessionNotFoundException("الجلسة غير محفوظة على هذا الجهاز.")
+            val packageData = gson.fromJson(
+                session.packageJson,
+                QuestionSessionPackageDataDto::class.java,
+            ) ?: throw QuestionSessionServiceException("تعذر قراءة حزمة الجلسة المحلية.")
+            val questionIds = packageData.questions.map { it.id.trim() }
+            if (safeQuestionId !in questionIds) {
+                throw QuestionSessionNotFoundException("السؤال لا ينتمي إلى الجلسة الحالية.")
+            }
+
+            val existingAnswers = localStore.readQuestionAnswers(studentId, safeSessionId)
+            if (existingAnswers.any { it.questionId == safeQuestionId }) {
+                return@runCatching Unit
+            }
+
+            val safeNextIndex = nextQuestionIndex.coerceIn(0, questionIds.size)
+            val expectedMinimum = (questionIds.indexOf(safeQuestionId) + 1).coerceAtLeast(1)
+            if (safeNextIndex < expectedMinimum) {
+                throw QuestionSessionServiceException("موضع السؤال التالي غير صالح.")
+            }
+
+            val now = nowEpochMillis()
+            val answerJson = answer.toPendingJson()
+            val sequence = (existingAnswers.maxOfOrNull { it.localSequence } ?: 0) + 1
+            val operationId = stableAnswerOperationId(
+                studentId = studentId,
+                sessionId = safeSessionId,
+                questionId = safeQuestionId,
+            )
+            val operationPayload = JsonObject().apply {
+                addProperty("session_id", safeSessionId)
+                addProperty("question_id", safeQuestionId)
+                add("answer", gson.fromJson(answerJson, JsonObject::class.java))
+                addProperty("local_sequence", sequence)
+            }
+
+            localStore.recordQuestionAnswer(
+                answer = QuestionAnswerEntity(
+                    studentId = studentId,
+                    sessionId = safeSessionId,
+                    questionId = safeQuestionId,
+                    answerJson = answerJson,
+                    localSequence = sequence,
+                    answeredAtEpochMillis = now,
+                ),
+                nextQuestionIndex = safeNextIndex,
+                sessionStatus = if (completed) "completed_local" else "in_progress",
+                operation = PendingOperationEntity(
+                    operationId = operationId,
+                    studentId = studentId,
+                    type = "question_answer",
+                    payloadJson = gson.toJson(operationPayload),
+                    createdAtEpochMillis = now,
+                    updatedAtEpochMillis = now,
+                ),
+            )
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw when (error) {
+                is QuestionSessionException -> error
+                else -> QuestionSessionServiceException("تعذر حفظ الإجابة محليًا.", error)
+            }
         }
     }
 
@@ -328,6 +416,60 @@ private fun JsonObject.readConnectItems(key: String): List<ConnectItem> {
         throw QuestionSessionServiceException("معرفات عناصر التوصيل مكررة.")
     }
     return items
+}
+
+private fun QuestionAnswerInput.toPendingJson(): String {
+    val payload = JsonObject()
+    when (this) {
+        is QuestionAnswerInput.Choice -> {
+            val safeOption = optionId.trim()
+            if (safeOption.isBlank()) throw QuestionSessionServiceException("لم يتم اختيار إجابة.")
+            payload.addProperty("kind", "choice")
+            payload.addProperty("option_id", safeOption)
+        }
+
+        is QuestionAnswerInput.Text -> {
+            val safeText = value.trim()
+            if (safeText.isBlank()) throw QuestionSessionServiceException("أدخل الإجابة أولًا.")
+            payload.addProperty("kind", "text")
+            payload.addProperty("text", safeText)
+        }
+
+        is QuestionAnswerInput.Connections -> {
+            if (pairs.isEmpty()) throw QuestionSessionServiceException("أكمل التوصيل أولًا.")
+            val array = JsonArray()
+            pairs.forEach { pair: ConnectAnswerPair ->
+                val left = pair.leftId.trim()
+                val right = pair.rightId.trim()
+                if (left.isBlank() || right.isBlank()) {
+                    throw QuestionSessionServiceException("بيانات التوصيل غير مكتملة.")
+                }
+                array.add(JsonObject().apply {
+                    addProperty("left_id", left)
+                    addProperty("right_id", right)
+                })
+            }
+            if (pairs.map { it.leftId }.toSet().size != pairs.size ||
+                pairs.map { it.rightId }.toSet().size != pairs.size
+            ) {
+                throw QuestionSessionServiceException("لا يمكن استخدام عنصر التوصيل أكثر من مرة.")
+            }
+            payload.addProperty("kind", "connections")
+            payload.add("pairs", array)
+        }
+    }
+    return Gson().toJson(payload)
+}
+
+private fun stableAnswerOperationId(
+    studentId: String,
+    sessionId: String,
+    questionId: String,
+): String {
+    val bytes = MessageDigest.getInstance("SHA-256")
+        .digest("$studentId|$sessionId|$questionId".toByteArray(Charsets.UTF_8))
+    val hex = bytes.joinToString("") { "%02x".format(it) }
+    return "question-answer:$hex"
 }
 
 private fun JsonObject.string(key: String): String =
