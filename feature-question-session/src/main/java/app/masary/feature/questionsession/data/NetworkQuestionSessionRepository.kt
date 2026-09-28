@@ -44,6 +44,7 @@ class NetworkQuestionSessionRepository(
     private val authApi: StudentAuthApi,
     private val sessionManager: SessionManager,
     private val localStore: StudentLocalStore,
+    private val onPendingAnswerSaved: () -> Unit = {},
     private val gson: Gson = Gson(),
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
     private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
@@ -174,6 +175,7 @@ class NetworkQuestionSessionRepository(
                     updatedAtEpochMillis = now,
                 ),
             )
+            runCatching(onPendingAnswerSaved)
         }.recoverCatching { error ->
             if (error is CancellationException) throw error
             throw when (error) {
