@@ -43,6 +43,7 @@ class QuestionSessionViewModel(
     val state: StateFlow<QuestionSessionUiState> = _state.asStateFlow()
     private var loadJob: Job? = null
     private var saveJob: Job? = null
+    private var syncJob: Job? = null
 
     init {
         load()
@@ -79,12 +80,20 @@ class QuestionSessionViewModel(
                 } else {
                     QuestionSessionUiState.Content(refreshed)
                 }
+                triggerPendingAnswerSync()
             }.onFailure { error ->
                 _state.value = current.copy(
                     isSaving = false,
                     message = error.message ?: "تعذر حفظ الإجابة. حاول مرة أخرى.",
                 )
             }
+        }
+    }
+
+    private fun triggerPendingAnswerSync() {
+        if (syncJob?.isActive == true) return
+        syncJob = viewModelScope.launch {
+            repository.syncPendingAnswers()
         }
     }
 
@@ -100,6 +109,8 @@ class QuestionSessionViewModel(
             } else {
                 _state.value = QuestionSessionUiState.Loading
             }
+
+            repository.syncPendingAnswers()
 
             repository.loadPackage(sessionId)
                 .onSuccess { data ->
