@@ -8,6 +8,7 @@ import app.masary.feature.questionsession.domain.QuestionSessionExpiredException
 import app.masary.feature.questionsession.domain.QuestionSessionNotFoundException
 import app.masary.feature.questionsession.domain.QuestionSessionPackage
 import app.masary.feature.questionsession.domain.QuestionSessionRepository
+import app.masary.feature.questionsession.domain.QuestionSessionResult
 import app.masary.feature.questionsession.domain.QuestionSessionSourceUnavailableException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,10 @@ sealed interface QuestionSessionUiState {
     data class CompletedLocal(
         val data: QuestionSessionPackage,
         val message: String = "تم حفظ جميع الإجابات على الجهاز. ستُرسل للخادم عند توفر الاتصال.",
+    ) : QuestionSessionUiState
+
+    data class Result(
+        val data: QuestionSessionResult,
     ) : QuestionSessionUiState
 
     data class Error(val message: String) : QuestionSessionUiState
@@ -75,12 +80,16 @@ class QuestionSessionViewModel(
                     ?: current.data.copy(
                         progress = current.data.progress.copy(currentIndex = nextIndex),
                     )
-                _state.value = if (completed || refreshed.progress.currentIndex >= refreshed.questions.size) {
+                val localComplete = completed ||
+                    refreshed.progress.currentIndex >= refreshed.questions.size
+                _state.value = if (localComplete) {
                     QuestionSessionUiState.CompletedLocal(refreshed)
                 } else {
                     QuestionSessionUiState.Content(refreshed)
                 }
-                triggerPendingAnswerSync()
+                triggerPendingAnswerSync(
+                    finishSessionId = if (localComplete) refreshed.session.id else null,
+                )
             }.onFailure { error ->
                 _state.value = current.copy(
                     isSaving = false,
@@ -90,15 +99,36 @@ class QuestionSessionViewModel(
         }
     }
 
-    private fun triggerPendingAnswerSync() {
+    private fun triggerPendingAnswerSync(finishSessionId: String? = null) {
         if (syncJob?.isActive == true) return
         syncJob = viewModelScope.launch {
-            repository.syncPendingAnswers()
+            val summary = repository.syncPendingAnswers().getOrNull() ?: return@launch
+            if (finishSessionId == null || summary.retryScheduled > 0) {
+                return@launch
+            }
+            repository.finishSession(finishSessionId)
+                .onSuccess { result ->
+                    _state.value = QuestionSessionUiState.Result(result)
+                }
+                .onFailure { error ->
+                    val local = _state.value as? QuestionSessionUiState.CompletedLocal
+                    if (local != null) {
+                        _state.value = local.copy(
+                            message = error.message
+                                ?: "الإجابات محفوظة، لكن النتيجة لم تُؤكد من الخادم بعد.",
+                        )
+                    }
+                }
         }
     }
 
     private fun load() {
         loadJob = viewModelScope.launch {
+            repository.loadResult(sessionId)?.let { cachedResult ->
+                _state.value = QuestionSessionUiState.Result(cachedResult)
+                return@launch
+            }
+
             val snapshot = repository.loadSnapshot(sessionId)
             if (snapshot != null) {
                 _state.value = if (snapshot.progress.currentIndex >= snapshot.questions.size) {
@@ -110,14 +140,26 @@ class QuestionSessionViewModel(
                 _state.value = QuestionSessionUiState.Loading
             }
 
-            repository.syncPendingAnswers()
+            val syncSummary = repository.syncPendingAnswers().getOrNull()
+            if (snapshot != null &&
+                snapshot.progress.currentIndex >= snapshot.questions.size &&
+                syncSummary != null &&
+                syncSummary.retryScheduled == 0
+            ) {
+                val finish = repository.finishSession(snapshot.session.id)
+                if (finish.isSuccess) {
+                    _state.value = QuestionSessionUiState.Result(finish.getOrThrow())
+                    return@launch
+                }
+            }
 
             repository.loadPackage(sessionId)
                 .onSuccess { data ->
-                    _state.value = if (data.progress.currentIndex >= data.questions.size) {
-                        QuestionSessionUiState.CompletedLocal(data)
+                    if (data.progress.currentIndex >= data.questions.size) {
+                        _state.value = QuestionSessionUiState.CompletedLocal(data)
+                        triggerPendingAnswerSync(data.session.id)
                     } else {
-                        QuestionSessionUiState.Content(data)
+                        _state.value = QuestionSessionUiState.Content(data)
                     }
                 }
                 .onFailure { error ->
@@ -125,7 +167,7 @@ class QuestionSessionViewModel(
                         _state.value = if (snapshot.progress.currentIndex >= snapshot.questions.size) {
                             QuestionSessionUiState.CompletedLocal(
                                 snapshot,
-                                message = "الجلسة محفوظة محليًا، وتعذر تحديثها من الخادم الآن.",
+                                message = "الجلسة محفوظة محليًا، وتعذر تأكيد النتيجة من الخادم الآن.",
                             )
                         } else {
                             QuestionSessionUiState.Content(
