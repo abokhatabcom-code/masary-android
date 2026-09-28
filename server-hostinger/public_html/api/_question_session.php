@@ -177,6 +177,9 @@ function api_question_session_rows(
     if (isset($columns['is_active'])) {
         $where[] = 'q.is_active=1';
     }
+    if (isset($columns['status'])) {
+        $where[] = "LOWER(TRIM(q.status))='active'";
+    }
 
     $types = array_values(array_filter((array)($candidate['types'] ?? []), 'is_string'));
     if ($types !== []) {
@@ -292,6 +295,279 @@ function api_question_session_connect_payload(
     return ['left_items' => $leftItems, 'right_items' => $rightItems];
 }
 
+
+function api_question_session_normalized_types(string $questionType): array
+{
+    return match ($questionType) {
+        'choose' => ['mcq', 'choose', 'multiple_choice', 'choice'],
+        'truefalse' => ['tf', 'truefalse', 'true_false'],
+        'connect' => ['match', 'matching', 'connect'],
+        'fill' => ['fill', 'fill_blank', 'completion'],
+        // Production speed tests draw from ordinary MCQ rows and add timing at the client/session layer.
+        'speed' => ['mcq', 'choose', 'multiple_choice', 'choice', 'speed', 'speed_test'],
+        default => [],
+    };
+}
+
+function api_question_session_normalized_rows(
+    PDO $pdo,
+    array $session,
+    string $questionType,
+): ?array {
+    $columns = api_question_session_columns($pdo, 'questions');
+    foreach (['id', 'type', 'question_text'] as $required) {
+        if (!isset($columns[$required])) {
+            return null;
+        }
+    }
+    $scope = api_question_session_scope($session, $columns);
+    if ($scope === null) {
+        return [];
+    }
+
+    $types = api_question_session_normalized_types($questionType);
+    if ($types === []) {
+        return [];
+    }
+
+    $where = [$scope['where']];
+    $params = $scope['params'];
+    $where[] = 'LOWER(TRIM(q.type)) IN ('
+        . implode(',', array_fill(0, count($types), '?')) . ')';
+    array_push($params, ...array_map('strtolower', $types));
+    if (isset($columns['status'])) {
+        $where[] = "LOWER(TRIM(q.status))='active'";
+    }
+    if (isset($columns['is_active'])) {
+        $where[] = 'q.is_active=1';
+    }
+
+    try {
+        $statement = $pdo->prepare(
+            'SELECT q.id AS _id,q.question_text AS _prompt,q.type AS _type '
+            . 'FROM questions q'
+            . $scope['joins']
+            . ' WHERE ' . implode(' AND ', $where)
+            . ' ORDER BY q.id ASC LIMIT ' . API_QUESTION_SESSION_MAX_QUESTIONS,
+        );
+        $statement->execute($params);
+        return $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function api_question_session_normalized_mcq_options(
+    PDO $pdo,
+    string $sessionId,
+    string $questionId,
+): array {
+    $columns = api_question_session_columns($pdo, 'question_mcq_options');
+    if (!isset($columns['id'], $columns['question_id'], $columns['option_text'])) {
+        return [];
+    }
+    $order = isset($columns['sort_order']) ? 'sort_order ASC,id ASC' : 'id ASC';
+    try {
+        $statement = $pdo->prepare(
+            'SELECT id,option_text FROM question_mcq_options WHERE question_id=? ORDER BY ' . $order,
+        );
+        $statement->execute([$questionId]);
+        $options = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $optionId = (string)($row['id'] ?? '');
+            $text = trim((string)($row['option_text'] ?? ''));
+            if ($optionId === '' || $text === '') {
+                continue;
+            }
+            $options[] = [
+                'id' => api_question_session_opaque_id(
+                    $sessionId,
+                    'questions',
+                    $questionId,
+                    'mcq-option:' . $optionId,
+                ),
+                'text' => $text,
+            ];
+        }
+        return count($options) >= 2 ? $options : [];
+    } catch (Throwable) {
+        return [];
+    }
+}
+
+function api_question_session_normalized_tf_ready(PDO $pdo, string $questionId): bool
+{
+    $columns = api_question_session_columns($pdo, 'question_tf');
+    if (!isset($columns['question_id'], $columns['correct_value'])) {
+        return false;
+    }
+    try {
+        $statement = $pdo->prepare('SELECT 1 FROM question_tf WHERE question_id=? LIMIT 1');
+        $statement->execute([$questionId]);
+        return (bool)$statement->fetchColumn();
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+function api_question_session_normalized_fill_ready(PDO $pdo, string $questionId): bool
+{
+    $fillColumns = api_question_session_columns($pdo, 'question_fill');
+    $answerColumns = api_question_session_columns($pdo, 'question_fill_answers');
+    if (
+        !isset($fillColumns['question_id'], $fillColumns['blanks_count'])
+        || !isset($answerColumns['question_id'], $answerColumns['blank_index'], $answerColumns['answer_text'])
+    ) {
+        return false;
+    }
+    try {
+        $statement = $pdo->prepare('SELECT blanks_count FROM question_fill WHERE question_id=? LIMIT 1');
+        $statement->execute([$questionId]);
+        if ((int)$statement->fetchColumn() !== 1) {
+            // Phase 13 Android contract currently carries one text answer per fill question.
+            return false;
+        }
+        $answer = $pdo->prepare(
+            "SELECT COUNT(*) FROM question_fill_answers "
+            . "WHERE question_id=? AND blank_index=1 AND TRIM(COALESCE(answer_text,''))<>''",
+        );
+        $answer->execute([$questionId]);
+        return (int)$answer->fetchColumn() > 0;
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+function api_question_session_normalized_match_pairs(
+    PDO $pdo,
+    string $sessionId,
+    string $questionId,
+): ?array {
+    $columns = api_question_session_columns($pdo, 'question_match_pairs');
+    if (
+        !isset($columns['id'], $columns['question_id'], $columns['left_text'], $columns['right_text'])
+    ) {
+        return null;
+    }
+    $order = isset($columns['sort_order']) ? 'sort_order ASC,id ASC' : 'id ASC';
+    try {
+        $statement = $pdo->prepare(
+            'SELECT id,left_text,right_text FROM question_match_pairs '
+            . 'WHERE question_id=? ORDER BY ' . $order,
+        );
+        $statement->execute([$questionId]);
+        $leftItems = [];
+        $rightItems = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $pairId = (string)($row['id'] ?? '');
+            $left = trim((string)($row['left_text'] ?? ''));
+            $right = trim((string)($row['right_text'] ?? ''));
+            if ($pairId === '' || $left === '' || $right === '') {
+                continue;
+            }
+            $leftItems[] = [
+                'id' => api_question_session_opaque_id(
+                    $sessionId,
+                    'questions',
+                    $questionId,
+                    'match-left:' . $pairId,
+                ),
+                'text' => $left,
+            ];
+            $rightItems[] = [
+                'id' => api_question_session_opaque_id(
+                    $sessionId,
+                    'questions',
+                    $questionId,
+                    'match-right:' . $pairId,
+                ),
+                'text' => $right,
+            ];
+        }
+        if (count($leftItems) < 2 || count($leftItems) !== count($rightItems)) {
+            return null;
+        }
+        return [
+            'left_items' => $leftItems,
+            // Do not preserve source pair order on the right side.
+            'right_items' => array_reverse($rightItems),
+        ];
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function api_question_session_normalized_questions(
+    PDO $pdo,
+    array $session,
+    string $questionType,
+): ?array {
+    $rows = api_question_session_normalized_rows($pdo, $session, $questionType);
+    if ($rows === null) {
+        return null;
+    }
+
+    $sessionId = (string)($session['public_session_id'] ?? '');
+    $questions = [];
+    foreach ($rows as $row) {
+        $rowId = (string)($row['_id'] ?? '');
+        $prompt = trim((string)($row['_prompt'] ?? ''));
+        if ($rowId === '' || $prompt === '') {
+            continue;
+        }
+
+        $payload = [];
+        if (in_array($questionType, ['choose', 'speed'], true)) {
+            $options = api_question_session_normalized_mcq_options(
+                $pdo,
+                $sessionId,
+                $rowId,
+            );
+            if ($options === []) {
+                continue;
+            }
+            $payload['options'] = $options;
+        } elseif ($questionType === 'truefalse') {
+            if (!api_question_session_normalized_tf_ready($pdo, $rowId)) {
+                continue;
+            }
+            $payload['options'] = [
+                [
+                    'id' => api_question_session_opaque_id($sessionId, 'questions', $rowId, 'true'),
+                    'text' => 'صح',
+                ],
+                [
+                    'id' => api_question_session_opaque_id($sessionId, 'questions', $rowId, 'false'),
+                    'text' => 'خطأ',
+                ],
+            ];
+        } elseif ($questionType === 'fill') {
+            if (!api_question_session_normalized_fill_ready($pdo, $rowId)) {
+                continue;
+            }
+            $payload['input_mode'] = 'text';
+        } elseif ($questionType === 'connect') {
+            $matchPayload = api_question_session_normalized_match_pairs(
+                $pdo,
+                $sessionId,
+                $rowId,
+            );
+            if ($matchPayload === null) {
+                continue;
+            }
+            $payload = $matchPayload;
+        }
+
+        $questions[] = [
+            'id' => api_question_session_opaque_id($sessionId, 'questions', $rowId),
+            'type' => $questionType,
+            'prompt' => $prompt,
+            'payload' => $payload,
+        ];
+    }
+    return $questions;
+}
+
 function api_question_session_questions(PDO $pdo, array $session): array
 {
     $activityType = (string)($session['activity_type'] ?? '');
@@ -306,6 +582,13 @@ function api_question_session_questions(PDO $pdo, array $session): array
     }
 
     foreach ((array)($definition['tables'] ?? []) as $candidate) {
+        if ((string)($candidate['table'] ?? '') === 'questions') {
+            $normalized = api_question_session_normalized_questions($pdo, $session, $questionType);
+            if ($normalized !== null && $normalized !== []) {
+                return $normalized;
+            }
+        }
+
         $source = api_question_session_rows($pdo, $session, (array)$candidate);
         if ($source === null || $source['rows'] === []) {
             continue;
