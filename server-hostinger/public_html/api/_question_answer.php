@@ -150,6 +150,43 @@ function api_question_answer_source_rows(
     }
 }
 
+
+function api_question_answer_resolve_normalized_source(
+    PDO $pdo,
+    array $session,
+    string $questionType,
+    string $questionId,
+): ?array {
+    $rows = api_question_session_normalized_rows($pdo, $session, $questionType);
+    if ($rows === null) {
+        return null;
+    }
+    foreach ($rows as $row) {
+        $rowId = (string)($row['_id'] ?? '');
+        if ($rowId === '') {
+            continue;
+        }
+        $opaque = api_question_session_opaque_id(
+            (string)$session['public_session_id'],
+            'questions',
+            $rowId,
+        );
+        if (hash_equals($opaque, $questionId)) {
+            return [
+                'table' => 'questions',
+                'columns' => api_question_session_columns($pdo, 'questions'),
+                'id_column' => 'id',
+                'rows' => $rows,
+                'question_type' => $questionType,
+                'row' => $row,
+                'row_id' => $rowId,
+                'normalized_schema' => true,
+            ];
+        }
+    }
+    return null;
+}
+
 function api_question_answer_resolve_source(
     PDO $pdo,
     array $session,
@@ -163,6 +200,18 @@ function api_question_answer_resolve_source(
     }
 
     foreach ((array)($definition['tables'] ?? []) as $candidate) {
+        if ((string)($candidate['table'] ?? '') === 'questions') {
+            $normalized = api_question_answer_resolve_normalized_source(
+                $pdo,
+                $session,
+                $questionType,
+                $questionId,
+            );
+            if ($normalized !== null) {
+                return $normalized;
+            }
+        }
+
         $source = api_question_answer_source_rows($pdo, $session, (array)$candidate);
         if ($source === null || $source['rows'] === []) {
             continue;
@@ -369,8 +418,225 @@ function api_question_answer_grade_connect(array $session, array $source, array 
     return true;
 }
 
-function api_question_answer_grade(array $session, array $source, array $answer): bool
-{
+
+function api_question_answer_grade_normalized_choice(
+    PDO $pdo,
+    array $session,
+    array $source,
+    array $answer,
+): bool {
+    if (($answer['kind'] ?? '') !== 'choice') {
+        api_error('invalid_answer', 'هذه الجلسة تتطلب اختيار إجابة.', 422);
+    }
+    $columns = api_question_session_columns($pdo, 'question_mcq_options');
+    if (!isset($columns['id'], $columns['question_id'], $columns['is_correct'])) {
+        api_error('grading_source_unavailable', 'تعذر إثبات مفتاح تصحيح هذا السؤال.', 503);
+    }
+
+    try {
+        $statement = $pdo->prepare(
+            'SELECT id,is_correct FROM question_mcq_options WHERE question_id=? ORDER BY id ASC',
+        );
+        $statement->execute([(string)$source['row_id']]);
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable) {
+        api_error('grading_source_unavailable', 'تعذر قراءة خيارات تصحيح هذا السؤال.', 503);
+    }
+
+    $hasCorrect = false;
+    $actual = strtolower((string)($answer['option_id'] ?? ''));
+    foreach ($rows as $row) {
+        if ((int)($row['is_correct'] ?? 0) !== 1) {
+            continue;
+        }
+        $hasCorrect = true;
+        $expected = api_question_session_opaque_id(
+            (string)$session['public_session_id'],
+            'questions',
+            (string)$source['row_id'],
+            'mcq-option:' . (string)($row['id'] ?? ''),
+        );
+        if (hash_equals($expected, $actual)) {
+            return true;
+        }
+    }
+    if (!$hasCorrect) {
+        api_error('grading_source_unavailable', 'لا يوجد خيار صحيح مثبت لهذا السؤال.', 503);
+    }
+    return false;
+}
+
+function api_question_answer_grade_normalized_truefalse(
+    PDO $pdo,
+    array $session,
+    array $source,
+    array $answer,
+): bool {
+    if (($answer['kind'] ?? '') !== 'choice') {
+        api_error('invalid_answer', 'هذا السؤال يتطلب اختيار صح أو خطأ.', 422);
+    }
+    $columns = api_question_session_columns($pdo, 'question_tf');
+    if (!isset($columns['question_id'], $columns['correct_value'])) {
+        api_error('grading_source_unavailable', 'تعذر إثبات مفتاح تصحيح هذا السؤال.', 503);
+    }
+    try {
+        $statement = $pdo->prepare(
+            'SELECT correct_value FROM question_tf WHERE question_id=? LIMIT 1',
+        );
+        $statement->execute([(string)$source['row_id']]);
+        $raw = $statement->fetchColumn();
+    } catch (Throwable) {
+        api_error('grading_source_unavailable', 'تعذر قراءة مفتاح تصحيح هذا السؤال.', 503);
+    }
+    if ($raw === false || !in_array((string)$raw, ['0', '1'], true)) {
+        api_error('grading_source_unavailable', 'قيمة التصحيح لهذا السؤال غير معروفة.', 503);
+    }
+    $slot = (string)$raw === '1' ? 'true' : 'false';
+    $expected = api_question_session_opaque_id(
+        (string)$session['public_session_id'],
+        'questions',
+        (string)$source['row_id'],
+        $slot,
+    );
+    return hash_equals($expected, strtolower((string)($answer['option_id'] ?? '')));
+}
+
+function api_question_answer_grade_normalized_fill(
+    PDO $pdo,
+    array $source,
+    array $answer,
+): bool {
+    if (($answer['kind'] ?? '') !== 'text') {
+        api_error('invalid_answer', 'هذا السؤال يتطلب إجابة نصية.', 422);
+    }
+    $fillColumns = api_question_session_columns($pdo, 'question_fill');
+    $answerColumns = api_question_session_columns($pdo, 'question_fill_answers');
+    if (
+        !isset($fillColumns['question_id'], $fillColumns['blanks_count'])
+        || !isset($answerColumns['question_id'], $answerColumns['blank_index'], $answerColumns['answer_text'])
+    ) {
+        api_error('grading_source_unavailable', 'تعذر إثبات مفتاح تصحيح هذا السؤال.', 503);
+    }
+    try {
+        $fill = $pdo->prepare('SELECT blanks_count FROM question_fill WHERE question_id=? LIMIT 1');
+        $fill->execute([(string)$source['row_id']]);
+        if ((int)$fill->fetchColumn() !== 1) {
+            api_error('grading_source_unavailable', 'صيغة هذا السؤال تحتاج دعم أكثر من فراغ.', 503);
+        }
+        $statement = $pdo->prepare(
+            'SELECT answer_text FROM question_fill_answers '
+            . 'WHERE question_id=? AND blank_index=1 ORDER BY id ASC',
+        );
+        $statement->execute([(string)$source['row_id']]);
+        $accepted = $statement->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    } catch (QuestionAnswerTestError $error) {
+        throw $error;
+    } catch (Throwable) {
+        api_error('grading_source_unavailable', 'تعذر قراءة إجابات التصحيح لهذا السؤال.', 503);
+    }
+
+    $actual = api_question_answer_normalized_value((string)($answer['text'] ?? ''));
+    $hasAccepted = false;
+    foreach ($accepted as $candidate) {
+        $expected = api_question_answer_normalized_value((string)$candidate);
+        if ($expected === '') {
+            continue;
+        }
+        $hasAccepted = true;
+        if (hash_equals($expected, $actual)) {
+            return true;
+        }
+    }
+    if (!$hasAccepted) {
+        api_error('grading_source_unavailable', 'لا توجد إجابة تصحيح مثبتة لهذا السؤال.', 503);
+    }
+    return false;
+}
+
+function api_question_answer_grade_normalized_connect(
+    PDO $pdo,
+    array $session,
+    array $source,
+    array $answer,
+): bool {
+    if (($answer['kind'] ?? '') !== 'connections') {
+        api_error('invalid_answer', 'هذا السؤال يتطلب إكمال التوصيل.', 422);
+    }
+    $columns = api_question_session_columns($pdo, 'question_match_pairs');
+    if (!isset($columns['id'], $columns['question_id'])) {
+        api_error('grading_source_unavailable', 'تعذر إثبات أزواج تصحيح هذا السؤال.', 503);
+    }
+    try {
+        $statement = $pdo->prepare(
+            'SELECT id FROM question_match_pairs WHERE question_id=? ORDER BY id ASC',
+        );
+        $statement->execute([(string)$source['row_id']]);
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable) {
+        api_error('grading_source_unavailable', 'تعذر قراءة أزواج تصحيح هذا السؤال.', 503);
+    }
+
+    $expected = [];
+    foreach ($rows as $row) {
+        $pairId = (string)($row['id'] ?? '');
+        if ($pairId === '') {
+            continue;
+        }
+        $left = api_question_session_opaque_id(
+            (string)$session['public_session_id'],
+            'questions',
+            (string)$source['row_id'],
+            'match-left:' . $pairId,
+        );
+        $right = api_question_session_opaque_id(
+            (string)$session['public_session_id'],
+            'questions',
+            (string)$source['row_id'],
+            'match-right:' . $pairId,
+        );
+        $expected[strtolower($left)] = strtolower($right);
+    }
+    $pairs = (array)($answer['pairs'] ?? []);
+    if ($expected === [] || count($pairs) !== count($expected)) {
+        return false;
+    }
+    foreach ($pairs as $pair) {
+        $left = strtolower((string)($pair['left_id'] ?? ''));
+        $right = strtolower((string)($pair['right_id'] ?? ''));
+        if (!isset($expected[$left]) || !hash_equals($expected[$left], $right)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function api_question_answer_grade_normalized(
+    PDO $pdo,
+    array $session,
+    array $source,
+    array $answer,
+): bool {
+    return match ((string)$source['question_type']) {
+        'choose', 'speed' => api_question_answer_grade_normalized_choice($pdo, $session, $source, $answer),
+        'truefalse' => api_question_answer_grade_normalized_truefalse($pdo, $session, $source, $answer),
+        'fill' => api_question_answer_grade_normalized_fill($pdo, $source, $answer),
+        'connect' => api_question_answer_grade_normalized_connect($pdo, $session, $source, $answer),
+        default => api_error('grading_source_unavailable', 'نوع التصحيح غير مدعوم.', 503),
+    };
+}
+
+function api_question_answer_grade(
+    array $session,
+    array $source,
+    array $answer,
+    ?PDO $pdo = null,
+): bool {
+    if (!empty($source['normalized_schema'])) {
+        if ($pdo === null) {
+            api_error('grading_source_unavailable', 'اتصال قاعدة البيانات مطلوب للتصحيح.', 503);
+        }
+        return api_question_answer_grade_normalized($pdo, $session, $source, $answer);
+    }
     return match ((string)$source['question_type']) {
         'choose', 'speed' => api_question_answer_grade_choice($session, $source, $answer),
         'truefalse' => api_question_answer_grade_truefalse($session, $source, $answer),
@@ -435,7 +701,7 @@ function api_question_answer_submit(
     $source = api_question_answer_resolve_source($pdo, $session, $request['question_id']);
     $requestHash = api_question_answer_request_hash($request);
     $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
-    $correct = api_question_answer_grade($session, $source, $request['answer']);
+    $correct = api_question_answer_grade($session, $source, $request['answer'], $pdo);
     $totalQuestions = count(api_question_session_questions($pdo, $session));
 
     $ownsTransaction = !$pdo->inTransaction();
