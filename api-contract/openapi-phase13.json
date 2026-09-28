@@ -110,6 +110,65 @@
           }
         }
       }
+    },
+    "/api/v1/student/activity/finish": {
+      "post": {
+        "summary": "Finish one authenticated question session idempotently",
+        "description": "يغلق جلسة الأسئلة بعد تثبيت جميع الإجابات ويعيد النتيجة المؤكدة من الخادم. لا يمنح XP أو مستوى أو مكافآت ما لم يثبت مصدرها الخادمي.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionFinishRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/QuestionFinishSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/QuestionFinishError"
+          },
+          "404": {
+            "$ref": "#/components/responses/QuestionFinishError"
+          },
+          "409": {
+            "$ref": "#/components/responses/QuestionFinishError"
+          },
+          "410": {
+            "$ref": "#/components/responses/QuestionFinishError"
+          },
+          "422": {
+            "$ref": "#/components/responses/QuestionFinishError"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuestionFinishError"
+          },
+          "503": {
+            "$ref": "#/components/responses/QuestionFinishError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -145,6 +204,26 @@
         }
       },
       "QuestionAnswerError": {
+        "description": "API error envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "QuestionFinishSuccess": {
+        "description": "Confirmed immutable question session result",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/QuestionFinishResponse"
+            }
+          }
+        }
+      },
+      "QuestionFinishError": {
         "description": "API error envelope",
         "content": {
           "application/json": {
@@ -617,6 +696,142 @@
           },
           "data": {
             "$ref": "#/components/schemas/QuestionAnswerResult"
+          },
+          "error": {
+            "type": "null"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "QuestionFinishRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        }
+      },
+      "QuestionSessionScore": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "correct_answers",
+          "incorrect_answers",
+          "total_questions",
+          "score_percent"
+        ],
+        "properties": {
+          "correct_answers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "incorrect_answers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_questions": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "score_percent": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "QuestionConfirmedDelta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "available",
+          "reason",
+          "profile",
+          "subjects"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "QuestionFinishResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id",
+          "status",
+          "completed_at",
+          "replayed",
+          "result",
+          "confirmed_delta"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "status": {
+            "const": "completed"
+          },
+          "completed_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "result": {
+            "$ref": "#/components/schemas/QuestionSessionScore"
+          },
+          "confirmed_delta": {
+            "$ref": "#/components/schemas/QuestionConfirmedDelta"
+          }
+        }
+      },
+      "QuestionFinishResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "success",
+          "data",
+          "error",
+          "request_id"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/QuestionFinishResult"
           },
           "error": {
             "type": "null"
