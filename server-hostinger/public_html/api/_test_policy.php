@@ -244,7 +244,7 @@ function api_test_policy_heart_cost(array $policy, array $request): int
     if ($activityMode === 'speed' || $activityType === 'speed_test') {
         return 0;
     }
-    if ($activityType === 'review' || in_array($activityMode, ['review', 'practice'], true)) {
+    if ($activityType === 'review' || $activityMode === 'review') {
         return max(0, min(3, (int)($policy['review_heart_cost'] ?? 1)));
     }
     return 0;
