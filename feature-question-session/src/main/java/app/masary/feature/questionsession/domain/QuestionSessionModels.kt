@@ -60,6 +60,8 @@ data class QuestionSessionInfo(
     val lessonId: Int?,
     val activityType: String,
     val activityMode: String,
+    val startedAt: String = "",
+    val startedAtEpochSeconds: Long = 0,
 )
 
 data class QuestionSessionProgress(
@@ -136,6 +138,7 @@ data class QuestionSessionScore(
     val passPercent: Int = 60,
     val xpEarned: Double = 0.0,
     val heartsSpent: Int = 0,
+    val timedOut: Boolean = false,
 )
 
 data class QuestionSessionResult(
