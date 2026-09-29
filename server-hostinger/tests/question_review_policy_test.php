@@ -197,6 +197,36 @@ $answer = api_question_answer_submit(
 );
 review_check(abs((float)$answer['score'] - 1.0) < 0.0001, 'Review answer did not grade from original source.');
 
+$ownedSession = api_question_session_owned_row($pdo, 42, 'review-session-0001');
+$hiddenPolicy = $policy;
+$hiddenPolicy['result_show_review_details'] = 1;
+$hiddenPolicy['reveal_answers'] = 0;
+$hiddenReview = api_question_review_items(
+    $pdo,
+    42,
+    $ownedSession,
+    $package['questions'],
+    $hiddenPolicy,
+);
+review_check(
+    count($hiddenReview) === 1 && $hiddenReview[0]['correct_answer'] === null,
+    'Correct answer leaked while reveal_answers was disabled.',
+);
+
+$revealedPolicy = $hiddenPolicy;
+$revealedPolicy['reveal_answers'] = 1;
+$revealedReview = api_question_review_items(
+    $pdo,
+    42,
+    $ownedSession,
+    $package['questions'],
+    $revealedPolicy,
+);
+review_check(
+    trim((string)($revealedReview[0]['correct_answer'] ?? '')) === 'أ',
+    'Correct answer was not exposed after reveal_answers was enabled.',
+);
+
 api_question_attempt_upsert_question_state(
     $pdo,
     42,
