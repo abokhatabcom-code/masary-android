@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 
 private const val QUESTION_RESULT_DOCUMENT_KIND = "question_session_result"
+private const val QUESTION_ACTIVE_TIME_DOCUMENT_KIND = "question_session_active_time"
 
 class NetworkQuestionSessionRepository(
     private val questionApi: StudentQuestionSessionApi,
@@ -328,6 +329,54 @@ class NetworkQuestionSessionRepository(
         }
     }
 
+    override suspend fun loadActiveSeconds(sessionId: String): Int? {
+        val safeSessionId = sessionId.trim()
+        if (safeSessionId.length !in 8..128) return null
+        val studentId = sessionManager.session.first()?.id ?: return null
+        return try {
+            val document = localStore.readDocument(
+                studentId = studentId,
+                kind = QUESTION_ACTIVE_TIME_DOCUMENT_KIND,
+                documentId = safeSessionId,
+            ) ?: return null
+            val payload = gson.fromJson(document.payloadJson, JsonObject::class.java)
+                ?: return null
+            payload.get("seconds")?.takeUnless { it.isJsonNull }?.asInt
+                ?.coerceIn(0, 86_400)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun saveActiveSeconds(
+        sessionId: String,
+        seconds: Int,
+    ): Result<Unit> {
+        val safeSessionId = sessionId.trim()
+        if (safeSessionId.length !in 8..128) {
+            return Result.failure(QuestionSessionNotFoundException())
+        }
+        val studentId = sessionManager.session.first()?.id
+            ?: return Result.failure(QuestionSessionExpiredException("انتهت جلسة الدخول."))
+        return runCatching {
+            val payload = JsonObject().apply {
+                addProperty("seconds", seconds.coerceIn(0, 86_400))
+            }
+            localStore.putDocument(
+                studentId = studentId,
+                kind = QUESTION_ACTIVE_TIME_DOCUMENT_KIND,
+                documentId = safeSessionId,
+                payloadJson = gson.toJson(payload),
+                savedAtEpochMillis = nowEpochMillis(),
+            )
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw QuestionSessionServiceException("تعذر حفظ وقت النشاط محليًا.", error)
+        }
+    }
+
     override suspend fun loadResult(sessionId: String): QuestionSessionResult? {
         val safeSessionId = sessionId.trim()
         if (safeSessionId.length !in 8..128) return null
@@ -363,7 +412,10 @@ class NetworkQuestionSessionRepository(
             if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
                 tokens = refreshTokens(tokens.refreshToken)
             }
-            val request = QuestionFinishRequestDto(safeSessionId)
+            val request = QuestionFinishRequestDto(
+                sessionId = safeSessionId,
+                activeSeconds = loadActiveSeconds(safeSessionId),
+            )
             val idempotencyKey = stableFinishOperationId(studentId, safeSessionId)
             val data = try {
                 requestFinish(tokens, idempotencyKey, request)
@@ -453,7 +505,9 @@ class NetworkQuestionSessionRepository(
             result.score.scorePercent !in 0..100 ||
             result.score.passPercent !in 1..100 ||
             result.score.xpEarned < 0.0 ||
-            result.score.heartsSpent < 0
+            result.score.heartsSpent < 0 ||
+            result.score.durationSeconds < 0 ||
+            (result.score.attemptId != null && result.score.attemptId <= 0)
         ) {
             throw QuestionSessionServiceException("نتيجة جلسة الأسئلة غير صالحة.")
         }
@@ -742,6 +796,8 @@ internal fun QuestionFinishResultDto.toDomain(): QuestionSessionResult =
             xpEarned = result.xpEarned,
             heartsSpent = result.heartsSpent,
             timedOut = result.timedOut,
+            durationSeconds = result.durationSeconds,
+            attemptId = result.attemptId,
         ),
         policy = policy.toDomain(),
         confirmedDeltaAvailable = confirmedDelta.available,
