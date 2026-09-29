@@ -17,6 +17,8 @@ data class QuestionSessionDescriptorDto(
     val id: String = "",
     val status: String = "",
     @SerializedName("expires_at") val expiresAt: String = "",
+    @SerializedName("started_at") val startedAt: String = "",
+    @SerializedName("started_at_epoch_seconds") val startedAtEpochSeconds: Long = 0,
     @SerializedName("subject_version_id") val subjectVersionId: Int = 0,
     @SerializedName("unit_id") val unitId: Int? = null,
     @SerializedName("lesson_id") val lessonId: Int? = null,
@@ -126,6 +128,7 @@ data class QuestionSessionScoreDto(
     @SerializedName("pass_percent") val passPercent: Int = 60,
     @SerializedName("xp_earned") val xpEarned: Double = 0.0,
     @SerializedName("hearts_spent") val heartsSpent: Int = 0,
+    @SerializedName("timed_out") val timedOut: Boolean = false,
 )
 
 data class QuestionConfirmedProfileDeltaDto(
