@@ -129,10 +129,10 @@ function api_question_progress_mode(array $session): string
     if ($activityType === 'speed_test' || $activityMode === 'speed') {
         return 'speed';
     }
-    if ($activityType === 'smart_review' || $activityType === 'review') {
+    if ($activityType === 'smart_review') {
         return 'mistakes';
     }
-    if (in_array($activityMode, ['review', 'practice'], true)) {
+    if ($activityType === 'review' || in_array($activityMode, ['review', 'practice'], true)) {
         return 'review';
     }
     return 'learn';
