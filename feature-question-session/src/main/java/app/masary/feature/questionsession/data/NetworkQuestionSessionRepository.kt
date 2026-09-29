@@ -736,6 +736,7 @@ internal fun QuestionFinishResultDto.toDomain(): QuestionSessionResult =
             passPercent = result.passPercent,
             xpEarned = result.xpEarned,
             heartsSpent = result.heartsSpent,
+            timedOut = result.timedOut,
         ),
         policy = policy.toDomain(),
         confirmedDeltaAvailable = confirmedDelta.available,
@@ -756,6 +757,8 @@ internal fun QuestionSessionPackageDataDto.toDomain(): QuestionSessionPackage {
             lessonId = session.lessonId,
             activityType = session.activityType.trim(),
             activityMode = session.activityMode.trim(),
+            startedAt = session.startedAt.trim(),
+            startedAtEpochSeconds = session.startedAtEpochSeconds,
         ),
         progress = QuestionSessionProgress(
             currentIndex = progress.currentIndex,
