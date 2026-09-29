@@ -1034,6 +1034,69 @@ function api_question_answer_read_idempotency(
     return $statement->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+function api_question_answer_read_operation(
+    PDO $pdo,
+    int $studentId,
+    string $keyHash,
+): ?array {
+    if (!api_activity_table_exists($pdo, 'api_activity_answer_operations')) {
+        return null;
+    }
+    $statement = $pdo->prepare(
+        'SELECT * FROM api_activity_answer_operations '
+        . 'WHERE user_id=? AND idempotency_key_hash=? LIMIT 1',
+    );
+    $statement->execute([$studentId, $keyHash]);
+    return $statement->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+function api_question_answer_record_operation(
+    PDO $pdo,
+    int $studentId,
+    string $sessionId,
+    string $questionId,
+    string $keyHash,
+    string $requestHash,
+    string $resultJson,
+    string $createdAt,
+): void {
+    if (!api_activity_table_exists($pdo, 'api_activity_answer_operations')) {
+        return;
+    }
+    $driver = strtolower((string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+    $prefix = $driver === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+    $statement = $pdo->prepare(
+        $prefix . ' INTO api_activity_answer_operations '
+        . '(user_id,public_session_id,question_id,idempotency_key_hash,request_hash,result_json,created_at) '
+        . 'VALUES(?,?,?,?,?,?,?)',
+    );
+    $statement->execute([
+        $studentId,
+        $sessionId,
+        $questionId,
+        $keyHash,
+        $requestHash,
+        $resultJson,
+        $createdAt,
+    ]);
+}
+
+function api_question_answer_seed_existing_operation(
+    PDO $pdo,
+    array $existingQuestion,
+): void {
+    api_question_answer_record_operation(
+        $pdo,
+        (int)($existingQuestion['user_id'] ?? 0),
+        (string)($existingQuestion['public_session_id'] ?? ''),
+        (string)($existingQuestion['question_id'] ?? ''),
+        (string)($existingQuestion['idempotency_key_hash'] ?? ''),
+        (string)($existingQuestion['request_hash'] ?? ''),
+        (string)($existingQuestion['result_json'] ?? '{}'),
+        (string)($existingQuestion['created_at'] ?? gmdate('Y-m-d H:i:s')),
+    );
+}
+
 function api_question_answer_read_question(
     PDO $pdo,
     int $studentId,
@@ -1074,6 +1137,9 @@ function api_question_answer_submit(
 
     $request = api_question_answer_normalize($payload);
     $session = api_question_session_owned_row($pdo, $studentId, $request['session_id']);
+    if ((string)($session['status'] ?? '') === 'completed') {
+        api_error('activity_session_completed', 'تم إنهاء هذه الجلسة ولا يمكن تعديل إجاباتها.', 409);
+    }
     $policy = api_test_policy_for_session($pdo, $session);
     if (($request['answer']['kind'] ?? '') === 'skip' && empty($policy['allow_skip'])) {
         api_error('skip_not_allowed', 'تخطي السؤال غير مسموح في إعدادات هذا الاختبار.', 422);
@@ -1105,28 +1171,70 @@ function api_question_answer_submit(
             return $result;
         }
 
-        $existingQuestion = api_question_answer_read_question(
-            $pdo,
-            $studentId,
-            $request['session_id'],
-            $request['question_id'],
-        );
-        if ($existingQuestion) {
-            if (!hash_equals((string)$existingQuestion['request_hash'], $requestHash)) {
-                api_question_answer_reject('question_already_answered', 'تم تثبيت إجابة مختلفة لهذا السؤال مسبقًا.', 409);
+        $existingOperation = api_question_answer_read_operation($pdo, $studentId, $keyHash);
+        if ($existingOperation) {
+            if (!hash_equals((string)$existingOperation['request_hash'], $requestHash)) {
+                api_question_answer_reject('idempotency_key_conflict', 'استُخدم مفتاح الإجابة لطلب مختلف.', 409);
             }
-            $result = api_question_answer_stored_result($existingQuestion, true);
+            $result = api_question_answer_stored_result($existingOperation, true);
             if ($ownsTransaction) {
                 $pdo->commit();
             }
             return $result;
         }
 
+        $existingQuestion = api_question_answer_read_question(
+            $pdo,
+            $studentId,
+            $request['session_id'],
+            $request['question_id'],
+        );
         $countStatement = $pdo->prepare(
             'SELECT COUNT(*) FROM api_activity_answers WHERE user_id=? AND public_session_id=?',
         );
         $countStatement->execute([$studentId, $request['session_id']]);
-        $answered = max(0, (int)$countStatement->fetchColumn()) + 1;
+        $existingAnswered = max(0, (int)$countStatement->fetchColumn());
+
+        if ($existingQuestion) {
+            if (hash_equals((string)$existingQuestion['request_hash'], $requestHash)) {
+                api_question_answer_record_operation(
+                    $pdo,
+                    $studentId,
+                    $request['session_id'],
+                    $request['question_id'],
+                    $keyHash,
+                    $requestHash,
+                    (string)$existingQuestion['result_json'],
+                    gmdate('Y-m-d H:i:s'),
+                );
+                $result = api_question_answer_stored_result($existingQuestion, true);
+                if ($ownsTransaction) {
+                    $pdo->commit();
+                }
+                return $result;
+            }
+
+            if (empty($policy['allow_back'])) {
+                api_question_answer_reject(
+                    'question_already_answered',
+                    'لا تسمح إعدادات هذا الاختبار بتعديل إجابة مثبتة.',
+                    409,
+                );
+            }
+            if (!api_activity_table_exists($pdo, 'api_activity_answer_operations')) {
+                api_question_answer_reject(
+                    'answer_revision_schema_missing',
+                    'خدمة تعديل الإجابة لم تُجهّز في هذه البيئة بعد.',
+                    503,
+                );
+            }
+
+            // Preserve the previous operation before replacing the current answer row.
+            api_question_answer_seed_existing_operation($pdo, $existingQuestion);
+            $answered = $existingAnswered;
+        } else {
+            $answered = $existingAnswered + 1;
+        }
 
         $result = [
             'session_id' => $request['session_id'],
@@ -1142,22 +1250,60 @@ function api_question_answer_submit(
             ],
         ];
         $now = gmdate('Y-m-d H:i:s');
-        $insert = $pdo->prepare(
-            'INSERT INTO api_activity_answers '
-            . '(user_id,public_session_id,question_id,idempotency_key_hash,request_hash,'
-            . 'answer_json,result_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
+        $answerJson = json_encode(
+            $request['answer'],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
         );
-        $insert->execute([
+        $resultJson = json_encode(
+            $result,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+        );
+
+        if ($existingQuestion) {
+            $statement = $pdo->prepare(
+                'UPDATE api_activity_answers SET idempotency_key_hash=?,request_hash=?,'
+                . 'answer_json=?,result_json=?,updated_at=? '
+                . 'WHERE user_id=? AND public_session_id=? AND question_id=?',
+            );
+            $statement->execute([
+                $keyHash,
+                $requestHash,
+                $answerJson,
+                $resultJson,
+                $now,
+                $studentId,
+                $request['session_id'],
+                $request['question_id'],
+            ]);
+        } else {
+            $insert = $pdo->prepare(
+                'INSERT INTO api_activity_answers '
+                . '(user_id,public_session_id,question_id,idempotency_key_hash,request_hash,'
+                . 'answer_json,result_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
+            );
+            $insert->execute([
+                $studentId,
+                $request['session_id'],
+                $request['question_id'],
+                $keyHash,
+                $requestHash,
+                $answerJson,
+                $resultJson,
+                $now,
+                $now,
+            ]);
+        }
+
+        api_question_answer_record_operation(
+            $pdo,
             $studentId,
             $request['session_id'],
             $request['question_id'],
             $keyHash,
             $requestHash,
-            json_encode($request['answer'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-            json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            $resultJson,
             $now,
-            $now,
-        ]);
+        );
         $update = $pdo->prepare(
             "UPDATE api_activity_sessions SET status='in_progress',updated_at=? "
             . "WHERE user_id=? AND public_session_id=? AND status IN ('created','in_progress')",
