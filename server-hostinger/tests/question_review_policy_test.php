@@ -138,7 +138,7 @@ function add_review_session(PDO $pdo, string $sessionId, array $policy): void
         'subject_version_id' => 25,
         'unit_id' => 64,
         'lesson_id' => null,
-        'activity_type' => 'review',
+        'activity_type' => 'smart_review',
         'activity_mode' => 'review',
         'source' => 'review',
         '_test_policy' => [
@@ -159,7 +159,7 @@ function add_review_session(PDO $pdo, string $sessionId, array $policy): void
         ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     );
     $statement->execute([
-        $sessionId,42,25,64,null,'review','review','review',null,'created',
+        $sessionId,42,25,64,null,'smart_review','review','review',null,'created',
         hash('sha256',$sessionId.'-key'),
         hash('sha256',$sessionId.'-request'),
         $request,'{}','activity_session_pending_ui',
