@@ -23,7 +23,7 @@ function api_question_progress_insert_ignore(
 
 function api_question_progress_require_tables(PDO $pdo): void
 {
-    foreach (['student_profile_stats', 'student_subject_state', 'student_unit_state'] as $table) {
+    foreach (['student_profile_stats', 'student_subject_state'] as $table) {
         if (!api_activity_table_exists($pdo, $table)) {
             api_error(
                 'progress_schema_missing',
@@ -186,19 +186,24 @@ function api_question_progress_apply(
 
     $subjectVersionId = (int)($session['subject_version_id'] ?? 0);
     $unitId = (int)($session['unit_id'] ?? 0);
-    if ($subjectVersionId <= 0 || $unitId <= 0) {
+    if ($subjectVersionId <= 0) {
         api_error(
             'progress_scope_missing',
-            'لا يمكن إثبات نطاق التقدم لهذه الجلسة.',
+            'لا يمكن إثبات نطاق المادة لهذه الجلسة.',
             503,
         );
     }
 
     $profile = api_question_progress_profile($pdo, $studentId);
     $subject = api_question_progress_subject($pdo, $studentId, $subjectVersionId);
-    $unit = api_question_progress_unit($pdo, $studentId, $unitId);
-    $contentNodeId = api_question_progress_content_node_id($pdo, $session);
-    $node = api_question_progress_node($pdo, $studentId, $contentNodeId);
+    $unit = [];
+    $contentNodeId = 0;
+    $node = null;
+    if ($unitId > 0 && api_activity_table_exists($pdo, 'student_unit_state')) {
+        $unit = api_question_progress_unit($pdo, $studentId, $unitId);
+        $contentNodeId = api_question_progress_content_node_id($pdo, $session);
+        $node = api_question_progress_node($pdo, $studentId, $contentNodeId);
+    }
 
     $mode = api_question_progress_mode($session);
     $xpMax = api_question_progress_xp_max($policy, $mode);
@@ -213,7 +218,7 @@ function api_question_progress_apply(
     $total = max(0, (int)($score['total_questions'] ?? 0));
 
     $effectiveMode = $mode === 'mistakes' ? 'review' : $mode;
-    if ($effectiveMode === 'learn') {
+    if ($unitId > 0 && $effectiveMode === 'learn') {
         if ((int)($unit['learn_attempt_done'] ?? 0) !== 1) {
             $update = $pdo->prepare(
                 'UPDATE student_unit_state SET learn_attempt_done=1,learn_xp_earned=?,'
@@ -246,7 +251,7 @@ function api_question_progress_apply(
         }
     }
 
-    if ($effectiveMode === 'review') {
+    if ($unitId > 0 && $effectiveMode === 'review') {
         $newReview = min(
             $reviewCap,
             max(0.0, (float)($unit['review_xp_total'] ?? 0)) + $xpEarned,
@@ -305,7 +310,7 @@ function api_question_progress_apply(
         } catch (Throwable) {
         }
     }
-    if (function_exists('set_last_activity_unit')) {
+    if ($unitId > 0 && function_exists('set_last_activity_unit')) {
         try {
             set_last_activity_unit(
                 $pdo,
