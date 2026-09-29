@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -75,6 +76,7 @@ fun QuestionSessionRoute(
         onPrevious = model::previous,
         onNext = model::next,
         onFinish = model::finish,
+        onUserActivity = model::markUserActivity,
     )
 }
 
@@ -88,9 +90,18 @@ private fun QuestionSessionScreen(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
+    onUserActivity: () -> Unit,
 ) {
     CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
+            modifier = Modifier.pointerInput(onUserActivity) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent()
+                        onUserActivity()
+                    }
+                }
+            },
             containerColor = MasaryColors.background,
             topBar = {
                 TopAppBar(
