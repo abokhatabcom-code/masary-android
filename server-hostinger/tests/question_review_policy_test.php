@@ -132,13 +132,18 @@ $policy['allowed_types'] = ['mcq'];
 $policy['allowed_difficulties'] = ['medium'];
 $policy['question_order'] = 'fixed';
 
-function add_review_session(PDO $pdo, string $sessionId, array $policy): void
+function add_review_session(
+    PDO $pdo,
+    string $sessionId,
+    array $policy,
+    string $activityType = 'smart_review',
+): void
 {
     $request = json_encode([
         'subject_version_id' => 25,
         'unit_id' => 64,
         'lesson_id' => null,
-        'activity_type' => 'smart_review',
+        'activity_type' => $activityType,
         'activity_mode' => 'review',
         'source' => 'review',
         '_test_policy' => [
@@ -159,7 +164,7 @@ function add_review_session(PDO $pdo, string $sessionId, array $policy): void
         ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     );
     $statement->execute([
-        $sessionId,42,25,64,null,'smart_review','review','review',null,'created',
+        $sessionId,42,25,64,null,$activityType,'review','review',null,'created',
         hash('sha256',$sessionId.'-key'),
         hash('sha256',$sessionId.'-request'),
         $request,'{}','activity_session_pending_ui',
@@ -168,7 +173,18 @@ function add_review_session(PDO $pdo, string $sessionId, array $policy): void
     ]);
 }
 
-add_review_session($pdo, 'review-session-0001', $policy);
+add_review_session($pdo, 'regular-review-session-0001', $policy, 'review');
+$regularPackage = api_question_session_package(
+    $pdo,
+    ['user_id' => 42],
+    'regular-review-session-0001',
+);
+review_check(
+    count($regularPackage['questions']) === 2,
+    'Regular review must use the full allowed unit question pool, not only mistakes.',
+);
+
+add_review_session($pdo, 'review-session-0001', $policy, 'smart_review');
 $package = api_question_session_package($pdo, ['user_id' => 42], 'review-session-0001');
 
 review_check(count($package['questions']) === 1, 'Review package must include exactly the unresolved mistake.');
