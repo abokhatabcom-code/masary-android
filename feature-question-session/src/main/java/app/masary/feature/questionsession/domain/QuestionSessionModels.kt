@@ -139,6 +139,8 @@ data class QuestionSessionScore(
     val xpEarned: Double = 0.0,
     val heartsSpent: Int = 0,
     val timedOut: Boolean = false,
+    val durationSeconds: Int = 0,
+    val attemptId: Int? = null,
 )
 
 data class QuestionSessionResult(
