@@ -72,6 +72,9 @@ fun QuestionSessionRoute(
         onBack = onBack,
         onRetry = model::retry,
         onSubmit = model::submit,
+        onPrevious = model::previous,
+        onNext = model::next,
+        onFinish = model::finish,
     )
 }
 
@@ -82,6 +85,9 @@ private fun QuestionSessionScreen(
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onSubmit: (QuestionAnswerInput) -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onFinish: () -> Unit,
 ) {
     CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
@@ -110,10 +116,14 @@ private fun QuestionSessionScreen(
 
                 is QuestionSessionUiState.Content -> QuestionContent(
                     data = state.data,
+                    viewingIndex = state.viewingIndex,
                     isRefreshing = state.isRefreshing,
                     isSaving = state.isSaving,
                     message = state.message,
                     onSubmit = onSubmit,
+                    onPrevious = onPrevious,
+                    onNext = onNext,
+                    onFinish = onFinish,
                     modifier = Modifier.padding(paddingValues),
                 )
 
@@ -174,16 +184,27 @@ private fun LoadingState(modifier: Modifier = Modifier) {
 @Composable
 private fun QuestionContent(
     data: QuestionSessionPackage,
+    viewingIndex: Int,
     isRefreshing: Boolean,
     isSaving: Boolean,
     message: String?,
     onSubmit: (QuestionAnswerInput) -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val index = data.progress.currentIndex.coerceIn(0, data.questions.lastIndex)
+    val index = viewingIndex.coerceIn(0, data.questions.lastIndex)
     val question = data.questions[index]
     val shownNumber = index + 1
-    val progress = shownNumber.toFloat() / data.questions.size.coerceAtLeast(1).toFloat()
+    val answeredFrontier = data.progress.currentIndex.coerceIn(0, data.questions.size)
+    val progress = answeredFrontier.toFloat() /
+        data.questions.size.coerceAtLeast(1).toFloat()
+    val revisitingAnswered = index < answeredFrontier
+    val maxBrowsableIndex = minOf(answeredFrontier, data.questions.lastIndex)
+    val canGoPrevious = data.policy.allowBack && index > 0
+    val canGoNext = index < maxBrowsableIndex
+    val canFinish = answeredFrontier >= data.questions.size
 
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(horizontal = 18.dp),
@@ -229,6 +250,16 @@ private fun QuestionContent(
             }
         }
 
+        if (revisitingAnswered) {
+            item {
+                Text(
+                    text = "سبق تثبيت إجابة لهذا السؤال. يمكنك تثبيت إجابة جديدة لاستبدالها.",
+                    color = MasaryColors.muted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -257,6 +288,44 @@ private fun QuestionContent(
                             Text("تخطي السؤال")
                         }
                     }
+                }
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (canGoPrevious) {
+                    OutlinedButton(
+                        onClick = onPrevious,
+                        enabled = !isSaving,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("السابق")
+                    }
+                }
+                if (canGoNext) {
+                    OutlinedButton(
+                        onClick = onNext,
+                        enabled = !isSaving,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("التالي")
+                    }
+                }
+            }
+        }
+
+        if (canFinish) {
+            item {
+                Button(
+                    onClick = onFinish,
+                    enabled = !isSaving,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (isSaving) "جارٍ الإنهاء…" else "إنهاء الاختبار")
                 }
             }
         }
