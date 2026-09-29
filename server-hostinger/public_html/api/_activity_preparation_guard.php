@@ -623,20 +623,31 @@ function api_activity_start_guarded(
         }
 
         $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
-        $existing = api_activity_fetch_idempotency($pdo, $studentId, $keyHash, true);
-        if ($existing) {
-            if (!hash_equals((string)$existing['request_hash'], $requestHash)) {
-                api_activity_reject(
-                    'idempotency_key_conflict',
-                    'استُخدم مفتاح البدء لطلب مختلف.',
-                    409,
-                );
+        if (api_activity_table_exists($pdo, 'api_activity_sessions')) {
+            $existing = api_activity_fetch_idempotency($pdo, $studentId, $keyHash, true);
+            if ($existing) {
+                if (!hash_equals((string)$existing['request_hash'], $requestHash)) {
+                    api_activity_reject(
+                        'idempotency_key_conflict',
+                        'استُخدم مفتاح البدء لطلب مختلف.',
+                        409,
+                    );
+                }
+                $result = api_activity_response_from_row($existing, true);
+                if ($ownsTransaction && $pdo->inTransaction()) {
+                    $pdo->commit();
+                }
+                return $result;
             }
-            $result = api_activity_response_from_row($existing, true);
-            if ($ownsTransaction && $pdo->inTransaction()) {
-                $pdo->commit();
+
+            $active = api_activity_find_active($pdo, $studentId, $requestHash);
+            if ($active) {
+                $result = api_activity_response_from_row($active, true);
+                if ($ownsTransaction && $pdo->inTransaction()) {
+                    $pdo->commit();
+                }
+                return $result;
             }
-            return $result;
         }
 
         $preview = api_activity_apply_authoritative_policy(
