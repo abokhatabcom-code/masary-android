@@ -1,7 +1,5 @@
 package app.masary.feature.questionsession.ui
 
-import android.os.SystemClock
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -84,7 +82,7 @@ class QuestionSessionViewModel(
     fun markUserActivity() {
         val current = _state.value as? QuestionSessionUiState.Content ?: return
         if (!current.data.policy.activeTime.enabled) return
-        val now = SystemClock.elapsedRealtime()
+        val now = (System.nanoTime() / 1_000_000L)
         accumulateActiveTime(current, now)
         activeLastInteractionElapsed = now
         activeLastCountedElapsed = now
@@ -215,7 +213,7 @@ class QuestionSessionViewModel(
         activeTimeSessionId = content.data.session.id
         activeTimeJob = viewModelScope.launch {
             activeSeconds = repository.loadActiveSeconds(content.data.session.id) ?: 0
-            val now = SystemClock.elapsedRealtime()
+            val now = (System.nanoTime() / 1_000_000L)
             activeLastInteractionElapsed = now
             activeLastCountedElapsed = now
             val intervalMillis = policy.pingInterval.coerceIn(5, 60) * 1_000L
@@ -253,7 +251,7 @@ class QuestionSessionViewModel(
 
     private suspend fun flushActiveTime(content: QuestionSessionUiState.Content) {
         if (!content.data.policy.activeTime.enabled) return
-        val now = SystemClock.elapsedRealtime()
+        val now = (System.nanoTime() / 1_000_000L)
         accumulateActiveTime(content, now)
         repository.saveActiveSeconds(
             sessionId = content.data.session.id,
