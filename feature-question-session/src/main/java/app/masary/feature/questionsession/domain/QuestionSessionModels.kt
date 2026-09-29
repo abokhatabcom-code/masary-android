@@ -60,6 +60,8 @@ data class QuestionSessionInfo(
     val lessonId: Int?,
     val activityType: String,
     val activityMode: String,
+    val source: String = "",
+    val guideStepId: Int? = null,
     val startedAt: String = "",
     val startedAtEpochSeconds: Long = 0,
 )
