@@ -145,12 +145,24 @@ data class QuestionSessionScore(
     val attemptId: Int? = null,
 )
 
+data class QuestionReviewItem(
+    val index: Int,
+    val questionId: String,
+    val type: String,
+    val prompt: String,
+    val score: Double,
+    val status: String,
+    val studentAnswer: String,
+    val correctAnswer: String?,
+)
+
 data class QuestionSessionResult(
     val sessionId: String,
     val completedAt: String,
     val replayed: Boolean,
     val score: QuestionSessionScore,
     val policy: QuestionSessionPolicy = QuestionSessionPolicy(),
+    val review: List<QuestionReviewItem> = emptyList(),
     val confirmedDeltaAvailable: Boolean,
     val confirmedDeltaReason: String,
 )
