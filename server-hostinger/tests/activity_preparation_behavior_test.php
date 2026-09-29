@@ -177,10 +177,17 @@ $learnPayload = [
     'source' => 'home_guide',
 ];
 $reviewPayload = array_replace($learnPayload, [
-    'activity_type' => 'review',
+    'activity_type' => 'smart_review',
     'activity_mode' => 'review',
     'guide_step_id' => 92,
 ]);
+$regularReviewPayload = [
+    'subject_version_id' => 12,
+    'unit_id' => 4,
+    'activity_type' => 'review',
+    'activity_mode' => 'review',
+    'source' => 'review',
+];
 $unitTestPayload = array_replace($learnPayload, [
     'activity_type' => 'unit_test',
     'activity_mode' => 'test',
@@ -351,7 +358,7 @@ $reviewHeartKey = 'phase136-review-heart-key-0001';
 $reviewStart = api_activity_start_guarded(
     $pdo,
     $session,
-    $reviewPayload,
+    $regularReviewPayload,
     $reviewHeartKey,
 );
 activity_check(
@@ -367,7 +374,7 @@ activity_check(
 $reviewReplay = api_activity_start_guarded(
     $pdo,
     $session,
-    $reviewPayload,
+    $regularReviewPayload,
     $reviewHeartKey,
 );
 activity_check(
@@ -380,6 +387,25 @@ activity_check(
         'SELECT hearts FROM student_subject_state WHERE student_id=42 AND subject_version_id=12'
     )->fetchColumn() === 1,
     'Idempotent review replay debited hearts twice.',
+);
+
+$pdo->exec('UPDATE student_subject_state SET hearts=3 WHERE student_id=42 AND subject_version_id=12');
+$pdo->exec('DELETE FROM api_activity_sessions');
+$mistakesStart = api_activity_start_guarded(
+    $pdo,
+    $session,
+    $reviewPayload,
+    'phase136-mistakes-heart-key-001',
+);
+activity_check(
+    (int)$mistakesStart['debit']['heart_debited'] === 1,
+    'Mistakes review did not use admin-configured mistakes_heart_cost=1.',
+);
+activity_check(
+    (int)$pdo->query(
+        'SELECT hearts FROM student_subject_state WHERE student_id=42 AND subject_version_id=12'
+    )->fetchColumn() === 2,
+    'Mistakes review heart debit did not change 3 hearts to 2.',
 );
 
 $pdo->exec('UPDATE student_subject_state SET hearts=3 WHERE student_id=42 AND subject_version_id=12');
