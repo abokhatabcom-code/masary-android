@@ -1256,6 +1256,10 @@ function api_question_session_package(PDO $pdo, array $authSession, string $sess
                 : null,
             'activity_type' => (string)($session['activity_type'] ?? ''),
             'activity_mode' => (string)($session['activity_mode'] ?? ''),
+            'source' => (string)($session['source'] ?? ''),
+            'guide_step_id' => isset($session['guide_step_id']) && $session['guide_step_id'] !== null
+                ? (int)$session['guide_step_id']
+                : null,
         ],
         'progress' => [
             'current_index' => $answered,
