@@ -189,23 +189,13 @@ $pdo->exec("INSERT INTO question_match_pairs VALUES
     (5302,5004,'اليمن','صنعاء',2)
 ");
 
-$defaults = api_test_policy_defaults();
-$pdo->prepare(
-    "INSERT INTO version_test_settings VALUES("
-    . implode(',', array_fill(0, 32, '?')) . ")"
-)->execute([
-    25,
-    4,
-    json_encode(['tf','fill','direct','match'], JSON_THROW_ON_ERROR),
-    json_encode(['easy','medium','hard'], JSON_THROW_ON_ERROR),
-    'fixed',
-    1,1,1,1,1,1,60,0,20,5,1,
-    1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,
-    1,45,15,
-]);
+$policy = api_test_policy_defaults();
+$policy['questions_per_attempt'] = 4;
+$policy['allowed_types'] = ['tf', 'fill', 'direct', 'match'];
+$policy['allowed_difficulties'] = ['easy', 'medium', 'hard'];
+$policy['question_order'] = 'fixed';
+$policy['shuffle_match_right'] = 1;
 
-$policy = api_test_policy_effective($pdo, 25, 64);
 $requestJson = json_encode([
     'subject_version_id' => 25,
     'unit_id' => 64,
