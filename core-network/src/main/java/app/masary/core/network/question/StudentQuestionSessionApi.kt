@@ -116,6 +116,7 @@ data class QuestionAnswerResponseDto(
 
 data class QuestionFinishRequestDto(
     @SerializedName("session_id") val sessionId: String,
+    @SerializedName("active_seconds") val activeSeconds: Int? = null,
 )
 
 data class QuestionSessionScoreDto(
@@ -129,6 +130,8 @@ data class QuestionSessionScoreDto(
     @SerializedName("xp_earned") val xpEarned: Double = 0.0,
     @SerializedName("hearts_spent") val heartsSpent: Int = 0,
     @SerializedName("timed_out") val timedOut: Boolean = false,
+    @SerializedName("duration_seconds") val durationSeconds: Int = 0,
+    @SerializedName("attempt_id") val attemptId: Int? = null,
 )
 
 data class QuestionConfirmedProfileDeltaDto(
