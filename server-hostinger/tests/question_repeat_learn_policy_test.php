@@ -124,4 +124,34 @@ repeat_check(
     'Repeated learn XP was not recorded as review progress.',
 );
 
+$mistakesPolicy = $policy;
+$mistakesPolicy['mistakes_xp_total'] = 1.0;
+$mistakesSession = array_replace($session, [
+    'activity_type' => 'smart_review',
+    'activity_mode' => 'review',
+    'source' => 'review',
+]);
+$perfectScore = array_replace($score, [
+    'correct_answers' => 10,
+    'score_percent_exact' => 100.0,
+    'score_percent' => 100,
+]);
+$mistakes = api_question_progress_apply(
+    $pdo,
+    42,
+    $mistakesSession,
+    $perfectScore,
+    $mistakesPolicy,
+);
+repeat_check(
+    abs((float)$mistakes['xp_earned'] - 1.0) < 0.0001,
+    'Smart mistakes review must use mistakes_xp_total=1.',
+);
+repeat_check(
+    abs((float)$pdo->query(
+        'SELECT subject_xp FROM student_subject_state WHERE student_id=42 AND subject_version_id=25'
+    )->fetchColumn() - 21.0) < 0.0001,
+    'Mistakes review did not add exactly one subject XP.',
+);
+
 echo "Repeat learn policy tests passed.\n";
