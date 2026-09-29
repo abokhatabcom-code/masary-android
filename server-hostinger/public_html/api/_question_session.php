@@ -1075,10 +1075,35 @@ function api_question_session_answered_count(
     }
 }
 
+function api_question_session_ensure_started(PDO $pdo, array $session): array
+{
+    $startedAt = trim((string)($session['started_at'] ?? ''));
+    if ($startedAt !== '') {
+        return $session;
+    }
+    $id = (int)($session['id'] ?? 0);
+    if ($id <= 0) {
+        return $session;
+    }
+
+    $now = gmdate('Y-m-d H:i:s');
+    $statement = $pdo->prepare(
+        "UPDATE api_activity_sessions SET started_at=?,updated_at=? "
+        . "WHERE id=? AND (started_at IS NULL OR started_at='') "
+        . "AND status IN ('created','in_progress')",
+    );
+    $statement->execute([$now, $now, $id]);
+
+    $read = $pdo->prepare('SELECT * FROM api_activity_sessions WHERE id=? LIMIT 1');
+    $read->execute([$id]);
+    return $read->fetch(PDO::FETCH_ASSOC) ?: $session;
+}
+
 function api_question_session_package(PDO $pdo, array $authSession, string $sessionId): array
 {
     $studentId = (int)($authSession['user_id'] ?? 0);
     $session = api_question_session_owned_row($pdo, $studentId, $sessionId);
+    $session = api_question_session_ensure_started($pdo, $session);
     $questions = api_question_session_questions($pdo, $session);
     $answered = min(
         api_question_session_answered_count($pdo, $studentId, (string)$session['public_session_id']),
@@ -1091,6 +1116,10 @@ function api_question_session_package(PDO $pdo, array $authSession, string $sess
             'id' => (string)$session['public_session_id'],
             'status' => (string)($session['status'] ?? 'created'),
             'expires_at' => (string)($session['expires_at'] ?? ''),
+            'started_at' => (string)($session['started_at'] ?? ''),
+            'started_at_epoch_seconds' => (($started = strtotime((string)($session['started_at'] ?? ''))) !== false)
+                ? (int)$started
+                : 0,
             'subject_version_id' => (int)($session['subject_version_id'] ?? 0),
             'unit_id' => isset($session['unit_id']) && $session['unit_id'] !== null
                 ? (int)$session['unit_id']
