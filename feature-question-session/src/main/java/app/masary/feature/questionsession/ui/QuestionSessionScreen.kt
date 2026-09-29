@@ -117,6 +117,7 @@ private fun QuestionSessionScreen(
                 is QuestionSessionUiState.Content -> QuestionContent(
                     data = state.data,
                     viewingIndex = state.viewingIndex,
+                    remainingSeconds = state.remainingSeconds,
                     isRefreshing = state.isRefreshing,
                     isSaving = state.isSaving,
                     message = state.message,
@@ -185,6 +186,7 @@ private fun LoadingState(modifier: Modifier = Modifier) {
 private fun QuestionContent(
     data: QuestionSessionPackage,
     viewingIndex: Int,
+    remainingSeconds: Int?,
     isRefreshing: Boolean,
     isSaving: Boolean,
     message: String?,
@@ -223,6 +225,19 @@ private fun QuestionContent(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
                 )
+                if (remainingSeconds != null && data.policy.timerSeconds > 0) {
+                    val minutes = remainingSeconds / 60
+                    val seconds = remainingSeconds % 60
+                    Text(
+                        text = String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds),
+                        color = if (remainingSeconds <= 30) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MasaryColors.brandNavy
+                        },
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 if (isRefreshing) {
                     CircularProgressIndicator(
                         modifier = Modifier.height(18.dp),
@@ -703,6 +718,14 @@ private fun ConfirmedResultState(
                     text = "إجمالي الأسئلة: ${result.score.totalQuestions}",
                     color = MasaryColors.muted,
                 )
+                if (result.score.timedOut) {
+                    Text(
+                        text = "انتهى وقت الاختبار؛ احتُسبت الأسئلة غير المجابة بصفر.",
+                        color = MasaryColors.muted,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                    )
+                }
                 if (policy.showXp) {
                     Text(
                         text = "XP المكتسب: +$earnedXp",
