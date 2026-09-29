@@ -849,6 +849,130 @@ function api_question_session_normalized_questions(
     return $questions;
 }
 
+function api_question_session_review_source_ids(PDO $pdo, array $session): array
+{
+    if (!api_activity_table_exists($pdo, 'student_unit_question_state')) {
+        return [];
+    }
+    $studentId = (int)($session['user_id'] ?? 0);
+    $subjectVersionId = (int)($session['subject_version_id'] ?? 0);
+    $unitId = (int)($session['unit_id'] ?? 0);
+    if ($studentId <= 0 || $subjectVersionId <= 0) {
+        return [];
+    }
+
+    try {
+        $where = [
+            's.student_id=?',
+            'u.subject_version_id=?',
+            'COALESCE(s.last_score,0)<0.999',
+        ];
+        $params = [$studentId, $subjectVersionId];
+        if ($unitId > 0) {
+            $where[] = 's.unit_id=?';
+            $params[] = $unitId;
+        }
+        $order = 's.updated_at DESC,s.question_id ASC';
+        $statement = $pdo->prepare(
+            'SELECT s.question_id FROM student_unit_question_state s '
+            . 'JOIN units u ON u.id=s.unit_id '
+            . 'WHERE ' . implode(' AND ', $where)
+            . ' ORDER BY ' . $order,
+        );
+        $statement->execute($params);
+        return array_values(array_unique(array_filter(array_map(
+            'intval',
+            $statement->fetchAll(PDO::FETCH_COLUMN) ?: [],
+        ), static fn(int $id): bool => $id > 0)));
+    } catch (Throwable) {
+        return [];
+    }
+}
+
+function api_question_session_review_questions(PDO $pdo, array $session): array
+{
+    $sourceIds = api_question_session_review_source_ids($pdo, $session);
+    if ($sourceIds === []) {
+        api_error(
+            'question_source_unavailable',
+            'لا توجد أخطاء مؤكدة قابلة للمراجعة الآن.',
+            503,
+        );
+    }
+
+    $settings = api_test_policy_for_session($pdo, $session);
+    $allowedTypes = api_question_session_lesson_allowed_question_types($settings);
+    $rank = array_flip(array_map('strval', $sourceIds));
+    $questions = [];
+
+    foreach ($allowedTypes as $questionType) {
+        $bucket = api_question_session_normalized_questions(
+            $pdo,
+            $session,
+            $questionType,
+            $settings,
+            true,
+        );
+        if (!is_array($bucket)) continue;
+        foreach ($bucket as $question) {
+            $sourceId = (string)($question['_source_id'] ?? '');
+            if ($sourceId !== '' && isset($rank[$sourceId])) {
+                $question['_review_rank'] = (int)$rank[$sourceId];
+                $questions[] = $question;
+            }
+        }
+    }
+
+    if ($questions === []) {
+        api_error(
+            'question_source_unavailable',
+            'أخطاء الطالب لا تطابق أسئلة نشطة مسموحة في إعدادات الاختبار الحالية.',
+            503,
+        );
+    }
+
+    $sessionId = (string)($session['public_session_id'] ?? '');
+    if ((string)($settings['question_order'] ?? 'random') === 'fixed') {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                ((int)($left['_review_rank'] ?? PHP_INT_MAX))
+                <=> ((int)($right['_review_rank'] ?? PHP_INT_MAX)),
+        );
+    } else {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                strcmp(
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'review-order',
+                        (string)($left['_source_id'] ?? ''),
+                    ),
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'review-order',
+                        (string)($right['_source_id'] ?? ''),
+                    ),
+                ),
+        );
+    }
+
+    $limit = max(
+        1,
+        min(
+            API_QUESTION_SESSION_MAX_QUESTIONS,
+            (int)($settings['questions_per_attempt'] ?? 10),
+        ),
+    );
+    $questions = array_slice($questions, 0, $limit);
+    foreach ($questions as &$question) {
+        unset($question['_source_id'], $question['_review_rank']);
+    }
+    unset($question);
+    return $questions;
+}
+
 function api_question_session_lesson_practice_questions(
     PDO $pdo,
     array $session,
@@ -939,6 +1063,9 @@ function api_question_session_questions(PDO $pdo, array $session): array
     $activityType = (string)($session['activity_type'] ?? '');
     if ($activityType === 'lesson_practice') {
         return api_question_session_lesson_practice_questions($pdo, $session);
+    }
+    if (in_array($activityType, ['review', 'smart_review'], true)) {
+        return api_question_session_review_questions($pdo, $session);
     }
 
     $questionType = api_question_session_question_type($activityType);
