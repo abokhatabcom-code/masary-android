@@ -28,6 +28,25 @@ function api_question_answer_text(array $payload, string $key, int $maxLength = 
     return $value;
 }
 
+function api_question_answer_normalize_blanks(mixed $value): array
+{
+    if (!is_array($value) || $value === []) {
+        api_error('invalid_answer', 'إجابات الفراغات غير صالحة.', 422);
+    }
+    $out = [];
+    foreach (array_values($value) as $item) {
+        $text = trim((string)$item);
+        if (strlen($text) > 2000) {
+            api_error('invalid_answer', 'إجابة أحد الفراغات طويلة جدًا.', 422);
+        }
+        $out[] = $text;
+    }
+    if (count($out) > 4) {
+        api_error('invalid_answer', 'عدد الفراغات غير صالح.', 422);
+    }
+    return $out;
+}
+
 function api_question_answer_normalize(array $payload): array
 {
     $sessionId = api_question_session_public_id((string)($payload['session_id'] ?? ''));
@@ -45,14 +64,22 @@ function api_question_answer_normalize(array $payload): array
         'choice' => [
             'kind' => 'choice',
             'option_id' => api_question_answer_text($answer, 'option_id', 64),
+            'reason_id' => trim((string)($answer['reason_id'] ?? '')),
         ],
         'text' => [
             'kind' => 'text',
             'text' => api_question_answer_text($answer, 'text', 2000),
         ],
+        'fill' => [
+            'kind' => 'fill',
+            'blanks' => api_question_answer_normalize_blanks($answer['blanks'] ?? null),
+        ],
         'connections' => [
             'kind' => 'connections',
             'pairs' => api_question_answer_normalize_pairs($answer['pairs'] ?? null),
+        ],
+        'skip' => [
+            'kind' => 'skip',
         ],
         default => api_error('invalid_answer', 'نوع الإجابة غير صالح.', 422),
     };
@@ -86,6 +113,110 @@ function api_question_answer_normalize_pairs(mixed $value): array
         api_error('invalid_answer', 'لا يمكن استخدام عنصر التوصيل أكثر من مرة.', 422);
     }
     return $pairs;
+}
+
+function api_question_answer_fair_norm(string $value): string
+{
+    $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = trim($value);
+    $value = strtr($value, [
+        '٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9',
+        '۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',
+    ]);
+    $value = preg_replace(
+        '/[\x{0610}-\x{061A}\x{064B}-\x{065F}\x{0670}\x{06D6}-\x{06ED}\x{0640}]/u',
+        '',
+        $value,
+    ) ?? $value;
+    $value = strtr($value, [
+        'أ'=>'ا','إ'=>'ا','آ'=>'ا','ٱ'=>'ا',
+        'ؤ'=>'و','ئ'=>'ي','ى'=>'ي','ة'=>'ه',
+    ]);
+    $value = str_replace(['٫','٬','،'], ['.','','.'], $value);
+    $value = function_exists('mb_strtolower')
+        ? mb_strtolower($value, 'UTF-8')
+        : strtolower($value);
+    return (string)(preg_replace('/[^\p{Arabic}a-z0-9]+/u', '', $value) ?? '');
+}
+
+function api_question_answer_dotless_norm(string $value): string
+{
+    $value = api_question_answer_fair_norm($value);
+    return strtr($value, [
+        'ت'=>'ب','ث'=>'ب','ن'=>'ب','ي'=>'ب',
+        'ج'=>'ح','خ'=>'ح','ذ'=>'د','ز'=>'ر','ش'=>'س',
+        'ض'=>'ص','ظ'=>'ط','غ'=>'ع','ق'=>'ف',
+    ]);
+}
+
+function api_question_answer_utf8_levenshtein(string $a, string $b): int
+{
+    if ($a === $b) return 0;
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        $la = mb_strlen($a, 'UTF-8');
+        $lb = mb_strlen($b, 'UTF-8');
+        $prev = range(0, $lb);
+        for ($i = 1; $i <= $la; $i++) {
+            $cur = [$i];
+            $ca = mb_substr($a, $i - 1, 1, 'UTF-8');
+            for ($j = 1; $j <= $lb; $j++) {
+                $cb = mb_substr($b, $j - 1, 1, 'UTF-8');
+                $cost = $ca === $cb ? 0 : 1;
+                $cur[$j] = min(
+                    $prev[$j] + 1,
+                    $cur[$j - 1] + 1,
+                    $prev[$j - 1] + $cost,
+                );
+            }
+            $prev = $cur;
+        }
+        return (int)$prev[$lb];
+    }
+    return levenshtein($a, $b);
+}
+
+function api_question_answer_tolerant_text_match(string $student, string $accepted): bool
+{
+    $studentNorm = api_question_answer_fair_norm($student);
+    $acceptedNorm = api_question_answer_fair_norm($accepted);
+    if ($studentNorm === '' || $acceptedNorm === '') return false;
+    if ($studentNorm === $acceptedNorm) return true;
+
+    // Numeric answers stay exact after normalization.
+    if (preg_match('/[0-9]/', $studentNorm . $acceptedNorm)) return false;
+
+    $length = static fn(string $value): int =>
+        function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+    $minLen = min($length($studentNorm), $length($acceptedNorm));
+    $maxLen = max($length($studentNorm), $length($acceptedNorm));
+    $stripAl = static fn(string $value): string =>
+        preg_replace('/^ال/u', '', $value) ?: $value;
+
+    if ($stripAl($studentNorm) === $stripAl($acceptedNorm)) return true;
+
+    if ($minLen >= 4) {
+        $studentDotless = api_question_answer_dotless_norm($student);
+        $acceptedDotless = api_question_answer_dotless_norm($accepted);
+        if ($studentDotless === $acceptedDotless) return true;
+        if ($stripAl($studentDotless) === $stripAl($acceptedDotless)) return true;
+    }
+
+    if ($minLen >= 3) {
+        $distance = api_question_answer_utf8_levenshtein($studentNorm, $acceptedNorm);
+        if ($maxLen <= 6 && $distance <= 1) return true;
+        if ($maxLen >= 7 && $distance <= 2) return true;
+    }
+    return false;
+}
+
+function api_question_answer_any_text_match(string $student, array $accepted): bool
+{
+    foreach ($accepted as $candidate) {
+        if (api_question_answer_tolerant_text_match($student, (string)$candidate)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function api_question_answer_request_hash(array $request): string
@@ -656,49 +787,215 @@ function api_question_answer_grade_score(
     array $source,
     array $answer,
 ): float {
-    if (!empty($source['normalized_schema'])
-        && (string)($source['question_type'] ?? '') === 'connect') {
-        $columns = api_question_session_columns($pdo, 'question_match_pairs');
-        if (!isset($columns['id'], $columns['question_id'])) {
-            api_error('grading_source_unavailable', 'تعذر إثبات أزواج تصحيح هذا السؤال.', 503);
-        }
-        $statement = $pdo->prepare(
-            'SELECT id FROM question_match_pairs WHERE question_id=? ORDER BY id ASC',
-        );
-        $statement->execute([(string)$source['row_id']]);
-        $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        if ($rows === []) {
-            api_error('grading_source_unavailable', 'لا توجد أزواج تصحيح لهذا السؤال.', 503);
-        }
+    if (($answer['kind'] ?? '') === 'skip') {
+        return 0.0;
+    }
 
-        $expected = [];
-        foreach ($rows as $row) {
-            $pairId = (string)($row['id'] ?? '');
-            if ($pairId === '') continue;
-            $left = strtolower(api_question_session_opaque_id(
-                (string)$session['public_session_id'],
-                'questions',
-                (string)$source['row_id'],
-                'match-left:' . $pairId,
-            ));
-            $right = strtolower(api_question_session_opaque_id(
-                (string)$session['public_session_id'],
-                'questions',
-                (string)$source['row_id'],
-                'match-right:' . $pairId,
-            ));
-            $expected[$left] = $right;
-        }
+    if (!empty($source['normalized_schema'])) {
+        $questionType = (string)($source['question_type'] ?? '');
+        $rowId = (string)($source['row_id'] ?? '');
 
-        $correct = 0;
-        foreach ((array)($answer['pairs'] ?? []) as $pair) {
-            $left = strtolower((string)($pair['left_id'] ?? ''));
-            $right = strtolower((string)($pair['right_id'] ?? ''));
-            if (isset($expected[$left]) && hash_equals($expected[$left], $right)) {
-                $correct += 1;
+        if ($questionType === 'truefalse') {
+            if (($answer['kind'] ?? '') !== 'choice') {
+                api_error('invalid_answer', 'هذا السؤال يتطلب اختيار صح أو خطأ.', 422);
             }
+            $columns = api_question_session_columns($pdo, 'question_tf');
+            if (!isset($columns['question_id'], $columns['correct_value'])) {
+                api_error('grading_source_unavailable', 'تعذر إثبات تصحيح صح أو خطأ.', 503);
+            }
+            $select = isset($columns['requires_reason'])
+                ? 'correct_value,requires_reason'
+                : 'correct_value,0 AS requires_reason';
+            $statement = $pdo->prepare(
+                'SELECT ' . $select . ' FROM question_tf WHERE question_id=? LIMIT 1',
+            );
+            $statement->execute([$rowId]);
+            $row = $statement->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                api_error('grading_source_unavailable', 'تعذر قراءة تصحيح صح أو خطأ.', 503);
+            }
+
+            $correctValue = (int)($row['correct_value'] ?? 1) === 1;
+            $trueId = strtolower(api_question_session_opaque_id(
+                (string)$session['public_session_id'],
+                'questions',
+                $rowId,
+                'true',
+            ));
+            $falseId = strtolower(api_question_session_opaque_id(
+                (string)$session['public_session_id'],
+                'questions',
+                $rowId,
+                'false',
+            ));
+            $selectedId = strtolower((string)($answer['option_id'] ?? ''));
+            $studentValue = $selectedId === $trueId
+                ? true
+                : ($selectedId === $falseId ? false : null);
+            if ($studentValue === null) {
+                return 0.0;
+            }
+
+            $requiresReason = (int)($row['requires_reason'] ?? 0) === 1;
+            if (!$requiresReason) {
+                return $studentValue === $correctValue ? 1.0 : 0.0;
+            }
+
+            $tfHalf = $studentValue === $correctValue ? 0.5 : 0.0;
+            $reasonHalf = 0.0;
+            $policy = api_test_policy_for_session($pdo, $session);
+            if (
+                (int)($policy['tf_reason_only_on_false'] ?? 1) === 1
+                && $correctValue === true
+                && $studentValue === true
+            ) {
+                $reasonHalf = 0.5;
+            } else {
+                $reasonColumns = api_question_session_columns($pdo, 'question_tf_reasons');
+                if (!isset($reasonColumns['id'], $reasonColumns['question_id'], $reasonColumns['is_correct'])) {
+                    api_error('grading_source_unavailable', 'تعذر إثبات سبب الإجابة الصحيحة.', 503);
+                }
+                $where = 'question_id=? AND is_correct=1';
+                if (isset($reasonColumns['is_active'])) {
+                    $where .= ' AND is_active=1';
+                }
+                $order = isset($reasonColumns['sort_order'])
+                    ? 'sort_order ASC,id ASC'
+                    : 'id ASC';
+                $reason = $pdo->prepare(
+                    'SELECT id FROM question_tf_reasons WHERE ' . $where
+                    . ' ORDER BY ' . $order . ' LIMIT 1',
+                );
+                $reason->execute([$rowId]);
+                $correctReasonId = (string)($reason->fetchColumn() ?: '');
+                if ($correctReasonId === '') {
+                    api_error('grading_source_unavailable', 'لا يوجد سبب صحيح مثبت لهذا السؤال.', 503);
+                }
+                $expectedReason = strtolower(api_question_session_opaque_id(
+                    (string)$session['public_session_id'],
+                    'questions',
+                    $rowId,
+                    'tf-reason:' . $correctReasonId,
+                ));
+                $studentReason = strtolower(trim((string)($answer['reason_id'] ?? '')));
+                if ($studentReason !== '' && hash_equals($expectedReason, $studentReason)) {
+                    $reasonHalf = 0.5;
+                }
+            }
+            return $tfHalf + $reasonHalf;
         }
-        return count($expected) > 0 ? $correct / count($expected) : 0.0;
+
+        if ($questionType === 'fill') {
+            $fillColumns = api_question_session_columns($pdo, 'question_fill');
+            $answerColumns = api_question_session_columns($pdo, 'question_fill_answers');
+            if (
+                !isset($fillColumns['question_id'], $fillColumns['blanks_count'])
+                || !isset($answerColumns['question_id'], $answerColumns['blank_index'], $answerColumns['answer_text'])
+            ) {
+                api_error('grading_source_unavailable', 'تعذر إثبات إجابات الفراغات.', 503);
+            }
+            $fill = $pdo->prepare('SELECT blanks_count FROM question_fill WHERE question_id=? LIMIT 1');
+            $fill->execute([$rowId]);
+            $blanksCount = max(1, min(4, (int)$fill->fetchColumn()));
+
+            $studentBlanks = [];
+            if (($answer['kind'] ?? '') === 'fill') {
+                $studentBlanks = array_values((array)($answer['blanks'] ?? []));
+            } elseif (($answer['kind'] ?? '') === 'text' && $blanksCount === 1) {
+                $studentBlanks = [(string)($answer['text'] ?? '')];
+            } else {
+                api_error('invalid_answer', 'صيغة إجابة الفراغات غير صالحة.', 422);
+            }
+
+            $correctCount = 0;
+            for ($index = 1; $index <= $blanksCount; $index++) {
+                $acceptedStatement = $pdo->prepare(
+                    'SELECT answer_text FROM question_fill_answers '
+                    . 'WHERE question_id=? AND blank_index=? ORDER BY id ASC',
+                );
+                $acceptedStatement->execute([$rowId, $index]);
+                $accepted = $acceptedStatement->fetchAll(PDO::FETCH_COLUMN) ?: [];
+                if ($accepted === []) {
+                    api_error('grading_source_unavailable', 'لا توجد إجابة مثبتة لأحد الفراغات.', 503);
+                }
+                $student = (string)($studentBlanks[$index - 1] ?? '');
+                if (api_question_answer_any_text_match($student, $accepted)) {
+                    $correctCount += 1;
+                }
+            }
+            return $correctCount / $blanksCount;
+        }
+
+        if ($questionType === 'direct') {
+            if (($answer['kind'] ?? '') !== 'text') {
+                api_error('invalid_answer', 'هذا السؤال يتطلب إجابة نصية.', 422);
+            }
+            $columns = api_question_session_columns($pdo, 'question_direct');
+            if (!isset($columns['question_id'], $columns['answer_text'])) {
+                api_error('grading_source_unavailable', 'تعذر إثبات إجابة السؤال المباشر.', 503);
+            }
+            $statement = $pdo->prepare(
+                'SELECT answer_text FROM question_direct WHERE question_id=? LIMIT 1',
+            );
+            $statement->execute([$rowId]);
+            $raw = trim((string)($statement->fetchColumn() ?: ''));
+            if ($raw === '') {
+                api_error('grading_source_unavailable', 'لا توجد إجابة مثبتة للسؤال المباشر.', 503);
+            }
+            $accepted = array_values(array_filter(
+                array_map('trim', preg_split('/,|\R/u', $raw) ?: []),
+                static fn(string $value): bool => $value !== '',
+            ));
+            if ($accepted === []) $accepted = [$raw];
+            return api_question_answer_any_text_match(
+                (string)($answer['text'] ?? ''),
+                $accepted,
+            ) ? 1.0 : 0.0;
+        }
+
+        if ($questionType === 'connect') {
+            $columns = api_question_session_columns($pdo, 'question_match_pairs');
+            if (!isset($columns['id'], $columns['question_id'])) {
+                api_error('grading_source_unavailable', 'تعذر إثبات أزواج تصحيح هذا السؤال.', 503);
+            }
+            $statement = $pdo->prepare(
+                'SELECT id FROM question_match_pairs WHERE question_id=? ORDER BY id ASC',
+            );
+            $statement->execute([$rowId]);
+            $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            if ($rows === []) {
+                api_error('grading_source_unavailable', 'لا توجد أزواج تصحيح لهذا السؤال.', 503);
+            }
+
+            $expected = [];
+            foreach ($rows as $row) {
+                $pairId = (string)($row['id'] ?? '');
+                if ($pairId === '') continue;
+                $left = strtolower(api_question_session_opaque_id(
+                    (string)$session['public_session_id'],
+                    'questions',
+                    $rowId,
+                    'match-left:' . $pairId,
+                ));
+                $right = strtolower(api_question_session_opaque_id(
+                    (string)$session['public_session_id'],
+                    'questions',
+                    $rowId,
+                    'match-right:' . $pairId,
+                ));
+                $expected[$left] = $right;
+            }
+
+            $correct = 0;
+            foreach ((array)($answer['pairs'] ?? []) as $pair) {
+                $left = strtolower((string)($pair['left_id'] ?? ''));
+                $right = strtolower((string)($pair['right_id'] ?? ''));
+                if (isset($expected[$left]) && hash_equals($expected[$left], $right)) {
+                    $correct += 1;
+                }
+            }
+            return count($expected) > 0 ? $correct / count($expected) : 0.0;
+        }
     }
 
     return api_question_answer_grade($session, $source, $answer, $pdo) ? 1.0 : 0.0;
@@ -777,6 +1074,10 @@ function api_question_answer_submit(
 
     $request = api_question_answer_normalize($payload);
     $session = api_question_session_owned_row($pdo, $studentId, $request['session_id']);
+    $policy = api_test_policy_for_session($pdo, $session);
+    if (($request['answer']['kind'] ?? '') === 'skip' && empty($policy['allow_skip'])) {
+        api_error('skip_not_allowed', 'تخطي السؤال غير مسموح في إعدادات هذا الاختبار.', 422);
+    }
     $source = api_question_answer_resolve_source($pdo, $session, $request['question_id']);
     $requestHash = api_question_answer_request_hash($request);
     $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
