@@ -233,6 +233,20 @@ function api_test_policy_for_session(PDO $pdo, array $session): array
     );
 }
 
+function api_test_policy_heart_cost(array $policy, array $request): int
+{
+    $activityType = trim((string)($request['activity_type'] ?? ''));
+    $activityMode = trim((string)($request['activity_mode'] ?? ''));
+
+    if (in_array($activityType, ['review', 'smart_review'], true)) {
+        return max(0, min(3, (int)($policy['mistakes_heart_cost'] ?? 1)));
+    }
+    if ($activityMode === 'review') {
+        return max(0, min(3, (int)($policy['review_heart_cost'] ?? 1)));
+    }
+    return 0;
+}
+
 function api_test_policy_public(array $policy): array
 {
     return [
