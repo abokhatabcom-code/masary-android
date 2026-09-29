@@ -53,8 +53,12 @@ function api_test_policy_merge(array $base, array $row): array
         return $base;
     }
 
-    $types = json_decode((string)($row['allowed_types_json'] ?? '[]'), true);
-    $difficulties = json_decode((string)($row['allowed_difficulties_json'] ?? '[]'), true);
+    $types = is_array($row['allowed_types'] ?? null)
+        ? $row['allowed_types']
+        : json_decode((string)($row['allowed_types_json'] ?? '[]'), true);
+    $difficulties = is_array($row['allowed_difficulties'] ?? null)
+        ? $row['allowed_difficulties']
+        : json_decode((string)($row['allowed_difficulties_json'] ?? '[]'), true);
     $out = $base;
 
     $out['questions_per_attempt'] = max(
