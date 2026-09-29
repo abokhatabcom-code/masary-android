@@ -119,6 +119,13 @@ data class SubjectLesson(
     val progress: SubjectLearningProgress = SubjectLearningProgress(0.0, 0.0, false),
 )
 
+data class SubjectUnitReview(
+    val visible: Boolean = false,
+    val available: Boolean = false,
+    val mistakesCount: Int = 0,
+    val reason: String = "",
+)
+
 data class SubjectUnit(
     val id: Int,
     val partNumber: Int,
@@ -127,6 +134,7 @@ data class SubjectUnit(
     val state: SubjectLearningState,
     val lessons: List<SubjectLesson>,
     val progress: SubjectLearningProgress = SubjectLearningProgress(0.0, 0.0, false),
+    val review: SubjectUnitReview = SubjectUnitReview(),
 )
 
 data class SubjectContentSummary(
