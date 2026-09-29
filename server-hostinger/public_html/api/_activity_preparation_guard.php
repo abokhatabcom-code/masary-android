@@ -622,6 +622,23 @@ function api_activity_start_guarded(
             $pdo->beginTransaction();
         }
 
+        $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
+        $existing = api_activity_fetch_idempotency($pdo, $studentId, $keyHash, true);
+        if ($existing) {
+            if (!hash_equals((string)$existing['request_hash'], $requestHash)) {
+                api_activity_reject(
+                    'idempotency_key_conflict',
+                    'استُخدم مفتاح البدء لطلب مختلف.',
+                    409,
+                );
+            }
+            $result = api_activity_response_from_row($existing, true);
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                $pdo->commit();
+            }
+            return $result;
+        }
+
         $preview = api_activity_apply_authoritative_policy(
             $pdo,
             $studentId,
