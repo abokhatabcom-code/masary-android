@@ -56,11 +56,43 @@ data class QuestionSessionProgress(
     val totalQuestions: Int,
 )
 
+data class QuestionResultPolicy(
+    val showPassBadge: Boolean = true,
+    val showScore: Boolean = true,
+    val showCountsCorrect: Boolean = true,
+    val showCountsPartial: Boolean = true,
+    val showCountsWrong: Boolean = true,
+    val showXp: Boolean = true,
+    val showHeartsSpent: Boolean = true,
+    val showRetryButton: Boolean = true,
+    val showBackButton: Boolean = true,
+    val showReviewDetails: Boolean = true,
+    val showMistakesButton: Boolean = true,
+)
+
+data class QuestionActiveTimePolicy(
+    val enabled: Boolean = true,
+    val idleSeconds: Int = 45,
+    val pingInterval: Int = 15,
+)
+
+data class QuestionSessionPolicy(
+    val allowBack: Boolean = true,
+    val allowSkip: Boolean = true,
+    val revealAnswers: Boolean = true,
+    val tfReasonOnlyOnFalse: Boolean = true,
+    val passPercent: Int = 60,
+    val timerSeconds: Int = 0,
+    val activeTime: QuestionActiveTimePolicy = QuestionActiveTimePolicy(),
+    val result: QuestionResultPolicy = QuestionResultPolicy(),
+)
+
 data class QuestionSessionPackage(
     val version: String,
     val generatedAt: String,
     val session: QuestionSessionInfo,
     val progress: QuestionSessionProgress,
+    val policy: QuestionSessionPolicy = QuestionSessionPolicy(),
     val questions: List<QuestionItem>,
     val snapshotSavedAtEpochMillis: Long? = null,
 )
@@ -80,9 +112,14 @@ sealed interface QuestionAnswerInput {
 
 data class QuestionSessionScore(
     val correctAnswers: Int,
+    val partialAnswers: Int = 0,
     val incorrectAnswers: Int,
     val totalQuestions: Int,
     val scorePercent: Int,
+    val passed: Boolean = false,
+    val passPercent: Int = 60,
+    val xpEarned: Double = 0.0,
+    val heartsSpent: Int = 0,
 )
 
 data class QuestionSessionResult(
@@ -90,6 +127,7 @@ data class QuestionSessionResult(
     val completedAt: String,
     val replayed: Boolean,
     val score: QuestionSessionScore,
+    val policy: QuestionSessionPolicy = QuestionSessionPolicy(),
     val confirmedDeltaAvailable: Boolean,
     val confirmedDeltaReason: String,
 )
