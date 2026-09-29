@@ -103,7 +103,7 @@ jobs:
           if-no-files-found: error
 
   build-signed-production-student-apk:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.head_ref == 'phase-12-6-local-first-implementation') || (github.event_name == 'pull_request' && github.head_ref == 'phase-13-question-session-implementation')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.head_ref == 'phase-12-6-local-first-implementation') || (github.event_name == 'pull_request' && github.head_ref == 'phase-13-question-session-implementation') || (github.event_name == 'pull_request' && github.head_ref == 'phase-13.6-admin-test-policy-implementation')
     runs-on: ubuntu-latest
     env:
       MASARY_DEVELOPMENT_BASE_URL: ${{ vars.MASARY_DEVELOPMENT_BASE_URL }}
