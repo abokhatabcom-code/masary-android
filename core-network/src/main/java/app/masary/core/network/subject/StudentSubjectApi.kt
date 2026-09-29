@@ -111,6 +111,13 @@ data class SubjectLessonDto(
     val preparation: SubjectActionAvailabilityDto = SubjectActionAvailabilityDto(),
 )
 
+data class SubjectUnitReviewDto(
+    val visible: Boolean = false,
+    val available: Boolean = false,
+    @SerializedName("mistakes_count") val mistakesCount: Int = 0,
+    val reason: String = "",
+)
+
 data class SubjectUnitDto(
     val id: Int = 0,
     @SerializedName("part_number") val partNumber: Int = 0,
@@ -118,6 +125,7 @@ data class SubjectUnitDto(
     val position: Int = 0,
     val state: SubjectLearningStateDto = SubjectLearningStateDto(),
     val progress: SubjectLearningProgressDto = SubjectLearningProgressDto(),
+    val review: SubjectUnitReviewDto = SubjectUnitReviewDto(),
     val lessons: List<SubjectLessonDto> = emptyList(),
 )
 
