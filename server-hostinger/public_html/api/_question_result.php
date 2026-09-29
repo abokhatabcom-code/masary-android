@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_question_answer.php';
 require_once __DIR__ . '/_question_progress.php';
 require_once __DIR__ . '/_question_attempt_log.php';
+require_once __DIR__ . '/_question_review.php';
 
 final class ApiQuestionResultRejected extends RuntimeException
 {
@@ -267,6 +268,13 @@ function api_question_result_finish(
 
         $passPercent = max(1, min(100, (int)($policy['pass_percent'] ?? 60)));
         $passed = (float)($score['score_percent'] ?? 0) >= $passPercent;
+        $review = api_question_review_items(
+            $pdo,
+            $studentId,
+            $session,
+            $questions,
+            $policy,
+        );
 
         $now = gmdate('Y-m-d H:i:s');
         $result = [
@@ -286,6 +294,7 @@ function api_question_result_finish(
                     : null,
             ]),
             'policy' => api_test_policy_public($policy),
+            'review' => $review,
             'confirmed_delta' => $confirmedDelta,
         ];
 
