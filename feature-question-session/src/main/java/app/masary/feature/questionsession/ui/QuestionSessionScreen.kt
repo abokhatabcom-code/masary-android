@@ -248,6 +248,15 @@ private fun QuestionContent(
                         enabled = !isSaving,
                         onSubmit = onSubmit,
                     )
+                    if (data.policy.allowSkip) {
+                        OutlinedButton(
+                            onClick = { onSubmit(QuestionAnswerInput.Skip) },
+                            enabled = !isSaving,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("تخطي السؤال")
+                        }
+                    }
                 }
             }
         }
@@ -264,7 +273,6 @@ private fun QuestionRenderer(
 ) {
     when (question.type) {
         QuestionType.Choose,
-        QuestionType.TrueFalse,
         QuestionType.Speed,
         -> OptionsRenderer(
             payload = question.payload as QuestionPayload.Options,
@@ -272,7 +280,19 @@ private fun QuestionRenderer(
             onSubmit = onSubmit,
         )
 
+        QuestionType.TrueFalse -> TrueFalseRenderer(
+            payload = question.payload as QuestionPayload.TrueFalse,
+            enabled = enabled,
+            onSubmit = onSubmit,
+        )
+
         QuestionType.Fill -> FillRenderer(
+            payload = question.payload as QuestionPayload.Fill,
+            enabled = enabled,
+            onSubmit = onSubmit,
+        )
+
+        QuestionType.Direct -> DirectRenderer(
             enabled = enabled,
             onSubmit = onSubmit,
         )
@@ -331,7 +351,134 @@ private fun OptionsRenderer(
 }
 
 @Composable
+private fun TrueFalseRenderer(
+    payload: QuestionPayload.TrueFalse,
+    enabled: Boolean,
+    onSubmit: (QuestionAnswerInput) -> Unit,
+) {
+    var selected by remember(payload.options) { mutableStateOf<String?>(null) }
+    var selectedReason by remember(payload.reasons) { mutableStateOf<String?>(null) }
+    val falseOptionId = payload.options
+        .firstOrNull { it.text.trim() == "خطأ" }
+        ?.id
+    val reasonRequiredNow = payload.requiresReason &&
+        (!payload.reasonOnlyOnFalse || selected == falseOptionId)
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        payload.options.forEach { option ->
+            Card(
+                onClick = {
+                    if (enabled) {
+                        selected = option.id
+                        if (payload.reasonOnlyOnFalse && option.id != falseOptionId) {
+                            selectedReason = null
+                        }
+                    }
+                },
+                enabled = enabled,
+                colors = CardDefaults.cardColors(containerColor = MasaryColors.iceSurface),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = selected == option.id,
+                        onClick = {
+                            if (enabled) {
+                                selected = option.id
+                                if (payload.reasonOnlyOnFalse && option.id != falseOptionId) {
+                                    selectedReason = null
+                                }
+                            }
+                        },
+                        enabled = enabled,
+                    )
+                    Text(
+                        text = option.text,
+                        color = MasaryColors.brandNavy,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        if (reasonRequiredNow) {
+            Text(
+                text = "اختر السبب",
+                fontWeight = FontWeight.Bold,
+                color = MasaryColors.brandNavy,
+            )
+            payload.reasons.forEach { reason ->
+                FilterChip(
+                    selected = selectedReason == reason.id,
+                    enabled = enabled,
+                    onClick = { if (enabled) selectedReason = reason.id },
+                    label = { Text(reason.text) },
+                )
+            }
+        }
+
+        Button(
+            onClick = {
+                selected?.let {
+                    onSubmit(
+                        QuestionAnswerInput.Choice(
+                            optionId = it,
+                            reasonId = selectedReason,
+                        ),
+                    )
+                }
+            },
+            enabled = enabled &&
+                selected != null &&
+                (!reasonRequiredNow || selectedReason != null),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (enabled) "تثبيت الإجابة والمتابعة" else "جارٍ الحفظ…")
+        }
+    }
+}
+
+@Composable
 private fun FillRenderer(
+    payload: QuestionPayload.Fill,
+    enabled: Boolean,
+    onSubmit: (QuestionAnswerInput) -> Unit,
+) {
+    var values by remember(payload.blanksCount) {
+        mutableStateOf(List(payload.blanksCount.coerceIn(1, 4)) { "" })
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        values.forEachIndexed { index, value ->
+            OutlinedTextField(
+                value = value,
+                onValueChange = { updated ->
+                    values = values.toMutableList().also { it[index] = updated }
+                },
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text(
+                        if (values.size == 1) "اكتب الإجابة"
+                        else "الفراغ " + (index + 1),
+                    )
+                },
+                singleLine = false,
+            )
+        }
+        Button(
+            onClick = { onSubmit(QuestionAnswerInput.Fill(values)) },
+            enabled = enabled && values.all(String::isNotBlank),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (enabled) "تثبيت الإجابة والمتابعة" else "جارٍ الحفظ…")
+        }
+    }
+}
+
+@Composable
+private fun DirectRenderer(
     enabled: Boolean,
     onSubmit: (QuestionAnswerInput) -> Unit,
 ) {
