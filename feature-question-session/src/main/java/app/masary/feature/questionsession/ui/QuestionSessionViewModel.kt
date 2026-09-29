@@ -11,9 +11,11 @@ import app.masary.feature.questionsession.domain.QuestionSessionRepository
 import app.masary.feature.questionsession.domain.QuestionSessionResult
 import app.masary.feature.questionsession.domain.QuestionSessionSourceUnavailableException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 sealed interface QuestionSessionUiState {
@@ -23,6 +25,7 @@ sealed interface QuestionSessionUiState {
         val data: QuestionSessionPackage,
         val viewingIndex: Int = data.progress.currentIndex
             .coerceAtMost((data.questions.size - 1).coerceAtLeast(0)),
+        val remainingSeconds: Int? = null,
         val isRefreshing: Boolean = false,
         val isSaving: Boolean = false,
         val message: String? = null,
@@ -51,8 +54,17 @@ class QuestionSessionViewModel(
     private var loadJob: Job? = null
     private var saveJob: Job? = null
     private var syncJob: Job? = null
+    private var timerJob: Job? = null
+    private var timerSessionId: String? = null
 
     init {
+        viewModelScope.launch {
+            state.collect { uiState ->
+                if (uiState is QuestionSessionUiState.Content) {
+                    ensureTimer(uiState)
+                }
+            }
+        }
         load()
     }
 
@@ -90,8 +102,10 @@ class QuestionSessionViewModel(
 
         _state.value = current.copy(isSaving = true, message = null)
         saveJob = viewModelScope.launch {
-            repository.markCompletedLocal(current.data.session.id)
-                .onSuccess {
+            repository.markCompletedLocal(
+                sessionId = current.data.session.id,
+                allowIncomplete = false,
+            ).onSuccess {
                     val refreshed = repository.loadSnapshot(current.data.session.id)
                         ?: current.data.copy(
                             session = current.data.session.copy(status = "completed_local"),
@@ -162,6 +176,64 @@ class QuestionSessionViewModel(
                     message = error.message ?: "تعذر حفظ الإجابة. حاول مرة أخرى.",
                 )
             }
+        }
+    }
+
+    private fun ensureTimer(content: QuestionSessionUiState.Content) {
+        val seconds = content.data.policy.timerSeconds
+        val startedAt = content.data.session.startedAtEpochSeconds
+        if (seconds <= 0 || startedAt <= 0L) return
+        if (timerJob?.isActive == true && timerSessionId == content.data.session.id) return
+
+        timerSessionId = content.data.session.id
+        val deadlineEpochSeconds = startedAt + seconds
+        timerJob = viewModelScope.launch {
+            while (true) {
+                val current = _state.value as? QuestionSessionUiState.Content ?: return@launch
+                if (current.data.session.id != content.data.session.id) return@launch
+
+                val nowEpochSeconds = System.currentTimeMillis() / 1000L
+                val remaining = (deadlineEpochSeconds - nowEpochSeconds)
+                    .coerceAtLeast(0L)
+                    .coerceAtMost(Int.MAX_VALUE.toLong())
+                    .toInt()
+                if (current.remainingSeconds != remaining) {
+                    _state.value = current.copy(remainingSeconds = remaining)
+                }
+                if (remaining <= 0) {
+                    handleTimerExpired(content.data.session.id)
+                    return@launch
+                }
+                delay(1_000L)
+            }
+        }
+    }
+
+    private suspend fun handleTimerExpired(expiredSessionId: String) {
+        val current = _state.value as? QuestionSessionUiState.Content ?: return
+        if (current.data.session.id != expiredSessionId) return
+
+        saveJob?.takeIf { it.isActive }?.join()
+        val latest = _state.value as? QuestionSessionUiState.Content ?: return
+        repository.markCompletedLocal(
+            sessionId = expiredSessionId,
+            allowIncomplete = true,
+        ).onSuccess {
+            val refreshed = repository.loadSnapshot(expiredSessionId)
+                ?: latest.data.copy(
+                    session = latest.data.session.copy(status = "completed_local"),
+                )
+            _state.value = QuestionSessionUiState.CompletedLocal(
+                data = refreshed,
+                message = "انتهى وقت الاختبار. تم حفظ الإجابات الموجودة وسيؤكد الخادم النتيجة.",
+            )
+            syncJob?.takeIf { it.isActive }?.join()
+            triggerPendingAnswerSync(expiredSessionId)
+        }.onFailure { error ->
+            _state.value = latest.copy(
+                isSaving = false,
+                message = error.message ?: "انتهى الوقت وتعذر تثبيت الإنهاء محليًا.",
+            )
         }
     }
 
