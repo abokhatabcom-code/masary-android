@@ -104,48 +104,12 @@ function api_question_session_question_type(string $activityType): ?string
 
 function api_question_session_default_test_settings(): array
 {
-    return [
-        'questions_per_attempt' => 10,
-        'allowed_types' => ['tf', 'mcq', 'fill', 'direct', 'match'],
-        'allowed_difficulties' => ['easy', 'medium', 'hard'],
-        'question_order' => 'random',
-        'shuffle_mcq_options' => 1,
-        'shuffle_match_right' => 1,
-    ];
+    return api_test_policy_defaults();
 }
 
 function api_question_session_merge_test_settings(array $base, array $row): array
 {
-    if ($row === []) {
-        return $base;
-    }
-    $types = json_decode((string)($row['allowed_types_json'] ?? '[]'), true);
-    $difficulties = json_decode((string)($row['allowed_difficulties_json'] ?? '[]'), true);
-
-    $base['questions_per_attempt'] = max(
-        1,
-        min(
-            API_QUESTION_SESSION_MAX_QUESTIONS,
-            (int)($row['questions_per_attempt'] ?? $base['questions_per_attempt']),
-        ),
-    );
-    if (is_array($types) && $types !== []) {
-        $base['allowed_types'] = array_values(array_unique(array_map('strval', $types)));
-    }
-    if (is_array($difficulties) && $difficulties !== []) {
-        $base['allowed_difficulties'] = array_values(
-            array_unique(array_map('strval', $difficulties)),
-        );
-    }
-    $base['question_order'] = (string)($row['question_order'] ?? $base['question_order']) === 'fixed'
-        ? 'fixed'
-        : 'random';
-    foreach (['shuffle_mcq_options', 'shuffle_match_right'] as $key) {
-        if (array_key_exists($key, $row)) {
-            $base[$key] = (int)$row[$key] === 1 ? 1 : 0;
-        }
-    }
-    return $base;
+    return api_test_policy_merge($base, $row);
 }
 
 function api_question_session_test_setting_row(
@@ -154,45 +118,12 @@ function api_question_session_test_setting_row(
     string $keyColumn,
     int $keyValue,
 ): array {
-    if ($keyValue <= 0 || !in_array($table, ['version_test_settings', 'unit_test_settings'], true)) {
-        return [];
-    }
-    try {
-        $statement = $pdo->prepare(
-            'SELECT * FROM ' . $table . ' WHERE ' . $keyColumn . '=? LIMIT 1',
-        );
-        $statement->execute([$keyValue]);
-        return $statement->fetch(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable) {
-        return [];
-    }
+    return api_test_policy_row($pdo, $table, $keyColumn, $keyValue);
 }
 
 function api_question_session_lesson_settings(PDO $pdo, array $session): array
 {
-    $settings = api_question_session_default_test_settings();
-    $subjectVersionId = (int)($session['subject_version_id'] ?? 0);
-    $unitId = (int)($session['unit_id'] ?? 0);
-
-    $settings = api_question_session_merge_test_settings(
-        $settings,
-        api_question_session_test_setting_row(
-            $pdo,
-            'version_test_settings',
-            'subject_version_id',
-            $subjectVersionId,
-        ),
-    );
-    $settings = api_question_session_merge_test_settings(
-        $settings,
-        api_question_session_test_setting_row(
-            $pdo,
-            'unit_test_settings',
-            'unit_id',
-            $unitId,
-        ),
-    );
-    return $settings;
+    return api_test_policy_for_session($pdo, $session);
 }
 
 function api_question_session_lesson_allowed_question_types(array $settings): array
@@ -1076,6 +1007,7 @@ function api_question_session_package(PDO $pdo, array $authSession, string $sess
             'current_index' => $answered,
             'total_questions' => count($questions),
         ],
+        'policy' => api_test_policy_public(api_test_policy_for_session($pdo, $session)),
         'questions' => $questions,
     ];
     $data['version'] = hash(
