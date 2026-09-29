@@ -616,6 +616,7 @@ internal fun validateQuestionTypes(
             QuestionType.TrueFalse,
             QuestionType.Connect,
             QuestionType.Fill,
+            QuestionType.Direct,
         )
         else -> throw QuestionSessionSourceUnavailableException()
     }
@@ -765,14 +766,37 @@ private fun QuestionSessionQuestionDto.toDomain(): QuestionItem {
     val safePrompt = prompt.trim().ifBlank { throw QuestionSessionServiceException("نص السؤال مفقود.") }
     val parsedPayload = when (stableType) {
         QuestionType.Choose,
-        QuestionType.TrueFalse,
         QuestionType.Speed,
         -> QuestionPayload.Options(payload.readOptions())
+
+        QuestionType.TrueFalse -> {
+            val options = payload.readOptions()
+            val requiresReason = payload.boolean("requires_reason")
+            val reasons = if (requiresReason) payload.readOptions("reasons") else emptyList()
+            if (requiresReason && reasons.isEmpty()) {
+                throw QuestionSessionServiceException("أسباب سؤال صح أو خطأ غير مكتملة.")
+            }
+            QuestionPayload.TrueFalse(
+                options = options,
+                requiresReason = requiresReason,
+                reasonOnlyOnFalse = payload.boolean("reason_only_on_false"),
+                reasons = reasons,
+            )
+        }
 
         QuestionType.Fill -> {
             val mode = payload.string("input_mode")
             if (mode != "text") throw QuestionSessionServiceException("صيغة سؤال الإكمال غير مدعومة.")
-            QuestionPayload.Fill(mode)
+            QuestionPayload.Fill(
+                inputMode = mode,
+                blanksCount = payload.int("blanks_count").coerceIn(1, 4),
+            )
+        }
+
+        QuestionType.Direct -> {
+            val mode = payload.string("input_mode")
+            if (mode != "text") throw QuestionSessionServiceException("صيغة السؤال المباشر غير مدعومة.")
+            QuestionPayload.Direct(mode)
         }
 
         QuestionType.Connect -> {
@@ -792,8 +816,8 @@ private fun QuestionSessionQuestionDto.toDomain(): QuestionItem {
     )
 }
 
-private fun JsonObject.readOptions(): List<QuestionOption> {
-    val array = getAsJsonArray("options") ?: JsonArray()
+private fun JsonObject.readOptions(key: String = "options"): List<QuestionOption> {
+    val array = getAsJsonArray(key) ?: JsonArray()
     val options = array.map { element ->
         val item = element.asJsonObject
         QuestionOption(
@@ -838,6 +862,9 @@ private fun QuestionAnswerInput.toPendingJson(): String {
             if (safeOption.isBlank()) throw QuestionSessionServiceException("لم يتم اختيار إجابة.")
             payload.addProperty("kind", "choice")
             payload.addProperty("option_id", safeOption)
+            reasonId?.trim()?.takeIf(String::isNotBlank)?.let {
+                payload.addProperty("reason_id", it)
+            }
         }
 
         is QuestionAnswerInput.Text -> {
@@ -845,6 +872,18 @@ private fun QuestionAnswerInput.toPendingJson(): String {
             if (safeText.isBlank()) throw QuestionSessionServiceException("أدخل الإجابة أولًا.")
             payload.addProperty("kind", "text")
             payload.addProperty("text", safeText)
+        }
+
+        is QuestionAnswerInput.Fill -> {
+            if (values.isEmpty() || values.size > 4) {
+                throw QuestionSessionServiceException("إجابات الفراغات غير مكتملة.")
+            }
+            val array = JsonArray()
+            values.forEach { value ->
+                array.add(value.trim())
+            }
+            payload.addProperty("kind", "fill")
+            payload.add("blanks", array)
         }
 
         is QuestionAnswerInput.Connections -> {
@@ -868,6 +907,10 @@ private fun QuestionAnswerInput.toPendingJson(): String {
             }
             payload.addProperty("kind", "connections")
             payload.add("pairs", array)
+        }
+
+        QuestionAnswerInput.Skip -> {
+            payload.addProperty("kind", "skip")
         }
     }
     return Gson().toJson(payload)
@@ -896,3 +939,9 @@ private fun stableFinishOperationId(
 
 private fun JsonObject.string(key: String): String =
     get(key)?.takeUnless { it.isJsonNull }?.asString?.trim().orEmpty()
+
+private fun JsonObject.boolean(key: String): Boolean =
+    get(key)?.takeUnless { it.isJsonNull }?.asBoolean ?: false
+
+private fun JsonObject.int(key: String): Int =
+    get(key)?.takeUnless { it.isJsonNull }?.asInt ?: 1
