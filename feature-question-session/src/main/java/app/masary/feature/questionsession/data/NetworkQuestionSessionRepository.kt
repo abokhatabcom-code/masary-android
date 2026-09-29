@@ -286,7 +286,10 @@ class NetworkQuestionSessionRepository(
         }
     }
 
-    override suspend fun markCompletedLocal(sessionId: String): Result<Unit> {
+    override suspend fun markCompletedLocal(
+        sessionId: String,
+        allowIncomplete: Boolean,
+    ): Result<Unit> {
         val safeSessionId = sessionId.trim()
         if (safeSessionId.length !in 8..128) {
             return Result.failure(QuestionSessionNotFoundException())
@@ -302,7 +305,9 @@ class NetworkQuestionSessionRepository(
                 session.packageJson,
                 QuestionSessionPackageDataDto::class.java,
             ) ?: throw QuestionSessionServiceException("تعذر قراءة حزمة الجلسة المحلية.")
-            if (answers.map { it.questionId }.toSet().size < packageData.questions.size) {
+            if (!allowIncomplete &&
+                answers.map { it.questionId }.toSet().size < packageData.questions.size
+            ) {
                 throw QuestionSessionServiceException("أكمل جميع الأسئلة قبل إنهاء الاختبار.")
             }
             val now = nowEpochMillis()
