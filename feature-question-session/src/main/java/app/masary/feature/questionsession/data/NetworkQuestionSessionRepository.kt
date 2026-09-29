@@ -106,7 +106,9 @@ class NetworkQuestionSessionRepository(
             val entity = localStore.readQuestionSession(studentId, safeSessionId) ?: return null
             val data = gson.fromJson(entity.packageJson, QuestionSessionPackageDataDto::class.java)
                 ?: return null
-            data.toDomain().copy(
+            val mapped = data.toDomain()
+            mapped.copy(
+                session = mapped.session.copy(status = entity.status),
                 progress = QuestionSessionProgress(
                     currentIndex = entity.currentQuestionIndex.coerceIn(0, data.questions.size),
                     totalQuestions = data.questions.size,
@@ -148,7 +150,8 @@ class NetworkQuestionSessionRepository(
             }
 
             val existingAnswers = localStore.readQuestionAnswers(studentId, safeSessionId)
-            if (existingAnswers.any { it.questionId == safeQuestionId }) {
+            val existingAnswer = existingAnswers.firstOrNull { it.questionId == safeQuestionId }
+            if (existingAnswer != null && !packageData.policy.allowBack) {
                 return@runCatching Unit
             }
 
@@ -165,6 +168,7 @@ class NetworkQuestionSessionRepository(
                 studentId = studentId,
                 sessionId = safeSessionId,
                 questionId = safeQuestionId,
+                localSequence = sequence,
             )
             val operationPayload = JsonObject().apply {
                 addProperty("session_id", safeSessionId)
@@ -279,6 +283,43 @@ class NetworkQuestionSessionRepository(
         }.recoverCatching { error ->
             if (error is CancellationException) throw error
             throw mapFailure(error)
+        }
+    }
+
+    override suspend fun markCompletedLocal(sessionId: String): Result<Unit> {
+        val safeSessionId = sessionId.trim()
+        if (safeSessionId.length !in 8..128) {
+            return Result.failure(QuestionSessionNotFoundException())
+        }
+        val studentId = sessionManager.session.first()?.id
+            ?: return Result.failure(QuestionSessionExpiredException("انتهت جلسة الدخول."))
+
+        return runCatching {
+            val session = localStore.readQuestionSession(studentId, safeSessionId)
+                ?: throw QuestionSessionNotFoundException("الجلسة غير محفوظة على هذا الجهاز.")
+            val answers = localStore.readQuestionAnswers(studentId, safeSessionId)
+            val packageData = gson.fromJson(
+                session.packageJson,
+                QuestionSessionPackageDataDto::class.java,
+            ) ?: throw QuestionSessionServiceException("تعذر قراءة حزمة الجلسة المحلية.")
+            if (answers.map { it.questionId }.toSet().size < packageData.questions.size) {
+                throw QuestionSessionServiceException("أكمل جميع الأسئلة قبل إنهاء الاختبار.")
+            }
+            val now = nowEpochMillis()
+            localStore.saveQuestionSession(
+                session.copy(
+                    currentQuestionIndex = packageData.questions.size,
+                    status = "completed_local",
+                    updatedAtEpochMillis = now,
+                    completedAtEpochMillis = now,
+                ),
+            )
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw when (error) {
+                is QuestionSessionException -> error
+                else -> QuestionSessionServiceException("تعذر تثبيت إكمال الجلسة محليًا.", error)
+            }
         }
     }
 
@@ -920,9 +961,10 @@ private fun stableAnswerOperationId(
     studentId: String,
     sessionId: String,
     questionId: String,
+    localSequence: Int,
 ): String {
     val bytes = MessageDigest.getInstance("SHA-256")
-        .digest("$studentId|$sessionId|$questionId".toByteArray(Charsets.UTF_8))
+        .digest("$studentId|$sessionId|$questionId|$localSequence".toByteArray(Charsets.UTF_8))
     val hex = bytes.joinToString("") { "%02x".format(it) }
     return "question-answer:$hex"
 }
