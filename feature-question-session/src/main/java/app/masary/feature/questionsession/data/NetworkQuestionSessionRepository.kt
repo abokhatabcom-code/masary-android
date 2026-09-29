@@ -216,12 +216,37 @@ class NetworkQuestionSessionRepository(
 
         return runCatching {
             localStore.recoverInterruptedOperations(studentId)
-            val ready = localStore.readyOperations(
-                studentId = studentId,
-                limit = 50,
-            ).filter { operation ->
-                operation.type == "question_answer" &&
-                    shouldSyncAnswerOperation(studentId, operation)
+            val ready = buildList {
+                for (operation in localStore.readyOperations(
+                    studentId = studentId,
+                    limit = 50,
+                )) {
+                    if (operation.type != "question_answer") continue
+
+                    val request = runCatching { operation.toAnswerRequest() }.getOrNull()
+                    if (request == null) {
+                        add(operation)
+                        continue
+                    }
+                    val session = localStore.readQuestionSession(studentId, request.sessionId)
+                    if (session == null) {
+                        add(operation)
+                        continue
+                    }
+                    val packageData = runCatching {
+                        gson.fromJson(
+                            session.packageJson,
+                            QuestionSessionPackageDataDto::class.java,
+                        )
+                    }.getOrNull()
+                    if (packageData == null ||
+                        !packageData.policy.allowBack ||
+                        session.status == "completed_local" ||
+                        session.status == "completed_confirmed"
+                    ) {
+                        add(operation)
+                    }
+                }
             }
 
             if (ready.isEmpty()) {
@@ -961,20 +986,6 @@ private fun JsonObject.readConnectItems(key: String): List<ConnectItem> {
         throw QuestionSessionServiceException("معرفات عناصر التوصيل مكررة.")
     }
     return items
-}
-
-private suspend fun NetworkQuestionSessionRepository.shouldSyncAnswerOperation(
-    studentId: String,
-    operation: PendingOperationEntity,
-): Boolean {
-    val request = runCatching { operation.toAnswerRequest() }.getOrNull() ?: return true
-    val session = localStore.readQuestionSession(studentId, request.sessionId) ?: return true
-    val packageData = runCatching {
-        gson.fromJson(session.packageJson, QuestionSessionPackageDataDto::class.java)
-    }.getOrNull() ?: return true
-
-    if (!packageData.policy.allowBack) return true
-    return session.status == "completed_local" || session.status == "completed_confirmed"
 }
 
 private fun QuestionAnswerInput.toPendingJson(): String {
