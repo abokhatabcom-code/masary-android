@@ -396,8 +396,8 @@ function api_activity_title(string $type): string
         'true_false_test' => 'صح أو خطأ',
         'connect_test' => 'التوصيل',
         'fill_test' => 'الإكمال',
-        'review' => 'مراجعة الأخطاء',
-        'smart_review' => 'مراجعة ذكية',
+        'review' => 'مراجعة',
+        'smart_review' => 'راجع أخطاءك',
         'speed_test' => 'اختبار السرعة',
         default => 'خطوتك التعليمية التالية',
     };
