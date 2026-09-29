@@ -248,6 +248,13 @@ class QuestionSessionViewModelTest {
             return Result.success(Unit)
         }
 
+        override suspend fun loadActiveSeconds(sessionId: String): Int? = 0
+
+        override suspend fun saveActiveSeconds(
+            sessionId: String,
+            seconds: Int,
+        ): Result<Unit> = Result.success(Unit)
+
         override suspend fun loadResult(sessionId: String): QuestionSessionResult? = null
 
         override suspend fun finishSession(sessionId: String): Result<QuestionSessionResult> {
