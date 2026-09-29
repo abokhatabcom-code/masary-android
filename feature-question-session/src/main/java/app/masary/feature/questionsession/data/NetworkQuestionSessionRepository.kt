@@ -34,6 +34,7 @@ import app.masary.feature.questionsession.domain.QuestionSessionException
 import app.masary.feature.questionsession.domain.QuestionSessionExpiredException
 import app.masary.feature.questionsession.domain.QuestionActiveTimePolicy
 import app.masary.feature.questionsession.domain.QuestionResultPolicy
+import app.masary.feature.questionsession.domain.QuestionReviewItem
 import app.masary.feature.questionsession.domain.QuestionSessionInfo
 import app.masary.feature.questionsession.domain.QuestionSessionNetworkException
 import app.masary.feature.questionsession.domain.QuestionSessionNotFoundException
@@ -829,6 +830,18 @@ internal fun QuestionFinishResultDto.toDomain(): QuestionSessionResult =
             attemptId = result.attemptId,
         ),
         policy = policy.toDomain(),
+        review = review.map { item ->
+            QuestionReviewItem(
+                index = item.index.coerceAtLeast(1),
+                questionId = item.questionId.trim(),
+                type = item.type.trim(),
+                prompt = item.prompt.trim(),
+                score = item.score.coerceIn(0.0, 1.0),
+                status = item.status.trim(),
+                studentAnswer = item.studentAnswer.trim(),
+                correctAnswer = item.correctAnswer?.trim()?.takeIf(String::isNotBlank),
+            )
+        },
         confirmedDeltaAvailable = confirmedDelta.available,
         confirmedDeltaReason = confirmedDelta.reason.trim(),
     )
