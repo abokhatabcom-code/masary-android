@@ -234,6 +234,12 @@ internal fun StudentSubjectDetailDataDto.toDomain(): StudentSubjectPage = Studen
                     position = unit.position.coerceAtLeast(0),
                     state = unit.state.toDomainLearningState(),
                     progress = unit.progress.toDomainLearningProgress(),
+                    review = app.masary.feature.subject.domain.SubjectUnitReview(
+                        visible = unit.review.visible,
+                        available = unit.review.available,
+                        mistakesCount = unit.review.mistakesCount.coerceAtLeast(0),
+                        reason = unit.review.reason.trim(),
+                    ),
                     lessons = unit.lessons
                         .filter { it.id > 0 }
                         .map { lesson -> lesson.toDomainLesson() },
