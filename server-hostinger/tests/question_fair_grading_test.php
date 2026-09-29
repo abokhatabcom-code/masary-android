@@ -27,7 +27,7 @@ function api_mysql_datetime(int $timestamp): string
     return gmdate('Y-m-d H:i:s', $timestamp);
 }
 
-require_once __DIR__ . '/../public_html/api/_question_answer.php';
+require_once __DIR__ . '/../public_html/api/_question_result.php';
 
 function fair_check(bool $condition, string $message): void
 {
