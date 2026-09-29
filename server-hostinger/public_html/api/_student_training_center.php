@@ -238,6 +238,21 @@ function api_training_center_count_review_errors(
     int $studentId,
     int $subjectVersionId,
 ): ?int {
+    if (api_activity_table_exists($pdo, 'student_unit_question_state')) {
+        try {
+            $statement = $pdo->prepare(
+                'SELECT COUNT(*) FROM student_unit_question_state s '
+                . 'JOIN units u ON u.id=s.unit_id '
+                . 'WHERE s.student_id=? AND u.subject_version_id=? '
+                . 'AND COALESCE(s.last_score,0)<0.999',
+            );
+            $statement->execute([$studentId, $subjectVersionId]);
+            return max(0, (int)$statement->fetchColumn());
+        } catch (Throwable) {
+            // Fall through to legacy error sources.
+        }
+    }
+
     foreach (
         ['student_question_errors', 'student_errors', 'student_wrong_answers', 'wrong_answers']
         as $table
