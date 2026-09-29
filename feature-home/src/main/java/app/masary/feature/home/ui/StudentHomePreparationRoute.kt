@@ -356,6 +356,19 @@ fun StudentHomeRoute(
                                 ) { launchSingleTop = true }
                             }
                         },
+                        onUnitReviewPreparation = { subjectVersionId, unitId ->
+                            if (subjectVersionId > 0 && unitId > 0) {
+                                navController.navigate(
+                                    ActivityPreparationDestination(
+                                        subjectVersionId = subjectVersionId,
+                                        unitId = unitId,
+                                        activityType = "review",
+                                        activityMode = "review",
+                                        source = "review",
+                                    ),
+                                ) { launchSingleTop = true }
+                            }
+                        },
                     )
                 }
                 composable<SubjectTrainingCenterDestination> { entry ->
