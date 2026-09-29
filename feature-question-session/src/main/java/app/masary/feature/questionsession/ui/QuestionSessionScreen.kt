@@ -60,6 +60,8 @@ fun QuestionSessionRoute(
     sessionId: String,
     repository: QuestionSessionRepository,
     onBack: () -> Unit,
+    onRetryActivity: (QuestionSessionPackage) -> Unit,
+    onReviewMistakes: (QuestionSessionPackage) -> Unit,
 ) {
     val model: QuestionSessionViewModel = viewModel(
         key = "question-session-${sessionId}",
@@ -77,6 +79,8 @@ fun QuestionSessionRoute(
         onNext = model::next,
         onFinish = model::finish,
         onUserActivity = model::markUserActivity,
+        onRetryActivity = onRetryActivity,
+        onReviewMistakes = onReviewMistakes,
     )
 }
 
@@ -91,6 +95,8 @@ private fun QuestionSessionScreen(
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onUserActivity: () -> Unit,
+    onRetryActivity: (QuestionSessionPackage) -> Unit,
+    onReviewMistakes: (QuestionSessionPackage) -> Unit,
 ) {
     CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
@@ -147,7 +153,10 @@ private fun QuestionSessionScreen(
 
                 is QuestionSessionUiState.Result -> ConfirmedResultState(
                     result = state.data,
+                    context = state.context,
                     onBack = onBack,
+                    onRetryActivity = onRetryActivity,
+                    onReviewMistakes = onReviewMistakes,
                     modifier = Modifier.padding(paddingValues),
                 )
 
@@ -662,7 +671,10 @@ private fun ConnectRenderer(
 @Composable
 private fun ConfirmedResultState(
     result: QuestionSessionResult,
+    context: QuestionSessionPackage?,
     onBack: () -> Unit,
+    onRetryActivity: (QuestionSessionPackage) -> Unit,
+    onReviewMistakes: (QuestionSessionPackage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val policy = result.policy.result
@@ -759,6 +771,26 @@ private fun ConfirmedResultState(
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
                     )
+                }
+                if (policy.showRetryButton && context != null) {
+                    Button(
+                        onClick = { onRetryActivity(context) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("إعادة المحاولة")
+                    }
+                }
+                if (policy.showMistakesButton &&
+                    context != null &&
+                    context.session.unitId != null &&
+                    (result.score.incorrectAnswers > 0 || result.score.partialAnswers > 0)
+                ) {
+                    OutlinedButton(
+                        onClick = { onReviewMistakes(context) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("راجع أخطاءك")
+                    }
                 }
                 if (policy.showBackButton) {
                     OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
