@@ -171,6 +171,17 @@ data class QuestionConfirmedDeltaDto(
     @SerializedName("confirmed_at_epoch_millis") val confirmedAtEpochMillis: Long? = null,
 )
 
+data class QuestionReviewItemDto(
+    val index: Int = 0,
+    @SerializedName("question_id") val questionId: String = "",
+    val type: String = "",
+    val prompt: String = "",
+    val score: Double = 0.0,
+    val status: String = "",
+    @SerializedName("student_answer") val studentAnswer: String = "",
+    @SerializedName("correct_answer") val correctAnswer: String? = null,
+)
+
 data class QuestionFinishResultDto(
     @SerializedName("session_id") val sessionId: String = "",
     val status: String = "",
@@ -178,6 +189,7 @@ data class QuestionFinishResultDto(
     val replayed: Boolean = false,
     val result: QuestionSessionScoreDto = QuestionSessionScoreDto(),
     val policy: QuestionSessionPolicyDto = QuestionSessionPolicyDto(),
+    val review: List<QuestionReviewItemDto> = emptyList(),
     @SerializedName("confirmed_delta") val confirmedDelta: QuestionConfirmedDeltaDto =
         QuestionConfirmedDeltaDto(),
 )
