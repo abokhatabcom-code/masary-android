@@ -5,6 +5,7 @@ enum class QuestionType(val wireValue: String) {
     TrueFalse("truefalse"),
     Connect("connect"),
     Fill("fill"),
+    Direct("direct"),
     Speed("speed"),
     ;
 
@@ -26,7 +27,17 @@ data class ConnectItem(
 
 sealed interface QuestionPayload {
     data class Options(val options: List<QuestionOption>) : QuestionPayload
-    data class Fill(val inputMode: String = "text") : QuestionPayload
+    data class TrueFalse(
+        val options: List<QuestionOption>,
+        val requiresReason: Boolean,
+        val reasonOnlyOnFalse: Boolean,
+        val reasons: List<QuestionOption>,
+    ) : QuestionPayload
+    data class Fill(
+        val inputMode: String = "text",
+        val blanksCount: Int = 1,
+    ) : QuestionPayload
+    data class Direct(val inputMode: String = "text") : QuestionPayload
     data class Connect(
         val leftItems: List<ConnectItem>,
         val rightItems: List<ConnectItem>,
@@ -104,9 +115,14 @@ data class ConnectAnswerPair(
 )
 
 sealed interface QuestionAnswerInput {
-    data class Choice(val optionId: String) : QuestionAnswerInput
+    data class Choice(
+        val optionId: String,
+        val reasonId: String? = null,
+    ) : QuestionAnswerInput
     data class Text(val value: String) : QuestionAnswerInput
+    data class Fill(val values: List<String>) : QuestionAnswerInput
     data class Connections(val pairs: List<ConnectAnswerPair>) : QuestionAnswerInput
+    data object Skip : QuestionAnswerInput
 }
 
 
