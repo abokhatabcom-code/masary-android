@@ -362,7 +362,7 @@ fun StudentHomeRoute(
                                     ActivityPreparationDestination(
                                         subjectVersionId = subjectVersionId,
                                         unitId = unitId,
-                                        activityType = "review",
+                                        activityType = "smart_review",
                                         activityMode = "review",
                                         source = "review",
                                     ),
@@ -448,7 +448,7 @@ fun StudentHomeRoute(
                                     ActivityPreparationDestination(
                                         subjectVersionId = info.subjectVersionId,
                                         unitId = unitId,
-                                        activityType = "review",
+                                        activityType = "smart_review",
                                         activityMode = "review",
                                         source = "review",
                                     ),
