@@ -240,6 +240,63 @@ class RoomStudentLocalStoreTest {
     }
 
     @Test
+    fun revisingAnswerReplacesSamePendingOperationWithLatestPayload() = runTest {
+        val session = questionSession("session-revision", STUDENT_A)
+        store.saveQuestionSession(session)
+
+        store.recordQuestionAnswer(
+            answer = QuestionAnswerEntity(
+                studentId = STUDENT_A,
+                sessionId = session.sessionId,
+                questionId = "q1",
+                answerJson = """{"kind":"choice","option_id":"first"}""",
+                localSequence = 1,
+                answeredAtEpochMillis = 500L,
+            ),
+            nextQuestionIndex = 1,
+            sessionStatus = "in_progress",
+            operation = operation("stable-q1-op", STUDENT_A).copy(
+                payloadJson = """{"answer":{"option_id":"first"}}""",
+                updatedAtEpochMillis = 500L,
+            ),
+        )
+
+        store.recordQuestionAnswer(
+            answer = QuestionAnswerEntity(
+                studentId = STUDENT_A,
+                sessionId = session.sessionId,
+                questionId = "q1",
+                answerJson = """{"kind":"choice","option_id":"final"}""",
+                localSequence = 2,
+                answeredAtEpochMillis = 700L,
+            ),
+            nextQuestionIndex = 1,
+            sessionStatus = "completed_local",
+            operation = operation("stable-q1-op", STUDENT_A).copy(
+                payloadJson = """{"answer":{"option_id":"final"}}""",
+                updatedAtEpochMillis = 700L,
+            ),
+        )
+
+        val answers = store.readQuestionAnswers(STUDENT_A, session.sessionId)
+        val operations = store.readyOperations(
+            studentId = STUDENT_A,
+            nowEpochMillis = 10_000L,
+            limit = 10,
+        )
+
+        assertEquals(1, answers.size)
+        assertTrue(answers.single().answerJson.contains("final"))
+        assertEquals(1, operations.size)
+        assertEquals("stable-q1-op", operations.single().operationId)
+        assertTrue(operations.single().payloadJson.contains("final"))
+        assertEquals(
+            "completed_local",
+            database.questionSessionDao().readSession(STUDENT_A, session.sessionId)?.status,
+        )
+    }
+
+    @Test
     fun syncingOperationSurvivesDatabaseReopenAndRecoversWithSameId() = runTest {
         store.enqueueOperation(operation("stable-operation", STUDENT_A))
         store.markOperationSyncing("stable-operation", nowEpochMillis = 1_000L)
