@@ -404,6 +404,44 @@ fun StudentHomeRoute(
                         sessionId = destination.sessionId,
                         repository = questionSessionRepository,
                         onBack = { navController.popBackStack() },
+                        onRetryActivity = { context ->
+                            val info = context.session
+                            val source = info.source.ifBlank {
+                                when (info.activityType) {
+                                    "lesson_practice" -> "lesson"
+                                    "review", "smart_review" -> "review"
+                                    else -> "subject"
+                                }
+                            }
+                            navController.popBackStack()
+                            navController.navigate(
+                                ActivityPreparationDestination(
+                                    subjectVersionId = info.subjectVersionId,
+                                    unitId = info.unitId,
+                                    lessonId = info.lessonId,
+                                    activityType = info.activityType,
+                                    activityMode = info.activityMode,
+                                    guideStepId = info.guideStepId,
+                                    source = source,
+                                ),
+                            ) { launchSingleTop = true }
+                        },
+                        onReviewMistakes = { context ->
+                            val info = context.session
+                            val unitId = info.unitId
+                            if (unitId != null && unitId > 0) {
+                                navController.popBackStack()
+                                navController.navigate(
+                                    ActivityPreparationDestination(
+                                        subjectVersionId = info.subjectVersionId,
+                                        unitId = unitId,
+                                        activityType = "review",
+                                        activityMode = "review",
+                                        source = "review",
+                                    ),
+                                ) { launchSingleTop = true }
+                            }
+                        },
                     )
                 }
             }
