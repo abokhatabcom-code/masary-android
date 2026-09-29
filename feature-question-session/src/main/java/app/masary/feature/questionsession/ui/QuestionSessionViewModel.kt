@@ -38,6 +38,7 @@ sealed interface QuestionSessionUiState {
 
     data class Result(
         val data: QuestionSessionResult,
+        val context: QuestionSessionPackage? = null,
     ) : QuestionSessionUiState
 
     data class Error(val message: String) : QuestionSessionUiState
@@ -327,7 +328,12 @@ class QuestionSessionViewModel(
             }
             repository.finishSession(finishSessionId)
                 .onSuccess { result ->
-                    _state.value = QuestionSessionUiState.Result(result)
+                    val context = when (val state = _state.value) {
+                        is QuestionSessionUiState.CompletedLocal -> state.data
+                        is QuestionSessionUiState.Content -> state.data
+                        else -> repository.loadSnapshot(finishSessionId)
+                    }
+                    _state.value = QuestionSessionUiState.Result(result, context)
                 }
                 .onFailure { error ->
                     val local = _state.value as? QuestionSessionUiState.CompletedLocal
@@ -344,7 +350,10 @@ class QuestionSessionViewModel(
     private fun load() {
         loadJob = viewModelScope.launch {
             repository.loadResult(sessionId)?.let { cachedResult ->
-                _state.value = QuestionSessionUiState.Result(cachedResult)
+                _state.value = QuestionSessionUiState.Result(
+                    data = cachedResult,
+                    context = repository.loadSnapshot(sessionId),
+                )
                 return@launch
             }
 
@@ -375,7 +384,10 @@ class QuestionSessionViewModel(
             ) {
                 val finish = repository.finishSession(snapshot.session.id)
                 if (finish.isSuccess) {
-                    _state.value = QuestionSessionUiState.Result(finish.getOrThrow())
+                    _state.value = QuestionSessionUiState.Result(
+                        data = finish.getOrThrow(),
+                        context = snapshot,
+                    )
                     return@launch
                 }
             }
