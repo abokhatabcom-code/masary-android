@@ -24,6 +24,8 @@ data class QuestionSessionDescriptorDto(
     @SerializedName("lesson_id") val lessonId: Int? = null,
     @SerializedName("activity_type") val activityType: String = "",
     @SerializedName("activity_mode") val activityMode: String = "",
+    val source: String = "",
+    @SerializedName("guide_step_id") val guideStepId: Int? = null,
 )
 
 data class QuestionSessionProgressDto(
