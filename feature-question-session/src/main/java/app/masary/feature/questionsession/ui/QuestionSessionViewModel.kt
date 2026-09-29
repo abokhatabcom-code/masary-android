@@ -1,5 +1,7 @@
 package app.masary.feature.questionsession.ui
 
+import android.os.SystemClock
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -56,12 +58,18 @@ class QuestionSessionViewModel(
     private var syncJob: Job? = null
     private var timerJob: Job? = null
     private var timerSessionId: String? = null
+    private var activeTimeJob: Job? = null
+    private var activeTimeSessionId: String? = null
+    private var activeSeconds: Int = 0
+    private var activeLastInteractionElapsed: Long = 0L
+    private var activeLastCountedElapsed: Long = 0L
 
     init {
         viewModelScope.launch {
             state.collect { uiState ->
                 if (uiState is QuestionSessionUiState.Content) {
                     ensureTimer(uiState)
+                    ensureActiveTime(uiState)
                 }
             }
         }
@@ -73,7 +81,17 @@ class QuestionSessionViewModel(
         load()
     }
 
+    fun markUserActivity() {
+        val current = _state.value as? QuestionSessionUiState.Content ?: return
+        if (!current.data.policy.activeTime.enabled) return
+        val now = SystemClock.elapsedRealtime()
+        accumulateActiveTime(current, now)
+        activeLastInteractionElapsed = now
+        activeLastCountedElapsed = now
+    }
+
     fun previous() {
+        markUserActivity()
         val current = _state.value as? QuestionSessionUiState.Content ?: return
         if (!current.data.policy.allowBack || current.isSaving) return
         if (current.viewingIndex <= 0) return
@@ -84,6 +102,7 @@ class QuestionSessionViewModel(
     }
 
     fun next() {
+        markUserActivity()
         val current = _state.value as? QuestionSessionUiState.Content ?: return
         if (current.isSaving) return
         val lastIndex = current.data.questions.lastIndex
@@ -97,11 +116,13 @@ class QuestionSessionViewModel(
 
     fun finish() {
         if (saveJob?.isActive == true) return
+        markUserActivity()
         val current = _state.value as? QuestionSessionUiState.Content ?: return
         if (current.data.progress.currentIndex < current.data.questions.size) return
 
         _state.value = current.copy(isSaving = true, message = null)
         saveJob = viewModelScope.launch {
+            flushActiveTime(current)
             repository.markCompletedLocal(
                 sessionId = current.data.session.id,
                 allowIncomplete = false,
@@ -124,6 +145,7 @@ class QuestionSessionViewModel(
 
     fun submit(answer: QuestionAnswerInput) {
         if (saveJob?.isActive == true) return
+        markUserActivity()
         val current = (_state.value as? QuestionSessionUiState.Content) ?: return
         val index = current.viewingIndex.coerceIn(0, current.data.questions.lastIndex)
         val question = current.data.questions.getOrNull(index) ?: return
@@ -151,6 +173,7 @@ class QuestionSessionViewModel(
                         progress = current.data.progress.copy(currentIndex = nextFrontier),
                     )
                 if (autoComplete) {
+                    flushActiveTime(current)
                     _state.value = QuestionSessionUiState.CompletedLocal(refreshed)
                     triggerPendingAnswerSync(refreshed.session.id)
                     return@onSuccess
@@ -177,6 +200,65 @@ class QuestionSessionViewModel(
                 )
             }
         }
+    }
+
+    private fun ensureActiveTime(content: QuestionSessionUiState.Content) {
+        val policy = content.data.policy.activeTime
+        if (!policy.enabled) return
+        if (activeTimeJob?.isActive == true &&
+            activeTimeSessionId == content.data.session.id
+        ) {
+            return
+        }
+
+        activeTimeJob?.cancel()
+        activeTimeSessionId = content.data.session.id
+        activeTimeJob = viewModelScope.launch {
+            activeSeconds = repository.loadActiveSeconds(content.data.session.id) ?: 0
+            val now = SystemClock.elapsedRealtime()
+            activeLastInteractionElapsed = now
+            activeLastCountedElapsed = now
+            val intervalMillis = policy.pingInterval.coerceIn(5, 60) * 1_000L
+
+            while (true) {
+                delay(intervalMillis)
+                val current = _state.value as? QuestionSessionUiState.Content ?: return@launch
+                if (current.data.session.id != content.data.session.id) return@launch
+                flushActiveTime(current)
+            }
+        }
+    }
+
+    private fun accumulateActiveTime(
+        content: QuestionSessionUiState.Content,
+        nowElapsed: Long,
+    ) {
+        if (!content.data.policy.activeTime.enabled) return
+        if (activeLastCountedElapsed <= 0L) {
+            activeLastCountedElapsed = nowElapsed
+            activeLastInteractionElapsed = nowElapsed
+            return
+        }
+
+        val deltaMillis = (nowElapsed - activeLastCountedElapsed).coerceAtLeast(0L)
+        val idleMillis = content.data.policy.activeTime.idleSeconds
+            .coerceIn(5, 900) * 1_000L
+        val sinceInteraction = (nowElapsed - activeLastInteractionElapsed).coerceAtLeast(0L)
+        if (deltaMillis > 0L && sinceInteraction <= idleMillis) {
+            activeSeconds = (activeSeconds + (deltaMillis / 1_000L).toInt())
+                .coerceIn(0, 86_400)
+        }
+        activeLastCountedElapsed = nowElapsed
+    }
+
+    private suspend fun flushActiveTime(content: QuestionSessionUiState.Content) {
+        if (!content.data.policy.activeTime.enabled) return
+        val now = SystemClock.elapsedRealtime()
+        accumulateActiveTime(content, now)
+        repository.saveActiveSeconds(
+            sessionId = content.data.session.id,
+            seconds = activeSeconds,
+        )
     }
 
     private fun ensureTimer(content: QuestionSessionUiState.Content) {
@@ -215,6 +297,7 @@ class QuestionSessionViewModel(
 
         saveJob?.takeIf { it.isActive }?.join()
         val latest = _state.value as? QuestionSessionUiState.Content ?: return
+        flushActiveTime(latest)
         repository.markCompletedLocal(
             sessionId = expiredSessionId,
             allowIncomplete = true,
