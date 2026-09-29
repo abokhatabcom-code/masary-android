@@ -847,6 +847,8 @@ internal fun QuestionSessionPackageDataDto.toDomain(): QuestionSessionPackage {
             lessonId = session.lessonId,
             activityType = session.activityType.trim(),
             activityMode = session.activityMode.trim(),
+            source = session.source.trim(),
+            guideStepId = session.guideStepId,
             startedAt = session.startedAt.trim(),
             startedAtEpochSeconds = session.startedAtEpochSeconds,
         ),
