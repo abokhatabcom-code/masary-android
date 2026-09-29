@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_question_answer.php';
 require_once __DIR__ . '/_question_progress.php';
+require_once __DIR__ . '/_question_attempt_log.php';
 
 final class ApiQuestionResultRejected extends RuntimeException
 {
@@ -22,8 +23,13 @@ function api_question_result_reject(string $code, string $message, int $status):
 
 function api_question_result_request(array $payload): array
 {
+    $activeSeconds = null;
+    if (array_key_exists('active_seconds', $payload) && $payload['active_seconds'] !== null) {
+        $activeSeconds = max(0, min(86400, (int)$payload['active_seconds']));
+    }
     return [
         'session_id' => api_question_session_public_id((string)($payload['session_id'] ?? '')),
+        'active_seconds' => $activeSeconds,
     ];
 }
 
@@ -235,6 +241,30 @@ function api_question_result_finish(
             $score,
             $policy,
         );
+        $attempt = api_question_attempt_log(
+            $pdo,
+            $studentId,
+            $session,
+            $questions,
+            $score,
+            $policy,
+            (float)($progress['xp_earned'] ?? 0),
+            (string)($progress['effective_mode'] ?? $progress['mode'] ?? 'learn'),
+            $request['active_seconds'],
+        );
+
+        $confirmedDelta = (array)$progress['confirmed_delta'];
+        $today = (array)($attempt['today'] ?? []);
+        if ($today !== [] && is_array($confirmedDelta['profile'] ?? null)) {
+            $todaySeconds = max(0, (int)($today['seconds_total'] ?? 0));
+            $confirmedDelta['profile']['today_seconds'] = $todaySeconds;
+            $confirmedDelta['profile']['today_minutes'] = (int)floor($todaySeconds / 60);
+            $confirmedDelta['profile']['today_attempts'] = max(
+                0,
+                (int)($today['sessions_count'] ?? 0),
+            );
+        }
+
         $passPercent = max(1, min(100, (int)($policy['pass_percent'] ?? 60)));
         $passed = (float)($score['score_percent'] ?? 0) >= $passPercent;
 
@@ -250,9 +280,13 @@ function api_question_result_finish(
                 'xp_earned' => (float)($progress['xp_earned'] ?? 0),
                 'hearts_spent' => max(0, (int)($session['heart_debited'] ?? 0)),
                 'timed_out' => $timerExpired,
+                'duration_seconds' => max(0, (int)($attempt['duration_seconds'] ?? 0)),
+                'attempt_id' => isset($attempt['attempt_id']) && $attempt['attempt_id'] !== null
+                    ? (int)$attempt['attempt_id']
+                    : null,
             ]),
             'policy' => api_test_policy_public($policy),
-            'confirmed_delta' => (array)$progress['confirmed_delta'],
+            'confirmed_delta' => $confirmedDelta,
         ];
 
         $insert = $pdo->prepare(
