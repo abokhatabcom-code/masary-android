@@ -63,8 +63,12 @@ function api_question_result_stored(array $row, bool $replayed): array
     return $result;
 }
 
-function api_question_result_score(PDO $pdo, int $studentId, string $sessionId): array
-{
+function api_question_result_score(
+    PDO $pdo,
+    int $studentId,
+    string $sessionId,
+    ?int $expectedTotal = null,
+): array {
     $statement = $pdo->prepare(
         'SELECT result_json FROM api_activity_answers '
         . 'WHERE user_id=? AND public_session_id=? ORDER BY id ASC',
@@ -74,7 +78,6 @@ function api_question_result_score(PDO $pdo, int $studentId, string $sessionId):
 
     $correct = 0;
     $partial = 0;
-    $wrong = 0;
     $points = 0.0;
     foreach ($rows as $row) {
         $result = json_decode((string)($row['result_json'] ?? ''), true);
@@ -96,24 +99,37 @@ function api_question_result_score(PDO $pdo, int $studentId, string $sessionId):
             $correct += 1;
         } elseif ($score > 0.000001) {
             $partial += 1;
-        } else {
-            $wrong += 1;
         }
     }
 
-    $total = count($rows);
+    $answered = count($rows);
+    $total = $expectedTotal === null ? $answered : max($answered, $expectedTotal);
+    $wrong = max(0, $total - $correct - $partial);
     $percentExact = $total > 0 ? ($points / $total) * 100.0 : 0.0;
     return [
         'correct_answers' => $correct,
-        // Keep incorrect_answers as non-fully-correct for backward compatibility.
         'incorrect_answers' => max(0, $total - $correct),
         'partial_answers' => $partial,
         'wrong_answers' => $wrong,
+        'answered_questions' => $answered,
         'total_questions' => $total,
         'score_points' => round($points, 6),
         'score_percent_exact' => round($percentExact, 6),
         'score_percent' => (int)round($percentExact),
     ];
+}
+
+function api_question_result_timer_expired(array $session, array $policy): bool
+{
+    $seconds = max(0, (int)($policy['timer_seconds'] ?? 0));
+    if ($seconds <= 0) {
+        return false;
+    }
+    $startedAt = strtotime((string)($session['started_at'] ?? ''));
+    if ($startedAt === false || $startedAt <= 0) {
+        return false;
+    }
+    return time() >= ($startedAt + $seconds);
 }
 
 function api_question_result_finish(
@@ -183,29 +199,35 @@ function api_question_result_finish(
             );
         }
 
+        $policy = api_test_policy_for_session($pdo, $session);
+        $timerExpired = api_question_result_timer_expired($session, $policy);
+
         $count = $pdo->prepare(
             'SELECT COUNT(*) FROM api_activity_answers WHERE user_id=? AND public_session_id=?',
         );
         $count->execute([$studentId, $request['session_id']]);
         $answered = max(0, (int)$count->fetchColumn());
-        if ($answered < $totalQuestions) {
+        if ($answered < $totalQuestions && !$timerExpired) {
             api_question_result_reject(
                 'session_incomplete',
                 'لا يمكن إنهاء الجلسة قبل تثبيت جميع الإجابات.',
                 409,
             );
         }
-
-        $score = api_question_result_score($pdo, $studentId, $request['session_id']);
-        if ((int)$score['total_questions'] !== $totalQuestions) {
+        if ($answered > $totalQuestions) {
             api_question_result_reject(
                 'session_answer_count_mismatch',
-                'عدد الإجابات المؤكدة لا يطابق حزمة الجلسة.',
+                'عدد الإجابات المؤكدة يتجاوز حزمة الجلسة.',
                 409,
             );
         }
 
-        $policy = api_test_policy_for_session($pdo, $session);
+        $score = api_question_result_score(
+            $pdo,
+            $studentId,
+            $request['session_id'],
+            $totalQuestions,
+        );
         $progress = api_question_progress_apply(
             $pdo,
             $studentId,
@@ -227,6 +249,7 @@ function api_question_result_finish(
                 'pass_percent' => $passPercent,
                 'xp_earned' => (float)($progress['xp_earned'] ?? 0),
                 'hearts_spent' => max(0, (int)($session['heart_debited'] ?? 0)),
+                'timed_out' => $timerExpired,
             ]),
             'policy' => api_test_policy_public($policy),
             'confirmed_delta' => (array)$progress['confirmed_delta'],
