@@ -973,6 +973,83 @@ function api_question_session_review_questions(PDO $pdo, array $session): array
     return $questions;
 }
 
+function api_question_session_regular_review_questions(
+    PDO $pdo,
+    array $session,
+): array {
+    $settings = api_test_policy_for_session($pdo, $session);
+    $allowedQuestionTypes = api_question_session_lesson_allowed_question_types($settings);
+    if ($allowedQuestionTypes === []) {
+        api_error(
+            'question_source_unavailable',
+            'إعدادات المراجعة الحالية لا تسمح بأنواع أسئلة يدعمها تطبيق الطالب.',
+            503,
+        );
+    }
+
+    $questions = [];
+    foreach ($allowedQuestionTypes as $questionType) {
+        $bucket = api_question_session_normalized_questions(
+            $pdo,
+            $session,
+            $questionType,
+            $settings,
+            true,
+        );
+        if (is_array($bucket) && $bucket !== []) {
+            array_push($questions, ...$bucket);
+        }
+    }
+
+    if ($questions === []) {
+        api_error(
+            'question_source_unavailable',
+            'لا توجد أسئلة نشطة مطابقة لنطاق المراجعة وإعدادات الاختبار الحالية.',
+            503,
+        );
+    }
+
+    $sessionId = (string)($session['public_session_id'] ?? '');
+    if ((string)($settings['question_order'] ?? 'random') === 'fixed') {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                ((int)($left['_source_id'] ?? 0)) <=> ((int)($right['_source_id'] ?? 0)),
+        );
+    } else {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                strcmp(
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'regular-review-order',
+                        (string)($left['_source_id'] ?? ''),
+                    ),
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'regular-review-order',
+                        (string)($right['_source_id'] ?? ''),
+                    ),
+                ),
+        );
+    }
+
+    $limit = max(
+        1,
+        min(
+            API_QUESTION_SESSION_MAX_QUESTIONS,
+            (int)($settings['questions_per_attempt'] ?? 10),
+        ),
+    );
+    $questions = array_slice($questions, 0, $limit);
+    foreach ($questions as &$question) {
+        unset($question['_source_id']);
+    }
+    unset($question);
+    return $questions;
+}
+
 function api_question_session_lesson_practice_questions(
     PDO $pdo,
     array $session,
@@ -1064,8 +1141,11 @@ function api_question_session_questions(PDO $pdo, array $session): array
     if ($activityType === 'lesson_practice') {
         return api_question_session_lesson_practice_questions($pdo, $session);
     }
-    if (in_array($activityType, ['review', 'smart_review'], true)) {
+    if ($activityType === 'smart_review') {
         return api_question_session_review_questions($pdo, $session);
+    }
+    if ($activityType === 'review') {
+        return api_question_session_regular_review_questions($pdo, $session);
     }
 
     $questionType = api_question_session_question_type($activityType);
