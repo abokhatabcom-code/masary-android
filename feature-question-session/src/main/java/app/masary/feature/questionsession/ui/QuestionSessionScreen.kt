@@ -423,6 +423,14 @@ private fun ConfirmedResultState(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val policy = result.policy.result
+    val wrongAnswers = (result.score.incorrectAnswers - result.score.partialAnswers).coerceAtLeast(0)
+    val earnedXp = if (kotlin.math.abs(result.score.xpEarned - result.score.xpEarned.toInt()) < 0.0001) {
+        result.score.xpEarned.toInt().toString()
+    } else {
+        String.format(java.util.Locale.US, "%.2f", result.score.xpEarned).trimEnd('0').trimEnd('.')
+    }
+
     Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(
@@ -442,24 +450,56 @@ private fun ConfirmedResultState(
                     color = MasaryColors.brandNavy,
                     textAlign = TextAlign.Center,
                 )
-                Text(
-                    text = "${result.score.scorePercent}%",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MasaryColors.brandNavy,
-                )
-                Text(
-                    text = "الإجابات الصحيحة: ${result.score.correctAnswers}",
-                    color = MasaryColors.brandNavy,
-                )
-                Text(
-                    text = "الإجابات الخاطئة: ${result.score.incorrectAnswers}",
-                    color = MasaryColors.brandNavy,
-                )
+                if (policy.showPassBadge) {
+                    Text(
+                        text = if (result.score.passed) "ناجح" else "تحتاج محاولة أخرى",
+                        fontWeight = FontWeight.Bold,
+                        color = MasaryColors.brandNavy,
+                    )
+                }
+                if (policy.showScore) {
+                    Text(
+                        text = "${result.score.scorePercent}%",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MasaryColors.brandNavy,
+                    )
+                }
+                if (policy.showCountsCorrect) {
+                    Text(
+                        text = "الإجابات الصحيحة: ${result.score.correctAnswers}",
+                        color = MasaryColors.brandNavy,
+                    )
+                }
+                if (policy.showCountsPartial && result.score.partialAnswers > 0) {
+                    Text(
+                        text = "الإجابات الجزئية: ${result.score.partialAnswers}",
+                        color = MasaryColors.brandNavy,
+                    )
+                }
+                if (policy.showCountsWrong) {
+                    Text(
+                        text = "الإجابات الخاطئة: $wrongAnswers",
+                        color = MasaryColors.brandNavy,
+                    )
+                }
                 Text(
                     text = "إجمالي الأسئلة: ${result.score.totalQuestions}",
                     color = MasaryColors.muted,
                 )
+                if (policy.showXp) {
+                    Text(
+                        text = "XP المكتسب: +$earnedXp",
+                        color = MasaryColors.brandNavy,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                if (policy.showHeartsSpent && result.score.heartsSpent > 0) {
+                    Text(
+                        text = "القلوب المصروفة: ${result.score.heartsSpent}",
+                        color = MasaryColors.muted,
+                    )
+                }
                 if (!result.confirmedDeltaAvailable &&
                     result.confirmedDeltaReason.isNotBlank()
                 ) {
@@ -470,8 +510,10 @@ private fun ConfirmedResultState(
                         textAlign = TextAlign.Center,
                     )
                 }
-                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                    Text("العودة")
+                if (policy.showBackButton) {
+                    OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                        Text("العودة")
+                    }
                 }
             }
         }
