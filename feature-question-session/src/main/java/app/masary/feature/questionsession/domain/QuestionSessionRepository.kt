@@ -21,6 +21,8 @@ interface QuestionSessionRepository {
         sessionId: String,
         allowIncomplete: Boolean = false,
     ): Result<Unit>
+    suspend fun loadActiveSeconds(sessionId: String): Int?
+    suspend fun saveActiveSeconds(sessionId: String, seconds: Int): Result<Unit>
     suspend fun loadResult(sessionId: String): QuestionSessionResult?
     suspend fun finishSession(sessionId: String): Result<QuestionSessionResult>
 }
