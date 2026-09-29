@@ -17,7 +17,10 @@ import app.masary.core.network.question.QuestionConfirmedProfileDeltaDto
 import app.masary.core.network.question.QuestionConfirmedSubjectDeltaDto
 import app.masary.core.network.question.QuestionFinishRequestDto
 import app.masary.core.network.question.QuestionFinishResultDto
+import app.masary.core.network.question.QuestionActiveTimePolicyDto
+import app.masary.core.network.question.QuestionResultPolicyDto
 import app.masary.core.network.question.QuestionSessionPackageDataDto
+import app.masary.core.network.question.QuestionSessionPolicyDto
 import app.masary.core.network.question.QuestionSessionQuestionDto
 import app.masary.core.network.question.StudentQuestionSessionApi
 import app.masary.feature.questionsession.domain.ConnectItem
@@ -29,10 +32,13 @@ import app.masary.feature.questionsession.domain.QuestionOption
 import app.masary.feature.questionsession.domain.QuestionPayload
 import app.masary.feature.questionsession.domain.QuestionSessionException
 import app.masary.feature.questionsession.domain.QuestionSessionExpiredException
+import app.masary.feature.questionsession.domain.QuestionActiveTimePolicy
+import app.masary.feature.questionsession.domain.QuestionResultPolicy
 import app.masary.feature.questionsession.domain.QuestionSessionInfo
 import app.masary.feature.questionsession.domain.QuestionSessionNetworkException
 import app.masary.feature.questionsession.domain.QuestionSessionNotFoundException
 import app.masary.feature.questionsession.domain.QuestionSessionPackage
+import app.masary.feature.questionsession.domain.QuestionSessionPolicy
 import app.masary.feature.questionsession.domain.QuestionSessionProgress
 import app.masary.feature.questionsession.domain.QuestionSessionRepository
 import app.masary.feature.questionsession.domain.QuestionSessionResult
@@ -395,9 +401,13 @@ class NetworkQuestionSessionRepository(
             result.completedAt.isBlank() ||
             result.score.totalQuestions <= 0 ||
             result.score.correctAnswers < 0 ||
+            result.score.partialAnswers < 0 ||
             result.score.incorrectAnswers < 0 ||
             result.score.correctAnswers + result.score.incorrectAnswers != result.score.totalQuestions ||
-            result.score.scorePercent !in 0..100
+            result.score.scorePercent !in 0..100 ||
+            result.score.passPercent !in 1..100 ||
+            result.score.xpEarned < 0.0 ||
+            result.score.heartsSpent < 0
         ) {
             throw QuestionSessionServiceException("نتيجة جلسة الأسئلة غير صالحة.")
         }
@@ -676,10 +686,16 @@ internal fun QuestionFinishResultDto.toDomain(): QuestionSessionResult =
         replayed = replayed,
         score = QuestionSessionScore(
             correctAnswers = result.correctAnswers,
+            partialAnswers = result.partialAnswers,
             incorrectAnswers = result.incorrectAnswers,
             totalQuestions = result.totalQuestions,
             scorePercent = result.scorePercent,
+            passed = result.passed,
+            passPercent = result.passPercent,
+            xpEarned = result.xpEarned,
+            heartsSpent = result.heartsSpent,
         ),
+        policy = policy.toDomain(),
         confirmedDeltaAvailable = confirmedDelta.available,
         confirmedDeltaReason = confirmedDelta.reason.trim(),
     )
@@ -703,9 +719,44 @@ internal fun QuestionSessionPackageDataDto.toDomain(): QuestionSessionPackage {
             currentIndex = progress.currentIndex,
             totalQuestions = progress.totalQuestions,
         ),
+        policy = policy.toDomain(),
         questions = domainQuestions,
     )
 }
+
+private fun QuestionSessionPolicyDto.toDomain(): QuestionSessionPolicy =
+    QuestionSessionPolicy(
+        allowBack = allowBack,
+        allowSkip = allowSkip,
+        revealAnswers = revealAnswers,
+        tfReasonOnlyOnFalse = tfReasonOnlyOnFalse,
+        passPercent = passPercent.coerceIn(1, 100),
+        timerSeconds = timerSeconds.coerceIn(0, 3600),
+        activeTime = activeTime.toDomain(),
+        result = result.toDomain(),
+    )
+
+private fun QuestionActiveTimePolicyDto.toDomain(): QuestionActiveTimePolicy =
+    QuestionActiveTimePolicy(
+        enabled = enabled,
+        idleSeconds = idleSeconds.coerceIn(5, 900),
+        pingInterval = pingInterval.coerceIn(5, 60),
+    )
+
+private fun QuestionResultPolicyDto.toDomain(): QuestionResultPolicy =
+    QuestionResultPolicy(
+        showPassBadge = showPassBadge,
+        showScore = showScore,
+        showCountsCorrect = showCountsCorrect,
+        showCountsPartial = showCountsPartial,
+        showCountsWrong = showCountsWrong,
+        showXp = showXp,
+        showHeartsSpent = showHeartsSpent,
+        showRetryButton = showRetryButton,
+        showBackButton = showBackButton,
+        showReviewDetails = showReviewDetails,
+        showMistakesButton = showMistakesButton,
+    )
 
 private fun QuestionSessionQuestionDto.toDomain(): QuestionItem {
     val stableType = QuestionType.fromWire(type)
