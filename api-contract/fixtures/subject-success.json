@@ -118,6 +118,12 @@
             "review_percent": 12,
             "unlock_threshold_percent": 30,
             "learn_completed": false
+          },
+          "review": {
+            "visible": true,
+            "available": true,
+            "mistakes_count": 2,
+            "reason": ""
           }
         }
       ],
