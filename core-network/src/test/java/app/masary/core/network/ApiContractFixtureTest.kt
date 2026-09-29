@@ -134,9 +134,11 @@ class ApiContractFixtureTest {
         )
         assertTrue(questionSession.success)
         assertEquals("activity-session-001", questionSession.data?.session?.id)
-        assertEquals(1, questionSession.data?.questions?.size)
+        assertEquals(2, questionSession.data?.questions?.size)
         assertEquals("choose", questionSession.data?.questions?.first()?.type)
-        assertEquals(4, questionSession.data?.questions?.first()?.payload?.getAsJsonArray("options")?.size())
+        assertEquals(2, questionSession.data?.questions?.first()?.payload?.getAsJsonArray("options")?.size())
+        assertEquals("direct", questionSession.data?.questions?.get(1)?.type)
+        assertEquals("text", questionSession.data?.questions?.get(1)?.payload?.get("input_mode")?.asString)
 
         val answer = parse(
             "question-answer-success.json",
