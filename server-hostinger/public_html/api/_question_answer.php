@@ -319,12 +319,12 @@ function api_question_answer_resolve_normalized_source(
     return null;
 }
 
-function api_question_answer_resolve_lesson_practice_source(
+function api_question_answer_resolve_mixed_normalized_source(
     PDO $pdo,
     array $session,
     string $questionId,
 ): array {
-    $settings = api_question_session_lesson_settings($pdo, $session);
+    $settings = api_test_policy_for_session($pdo, $session);
     foreach (api_question_session_lesson_allowed_question_types($settings) as $questionType) {
         $source = api_question_answer_resolve_normalized_source(
             $pdo,
@@ -337,7 +337,7 @@ function api_question_answer_resolve_lesson_practice_source(
             return $source;
         }
     }
-    api_error('question_not_found', 'السؤال غير متاح داخل درس هذه الجلسة.', 404);
+    api_error('question_not_found', 'السؤال غير متاح داخل هذه الجلسة.', 404);
 }
 
 function api_question_answer_resolve_source(
@@ -346,8 +346,9 @@ function api_question_answer_resolve_source(
     string $questionId,
 ): array {
     $activityType = (string)($session['activity_type'] ?? '');
-    if ($activityType === 'lesson_practice') {
-        return api_question_answer_resolve_lesson_practice_source($pdo, $session, $questionId);
+    if ($activityType === 'lesson_practice'
+        || in_array($activityType, ['review', 'smart_review'], true)) {
+        return api_question_answer_resolve_mixed_normalized_source($pdo, $session, $questionId);
     }
 
     $questionType = api_question_session_question_type($activityType);
