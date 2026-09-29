@@ -94,7 +94,18 @@ $pdo->exec('CREATE TABLE subject_versions(id INTEGER PRIMARY KEY,subject_id INTE
 $pdo->exec('CREATE TABLE units(id INTEGER PRIMARY KEY,subject_version_id INTEGER NOT NULL,title TEXT NOT NULL)');
 $pdo->exec('CREATE TABLE lessons(id INTEGER PRIMARY KEY,unit_id INTEGER NOT NULL,title TEXT NOT NULL)');
 $pdo->exec('CREATE TABLE student_lesson_progress(student_id INTEGER NOT NULL,lesson_id INTEGER NOT NULL,progress_percent REAL NOT NULL)');
-$pdo->exec('CREATE TABLE student_subject_state(student_id INTEGER NOT NULL,subject_version_id INTEGER NOT NULL,hearts INTEGER NOT NULL)');
+$pdo->exec('CREATE TABLE student_subject_state(
+    student_id INTEGER NOT NULL,
+    subject_version_id INTEGER NOT NULL,
+    subject_xp REAL NOT NULL DEFAULT 0,
+    hearts INTEGER NOT NULL,
+    UNIQUE(student_id,subject_version_id)
+)');
+$pdo->exec('CREATE TABLE version_test_settings(
+    subject_version_id INTEGER PRIMARY KEY,
+    review_heart_cost INTEGER NOT NULL DEFAULT 1,
+    mistakes_heart_cost INTEGER NOT NULL DEFAULT 1
+)');
 $pdo->exec('CREATE TABLE student_unit_points(
     student_id INTEGER NOT NULL,
     unit_id INTEGER NOT NULL,
@@ -147,7 +158,8 @@ $pdo->exec("INSERT INTO units VALUES(4,12,'الوحدة الثانية')");
 $pdo->exec("INSERT INTO lessons VALUES(10,4,'الدرس الأول')");
 $pdo->exec("INSERT INTO lessons VALUES(11,4,'الدرس الثاني')");
 $pdo->exec('INSERT INTO student_lesson_progress VALUES(42,10,29)');
-$pdo->exec('INSERT INTO student_subject_state VALUES(42,12,3)');
+$pdo->exec('INSERT INTO student_subject_state(student_id,subject_version_id,subject_xp,hearts) VALUES(42,12,0,3)');
+$pdo->exec('INSERT INTO version_test_settings(subject_version_id,review_heart_cost,mistakes_heart_cost) VALUES(12,2,1)');
 $pdo->exec('INSERT INTO student_unit_points VALUES(42,3,50,50,15,50,1)');
 $pdo->exec('INSERT INTO student_unit_points VALUES(42,4,50,50,0,50,5)');
 add_completed_attempt($pdo, 42, 3, 1);
@@ -330,6 +342,44 @@ activity_check($blocked['eligibility']['available'] === false, 'Review with zero
 activity_check(
     $blocked['eligibility']['reason_code'] === 'insufficient_hearts',
     'A real zero-hearts reason was replaced by another policy state.',
+);
+
+$pdo->exec('UPDATE student_subject_state SET hearts=3 WHERE student_id=42 AND subject_version_id=12');
+$pdo->exec('DELETE FROM api_activity_sessions');
+
+$reviewHeartKey = 'phase136-review-heart-key-0001';
+$reviewStart = api_activity_start_guarded(
+    $pdo,
+    $session,
+    $reviewPayload,
+    $reviewHeartKey,
+);
+activity_check(
+    (int)$reviewStart['debit']['heart_debited'] === 2,
+    'Review did not use admin-configured review_heart_cost=2.',
+);
+activity_check(
+    (int)$pdo->query(
+        'SELECT hearts FROM student_subject_state WHERE student_id=42 AND subject_version_id=12'
+    )->fetchColumn() === 1,
+    'Review heart debit did not change 3 hearts to 1.',
+);
+$reviewReplay = api_activity_start_guarded(
+    $pdo,
+    $session,
+    $reviewPayload,
+    $reviewHeartKey,
+);
+activity_check(
+    $reviewReplay['session_id'] === $reviewStart['session_id']
+        && $reviewReplay['replayed'] === true,
+    'Review start replay did not reuse the same session.',
+);
+activity_check(
+    (int)$pdo->query(
+        'SELECT hearts FROM student_subject_state WHERE student_id=42 AND subject_version_id=12'
+    )->fetchColumn() === 1,
+    'Idempotent review replay debited hearts twice.',
 );
 
 $pdo->exec('UPDATE student_subject_state SET hearts=3 WHERE student_id=42 AND subject_version_id=12');
