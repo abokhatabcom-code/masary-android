@@ -73,6 +73,9 @@ function api_question_result_score(PDO $pdo, int $studentId, string $sessionId):
     $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     $correct = 0;
+    $partial = 0;
+    $wrong = 0;
+    $points = 0.0;
     foreach ($rows as $row) {
         $result = json_decode((string)($row['result_json'] ?? ''), true);
         if (!is_array($result) || !array_key_exists('correct', $result)) {
@@ -82,17 +85,34 @@ function api_question_result_score(PDO $pdo, int $studentId, string $sessionId):
                 500,
             );
         }
-        if (!empty($result['correct'])) {
+
+        $score = array_key_exists('score', $result)
+            ? (float)$result['score']
+            : (!empty($result['correct']) ? 1.0 : 0.0);
+        $score = max(0.0, min(1.0, $score));
+        $points += $score;
+
+        if ($score >= 0.999) {
             $correct += 1;
+        } elseif ($score > 0.000001) {
+            $partial += 1;
+        } else {
+            $wrong += 1;
         }
     }
 
     $total = count($rows);
+    $percentExact = $total > 0 ? ($points / $total) * 100.0 : 0.0;
     return [
         'correct_answers' => $correct,
+        // Keep incorrect_answers as non-fully-correct for backward compatibility.
         'incorrect_answers' => max(0, $total - $correct),
+        'partial_answers' => $partial,
+        'wrong_answers' => $wrong,
         'total_questions' => $total,
-        'score_percent' => $total > 0 ? (int)round(($correct / $total) * 100) : 0,
+        'score_points' => round($points, 6),
+        'score_percent_exact' => round($percentExact, 6),
+        'score_percent' => (int)round($percentExact),
     ];
 }
 
