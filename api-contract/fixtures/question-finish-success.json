@@ -3,19 +3,88 @@
   "data": {
     "session_id": "activity-session-001",
     "status": "completed",
-    "completed_at": "2026-09-28 12:00:00",
+    "completed_at": "2026-09-30 00:05:00",
     "replayed": false,
     "result": {
-      "correct_answers": 8,
-      "incorrect_answers": 2,
+      "correct_answers": 7,
+      "partial_answers": 0,
+      "incorrect_answers": 3,
+      "wrong_answers": 3,
+      "answered_questions": 10,
       "total_questions": 10,
-      "score_percent": 80
+      "score_points": 7,
+      "score_percent_exact": 70,
+      "score_percent": 70,
+      "passed": true,
+      "pass_percent": 60,
+      "xp_earned": 14,
+      "hearts_spent": 0,
+      "timed_out": false,
+      "duration_seconds": 95,
+      "attempt_id": 501
     },
+    "policy": {
+      "allow_back": true,
+      "allow_skip": true,
+      "reveal_answers": true,
+      "tf_reason_only_on_false": true,
+      "pass_percent": 60,
+      "timer_seconds": 0,
+      "active_time": {
+        "enabled": true,
+        "idle_seconds": 45,
+        "ping_interval": 15
+      },
+      "result": {
+        "show_pass_badge": true,
+        "show_score": true,
+        "show_counts_correct": true,
+        "show_counts_partial": true,
+        "show_counts_wrong": true,
+        "show_xp": true,
+        "show_hearts_spent": true,
+        "show_retry_button": true,
+        "show_back_button": true,
+        "show_review_details": true,
+        "show_mistakes_button": true
+      }
+    },
+    "review": [
+      {
+        "index": 8,
+        "question_id": "8f4f59eaa74c43f8c3d1c2a297b6df4a",
+        "type": "direct",
+        "prompt": "اكتب عاصمة مصر",
+        "score": 0,
+        "status": "wrong",
+        "student_answer": "الإسكندرية",
+        "correct_answer": "القاهرة"
+      }
+    ],
     "confirmed_delta": {
-      "available": false,
-      "reason": "لم تُثبت بعد قاعدة XP والمستوى والمكافآت لهذه الأنشطة.",
-      "profile": null,
-      "subjects": []
+      "available": true,
+      "reason": "",
+      "student_id": "42",
+      "profile": {
+        "global_xp": 14,
+        "level": 1,
+        "level_progress_percent": 5,
+        "level_next_xp": 300,
+        "today_seconds": 95,
+        "today_minutes": 1,
+        "today_attempts": 1
+      },
+      "subjects": [
+        {
+          "subject_version_id": 12,
+          "points": 14,
+          "level": 1,
+          "level_progress_percent": 14,
+          "hearts": 3
+        }
+      ],
+      "server_version": "phase13-6-confirmed-001",
+      "confirmed_at_epoch_millis": 1790726700000
     }
   },
   "error": null,
