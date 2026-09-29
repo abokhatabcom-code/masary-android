@@ -21,6 +21,8 @@ sealed interface QuestionSessionUiState {
 
     data class Content(
         val data: QuestionSessionPackage,
+        val viewingIndex: Int = data.progress.currentIndex
+            .coerceAtMost((data.questions.size - 1).coerceAtLeast(0)),
         val isRefreshing: Boolean = false,
         val isSaving: Boolean = false,
         val message: String? = null,
@@ -59,13 +61,67 @@ class QuestionSessionViewModel(
         load()
     }
 
+    fun previous() {
+        val current = _state.value as? QuestionSessionUiState.Content ?: return
+        if (!current.data.policy.allowBack || current.isSaving) return
+        if (current.viewingIndex <= 0) return
+        _state.value = current.copy(
+            viewingIndex = current.viewingIndex - 1,
+            message = null,
+        )
+    }
+
+    fun next() {
+        val current = _state.value as? QuestionSessionUiState.Content ?: return
+        if (current.isSaving) return
+        val lastIndex = current.data.questions.lastIndex
+        val maxBrowsable = minOf(current.data.progress.currentIndex, lastIndex)
+        if (current.viewingIndex >= maxBrowsable) return
+        _state.value = current.copy(
+            viewingIndex = current.viewingIndex + 1,
+            message = null,
+        )
+    }
+
+    fun finish() {
+        if (saveJob?.isActive == true) return
+        val current = _state.value as? QuestionSessionUiState.Content ?: return
+        if (current.data.progress.currentIndex < current.data.questions.size) return
+
+        _state.value = current.copy(isSaving = true, message = null)
+        saveJob = viewModelScope.launch {
+            repository.markCompletedLocal(current.data.session.id)
+                .onSuccess {
+                    val refreshed = repository.loadSnapshot(current.data.session.id)
+                        ?: current.data.copy(
+                            session = current.data.session.copy(status = "completed_local"),
+                        )
+                    _state.value = QuestionSessionUiState.CompletedLocal(refreshed)
+                    triggerPendingAnswerSync(refreshed.session.id)
+                }
+                .onFailure { error ->
+                    _state.value = current.copy(
+                        isSaving = false,
+                        message = error.message ?: "تعذر إنهاء الاختبار الآن.",
+                    )
+                }
+        }
+    }
+
     fun submit(answer: QuestionAnswerInput) {
         if (saveJob?.isActive == true) return
         val current = (_state.value as? QuestionSessionUiState.Content) ?: return
-        val index = current.data.progress.currentIndex
+        val index = current.viewingIndex.coerceIn(0, current.data.questions.lastIndex)
         val question = current.data.questions.getOrNull(index) ?: return
-        val nextIndex = (index + 1).coerceAtMost(current.data.questions.size)
-        val completed = nextIndex >= current.data.questions.size
+        val frontier = current.data.progress.currentIndex.coerceIn(0, current.data.questions.size)
+        val isRevision = index < frontier
+        val nextFrontier = if (isRevision) {
+            frontier
+        } else {
+            (index + 1).coerceAtMost(current.data.questions.size)
+        }
+        val lastNewAnswer = !isRevision && nextFrontier >= current.data.questions.size
+        val autoComplete = lastNewAnswer && !current.data.policy.allowBack
 
         _state.value = current.copy(isSaving = true, message = null)
         saveJob = viewModelScope.launch {
@@ -73,23 +129,33 @@ class QuestionSessionViewModel(
                 sessionId = current.data.session.id,
                 questionId = question.id,
                 answer = answer,
-                nextQuestionIndex = nextIndex,
-                completed = completed,
+                nextQuestionIndex = nextFrontier,
+                completed = autoComplete,
             ).onSuccess {
                 val refreshed = repository.loadSnapshot(current.data.session.id)
                     ?: current.data.copy(
-                        progress = current.data.progress.copy(currentIndex = nextIndex),
+                        progress = current.data.progress.copy(currentIndex = nextFrontier),
                     )
-                val localComplete = completed ||
-                    refreshed.progress.currentIndex >= refreshed.questions.size
-                _state.value = if (localComplete) {
-                    QuestionSessionUiState.CompletedLocal(refreshed)
-                } else {
-                    QuestionSessionUiState.Content(refreshed)
+                if (autoComplete) {
+                    _state.value = QuestionSessionUiState.CompletedLocal(refreshed)
+                    triggerPendingAnswerSync(refreshed.session.id)
+                    return@onSuccess
                 }
-                triggerPendingAnswerSync(
-                    finishSessionId = if (localComplete) refreshed.session.id else null,
+
+                val lastIndex = refreshed.questions.lastIndex
+                val nextViewing = when {
+                    lastIndex < 0 -> 0
+                    isRevision -> (index + 1).coerceAtMost(
+                        minOf(refreshed.progress.currentIndex, lastIndex),
+                    )
+                    refreshed.progress.currentIndex >= refreshed.questions.size -> lastIndex
+                    else -> refreshed.progress.currentIndex.coerceIn(0, lastIndex)
+                }
+                _state.value = QuestionSessionUiState.Content(
+                    data = refreshed,
+                    viewingIndex = nextViewing,
                 )
+                triggerPendingAnswerSync()
             }.onFailure { error ->
                 _state.value = current.copy(
                     isSaving = false,
@@ -131,10 +197,18 @@ class QuestionSessionViewModel(
 
             val snapshot = repository.loadSnapshot(sessionId)
             if (snapshot != null) {
-                _state.value = if (snapshot.progress.currentIndex >= snapshot.questions.size) {
-                    QuestionSessionUiState.CompletedLocal(snapshot)
-                } else {
-                    QuestionSessionUiState.Content(snapshot, isRefreshing = true)
+                val locallyCompleted = snapshot.session.status == "completed_local"
+                _state.value = when {
+                    locallyCompleted -> QuestionSessionUiState.CompletedLocal(snapshot)
+                    snapshot.progress.currentIndex >= snapshot.questions.size &&
+                        snapshot.policy.allowBack -> QuestionSessionUiState.Content(
+                        data = snapshot,
+                        viewingIndex = snapshot.questions.lastIndex.coerceAtLeast(0),
+                        isRefreshing = true,
+                    )
+                    snapshot.progress.currentIndex >= snapshot.questions.size ->
+                        QuestionSessionUiState.CompletedLocal(snapshot)
+                    else -> QuestionSessionUiState.Content(snapshot, isRefreshing = true)
                 }
             } else {
                 _state.value = QuestionSessionUiState.Loading
@@ -142,7 +216,7 @@ class QuestionSessionViewModel(
 
             val syncSummary = repository.syncPendingAnswers().getOrNull()
             if (snapshot != null &&
-                snapshot.progress.currentIndex >= snapshot.questions.size &&
+                snapshot.session.status == "completed_local" &&
                 syncSummary != null &&
                 syncSummary.retryScheduled == 0
             ) {
@@ -158,11 +232,26 @@ class QuestionSessionViewModel(
                     if (_state.value is QuestionSessionUiState.Result) {
                         return@onSuccess
                     }
-                    if (data.progress.currentIndex >= data.questions.size) {
-                        _state.value = QuestionSessionUiState.CompletedLocal(data)
-                        triggerPendingAnswerSync(data.session.id)
-                    } else {
-                        _state.value = QuestionSessionUiState.Content(data)
+                    val locallyCompleted = data.session.status == "completed_local"
+                    when {
+                        locallyCompleted -> {
+                            _state.value = QuestionSessionUiState.CompletedLocal(data)
+                            triggerPendingAnswerSync(data.session.id)
+                        }
+                        data.progress.currentIndex >= data.questions.size &&
+                            data.policy.allowBack -> {
+                            _state.value = QuestionSessionUiState.Content(
+                                data = data,
+                                viewingIndex = data.questions.lastIndex.coerceAtLeast(0),
+                            )
+                        }
+                        data.progress.currentIndex >= data.questions.size -> {
+                            _state.value = QuestionSessionUiState.CompletedLocal(data)
+                            triggerPendingAnswerSync(data.session.id)
+                        }
+                        else -> {
+                            _state.value = QuestionSessionUiState.Content(data)
+                        }
                     }
                 }
                 .onFailure { error ->
@@ -170,17 +259,35 @@ class QuestionSessionViewModel(
                         return@onFailure
                     }
                     if (snapshot != null) {
-                        _state.value = if (snapshot.progress.currentIndex >= snapshot.questions.size) {
-                            QuestionSessionUiState.CompletedLocal(
-                                snapshot,
-                                message = "الجلسة محفوظة محليًا، وتعذر تأكيد النتيجة من الخادم الآن.",
-                            )
-                        } else {
-                            QuestionSessionUiState.Content(
-                                data = snapshot,
-                                isRefreshing = false,
-                                message = error.message ?: "تعذر تحديث الجلسة الآن.",
-                            )
+                        _state.value = when {
+                            snapshot.session.status == "completed_local" -> {
+                                QuestionSessionUiState.CompletedLocal(
+                                    snapshot,
+                                    message = "الجلسة محفوظة محليًا، وتعذر تأكيد النتيجة من الخادم الآن.",
+                                )
+                            }
+                            snapshot.progress.currentIndex >= snapshot.questions.size &&
+                                snapshot.policy.allowBack -> {
+                                QuestionSessionUiState.Content(
+                                    data = snapshot,
+                                    viewingIndex = snapshot.questions.lastIndex.coerceAtLeast(0),
+                                    isRefreshing = false,
+                                    message = error.message ?: "يمكن مراجعة إجاباتك، وتعذر تحديث الجلسة الآن.",
+                                )
+                            }
+                            snapshot.progress.currentIndex >= snapshot.questions.size -> {
+                                QuestionSessionUiState.CompletedLocal(
+                                    snapshot,
+                                    message = "الجلسة محفوظة محليًا، وتعذر تأكيد النتيجة من الخادم الآن.",
+                                )
+                            }
+                            else -> {
+                                QuestionSessionUiState.Content(
+                                    data = snapshot,
+                                    isRefreshing = false,
+                                    message = error.message ?: "تعذر تحديث الجلسة الآن.",
+                                )
+                            }
                         }
                     } else {
                         _state.value = when (error) {
