@@ -237,7 +237,10 @@ class QuestionSessionViewModelTest {
             )
         }
 
-        override suspend fun markCompletedLocal(sessionId: String): Result<Unit> {
+        override suspend fun markCompletedLocal(
+            sessionId: String,
+            allowIncomplete: Boolean,
+        ): Result<Unit> {
             markCompletedCalls += 1
             local = local.copy(
                 session = local.session.copy(status = "completed_local"),
