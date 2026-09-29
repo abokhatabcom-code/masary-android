@@ -626,14 +626,6 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
     $request = api_activity_normalize_request($payload);
     $requestHash = api_activity_request_hash($request);
     $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
-    $preview = api_activity_preview($pdo, $session, $request);
-    if (empty($preview['eligibility']['available'])) {
-        api_error(
-            (string)($preview['eligibility']['reason_code'] ?: 'activity_unavailable'),
-            (string)($preview['eligibility']['reason'] ?: 'النشاط غير متاح الآن.'),
-            409,
-        );
-    }
 
     $ownsTransaction = !$pdo->inTransaction();
     if ($ownsTransaction) {
@@ -654,6 +646,18 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
                 $pdo->commit();
             }
             return $result;
+        }
+
+        // Idempotent replay must be resolved before any mutable eligibility check.
+        // A successful first start may legitimately reduce hearts below the start cost;
+        // replaying the same key must return the stored session without charging again.
+        $preview = api_activity_preview($pdo, $session, $request);
+        if (empty($preview['eligibility']['available'])) {
+            api_activity_reject(
+                (string)($preview['eligibility']['reason_code'] ?: 'activity_unavailable'),
+                (string)($preview['eligibility']['reason'] ?: 'النشاط غير متاح الآن.'),
+                409,
+            );
         }
 
         $subject = api_activity_subject($pdo, $studentId, (int)$request['subject_version_id']);
