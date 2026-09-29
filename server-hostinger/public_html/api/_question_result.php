@@ -256,14 +256,62 @@ function api_question_result_finish(
 
         $confirmedDelta = (array)$progress['confirmed_delta'];
         $today = (array)($attempt['today'] ?? []);
-        if ($today !== [] && is_array($confirmedDelta['profile'] ?? null)) {
-            $todaySeconds = max(0, (int)($today['seconds_total'] ?? 0));
-            $confirmedDelta['profile']['today_seconds'] = $todaySeconds;
-            $confirmedDelta['profile']['today_minutes'] = (int)floor($todaySeconds / 60);
-            $confirmedDelta['profile']['today_attempts'] = max(
-                0,
-                (int)($today['sessions_count'] ?? 0),
-            );
+        if (is_array($confirmedDelta['profile'] ?? null)) {
+            if ($today !== []) {
+                $todaySeconds = max(0, (int)($today['seconds_total'] ?? 0));
+                $confirmedDelta['profile']['today_seconds'] = $todaySeconds;
+                $confirmedDelta['profile']['today_minutes'] = (int)floor($todaySeconds / 60);
+                $confirmedDelta['profile']['today_attempts'] = max(
+                    0,
+                    (int)($today['sessions_count'] ?? 0),
+                );
+            }
+
+            if (function_exists('ik_dash_today_stats')) {
+                try {
+                    $todayStats = (array)ik_dash_today_stats($pdo, $studentId);
+                    $confirmedDelta['profile']['today_xp'] = max(
+                        0,
+                        (int)($todayStats['xp'] ?? 0),
+                    );
+                    $confirmedDelta['profile']['today_seconds'] = max(
+                        0,
+                        (int)($todayStats['seconds'] ?? ($confirmedDelta['profile']['today_seconds'] ?? 0)),
+                    );
+                    $confirmedDelta['profile']['today_minutes'] = max(
+                        0,
+                        (int)($todayStats['minutes'] ?? floor(
+                            ((int)($confirmedDelta['profile']['today_seconds'] ?? 0)) / 60,
+                        )),
+                    );
+                    $confirmedDelta['profile']['today_attempts'] = max(
+                        0,
+                        (int)($todayStats['attempts'] ?? ($confirmedDelta['profile']['today_attempts'] ?? 0)),
+                    );
+                } catch (Throwable) {
+                }
+            }
+
+            try {
+                $freshProfile = api_question_progress_profile($pdo, $studentId);
+                if (function_exists('student_streak_dashboard_state')) {
+                    $streak = (array)student_streak_dashboard_state(
+                        $freshProfile,
+                        function_exists('ik_dash_today_key') ? ik_dash_today_key() : null,
+                        $pdo,
+                    );
+                    $confirmedDelta['profile']['streak_current_days'] = max(
+                        0,
+                        (int)($streak['current_days'] ?? 0),
+                    );
+                } elseif (array_key_exists('streak_days', $freshProfile)) {
+                    $confirmedDelta['profile']['streak_current_days'] = max(
+                        0,
+                        (int)$freshProfile['streak_days'],
+                    );
+                }
+            } catch (Throwable) {
+            }
         }
 
         $passPercent = max(1, min(100, (int)($policy['pass_percent'] ?? 60)));
