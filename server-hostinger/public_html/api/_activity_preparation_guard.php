@@ -53,8 +53,10 @@ function api_activity_from_action_key(string $actionKey): array
         return ['activity_type' => 'speed_test', 'activity_mode' => 'speed'];
     }
     if (str_contains($normalized, 'mistake')
-        || str_contains($normalized, 'error')
-        || str_contains($normalized, 'review')) {
+        || str_contains($normalized, 'error')) {
+        return ['activity_type' => 'smart_review', 'activity_mode' => 'review'];
+    }
+    if (str_contains($normalized, 'review')) {
         return ['activity_type' => 'review', 'activity_mode' => 'review'];
     }
     if (str_contains($normalized, 'test')
