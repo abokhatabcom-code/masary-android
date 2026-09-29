@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_student_training_center.php';
 require_once __DIR__ . '/_student_subject_progress.php';
+require_once __DIR__ . '/_test_policy.php';
 
 const API_ACTIVITY_TYPES = [
     'guide_step',
@@ -628,6 +629,13 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
         $publicId = api_activity_uuid();
         $now = api_mysql_datetime(time());
         $expiresAt = api_mysql_datetime(time() + 7200);
+        $storedRequest = $request;
+        $storedRequest['_test_policy'] = api_test_policy_snapshot(
+            $pdo,
+            (int)$request['subject_version_id'],
+            $request['unit_id'],
+        );
+
         $result = [
             'session_id' => $publicId,
             'status' => 'created',
@@ -660,7 +668,7 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
             'created',
             $keyHash,
             $requestHash,
-            json_encode($request, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            json_encode($storedRequest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             'activity_session_pending_ui',
             0,
