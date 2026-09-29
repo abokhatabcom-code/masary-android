@@ -113,9 +113,11 @@ function api_training_center_allowed_tables(): array
         // Production question schema stores type-specific data in normalized child tables.
         'question_mcq_options',
         'question_tf',
+        'question_tf_reasons',
         'question_match_pairs',
         'question_fill',
         'question_fill_answers',
+        'question_direct',
         'student_question_errors',
         'student_errors',
         'student_wrong_answers',
