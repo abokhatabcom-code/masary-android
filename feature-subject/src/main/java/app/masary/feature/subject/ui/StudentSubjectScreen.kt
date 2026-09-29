@@ -87,6 +87,7 @@ fun StudentSubjectRoute(
     onSessionExpired: () -> Unit,
     onTrainingCenter: (Int) -> Unit,
     onLessonPreparation: (subjectVersionId: Int, unitId: Int, lessonId: Int) -> Unit,
+    onUnitReviewPreparation: (subjectVersionId: Int, unitId: Int) -> Unit = { _, _ -> },
 ) {
     val subjectViewModel: StudentSubjectViewModel = viewModel(
         key = "subject-$subjectVersionId",
@@ -148,6 +149,7 @@ fun StudentSubjectRoute(
                         onBack = onBack,
                         onTrainingCenter = onTrainingCenter,
                         onLessonPreparation = onLessonPreparation,
+                        onUnitReviewPreparation = onUnitReviewPreparation,
                     )
                 }
             }
@@ -165,6 +167,7 @@ private fun SubjectContent(
     onBack: () -> Unit,
     onTrainingCenter: (Int) -> Unit,
     onLessonPreparation: (subjectVersionId: Int, unitId: Int, lessonId: Int) -> Unit,
+    onUnitReviewPreparation: (subjectVersionId: Int, unitId: Int) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var expandedUnitIds by remember(data.subjectVersionId) { mutableStateOf(emptySet<Int>()) }
@@ -271,6 +274,11 @@ private fun SubjectContent(
                                     val lessonUnitId = lesson.unitId
                                     if (lesson.preparation.available && lessonUnitId != null) {
                                         onLessonPreparation(data.subjectVersionId, lessonUnitId, lesson.id)
+                                    }
+                                },
+                                onReview = {
+                                    if (unit.review.available) {
+                                        onUnitReviewPreparation(data.subjectVersionId, unit.id)
                                     }
                                 },
                             )
@@ -638,6 +646,7 @@ private fun SubjectUnitCard(
     expanded: Boolean,
     onToggle: () -> Unit,
     onLesson: (SubjectLesson) -> Unit,
+    onReview: () -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(
@@ -719,6 +728,20 @@ private fun SubjectUnitCard(
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    if (unit.review.visible && unit.review.available) {
+                        OutlinedButton(
+                            onClick = onReview,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                if (unit.review.mistakesCount > 0) {
+                                    "راجع أخطاءك (${unit.review.mistakesCount})"
+                                } else {
+                                    "راجع أخطاءك"
+                                },
+                            )
+                        }
+                    }
                     if (unit.lessons.isEmpty()) {
                         SupportingText(stringResource(R.string.subject_unit_no_lessons))
                     } else {
