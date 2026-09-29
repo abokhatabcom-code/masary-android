@@ -169,7 +169,6 @@ class NetworkQuestionSessionRepository(
                 studentId = studentId,
                 sessionId = safeSessionId,
                 questionId = safeQuestionId,
-                localSequence = sequence,
             )
             val operationPayload = JsonObject().apply {
                 addProperty("session_id", safeSessionId)
@@ -198,7 +197,9 @@ class NetworkQuestionSessionRepository(
                     updatedAtEpochMillis = now,
                 ),
             )
-            runCatching(onPendingAnswerSaved)
+            if (!packageData.policy.allowBack || completed) {
+                runCatching(onPendingAnswerSaved)
+            }
             Unit
         }.recoverCatching { error ->
             if (error is CancellationException) throw error
@@ -218,7 +219,10 @@ class NetworkQuestionSessionRepository(
             val ready = localStore.readyOperations(
                 studentId = studentId,
                 limit = 50,
-            ).filter { it.type == "question_answer" }
+            ).filter { operation ->
+                operation.type == "question_answer" &&
+                    shouldSyncAnswerOperation(studentId, operation)
+            }
 
             if (ready.isEmpty()) {
                 return@runCatching QuestionAnswerSyncSummary(
@@ -959,6 +963,20 @@ private fun JsonObject.readConnectItems(key: String): List<ConnectItem> {
     return items
 }
 
+private suspend fun NetworkQuestionSessionRepository.shouldSyncAnswerOperation(
+    studentId: String,
+    operation: PendingOperationEntity,
+): Boolean {
+    val request = runCatching { operation.toAnswerRequest() }.getOrNull() ?: return true
+    val session = localStore.readQuestionSession(studentId, request.sessionId) ?: return true
+    val packageData = runCatching {
+        gson.fromJson(session.packageJson, QuestionSessionPackageDataDto::class.java)
+    }.getOrNull() ?: return true
+
+    if (!packageData.policy.allowBack) return true
+    return session.status == "completed_local" || session.status == "completed_confirmed"
+}
+
 private fun QuestionAnswerInput.toPendingJson(): String {
     val payload = JsonObject()
     when (this) {
@@ -1025,10 +1043,9 @@ private fun stableAnswerOperationId(
     studentId: String,
     sessionId: String,
     questionId: String,
-    localSequence: Int,
 ): String {
     val bytes = MessageDigest.getInstance("SHA-256")
-        .digest("$studentId|$sessionId|$questionId|$localSequence".toByteArray(Charsets.UTF_8))
+        .digest("$studentId|$sessionId|$questionId".toByteArray(Charsets.UTF_8))
     val hex = bytes.joinToString("") { "%02x".format(it) }
     return "question-answer:$hex"
 }
