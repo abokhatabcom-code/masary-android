@@ -17,7 +17,10 @@ interface QuestionSessionRepository {
         completed: Boolean,
     ): Result<Unit>
     suspend fun syncPendingAnswers(): Result<QuestionAnswerSyncSummary>
-    suspend fun markCompletedLocal(sessionId: String): Result<Unit>
+    suspend fun markCompletedLocal(
+        sessionId: String,
+        allowIncomplete: Boolean = false,
+    ): Result<Unit>
     suspend fun loadResult(sessionId: String): QuestionSessionResult?
     suspend fun finishSession(sessionId: String): Result<QuestionSessionResult>
 }
