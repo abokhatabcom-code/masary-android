@@ -648,9 +648,18 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
             return $result;
         }
 
-        // Idempotent replay must be resolved before any mutable eligibility check.
-        // A successful first start may legitimately reduce hearts below the start cost;
-        // replaying the same key must return the stored session without charging again.
+        // Idempotent replay and an already-active identical request are resolved
+        // before mutable eligibility checks. A successful first start may legitimately
+        // reduce hearts below the start cost; restoring that session must not charge again.
+        $active = api_activity_find_active($pdo, $studentId, $requestHash);
+        if ($active) {
+            $result = api_activity_response_from_row($active, true);
+            if ($ownsTransaction) {
+                $pdo->commit();
+            }
+            return $result;
+        }
+
         $preview = api_activity_preview($pdo, $session, $request);
         if (empty($preview['eligibility']['available'])) {
             api_activity_reject(
@@ -677,15 +686,6 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
                 'لا توجد قلوب كافية لبدء هذا النشاط.',
                 409,
             );
-        }
-
-        $active = api_activity_find_active($pdo, $studentId, $requestHash);
-        if ($active) {
-            $result = api_activity_response_from_row($active, true);
-            if ($ownsTransaction) {
-                $pdo->commit();
-            }
-            return $result;
         }
 
         $publicId = api_activity_uuid();
