@@ -362,7 +362,8 @@ function api_question_progress_apply(
             'reason' => '',
             'student_id' => (string)$studentId,
             'profile' => [
-                'global_xp' => (int)round($newGlobalXp),
+                // Home API exposes confirmed global XP with floor semantics.
+                'global_xp' => (int)floor($newGlobalXp),
                 'level' => (int)$globalLevel['level'],
                 'level_progress_percent' => (int)$globalLevel['progress_percent'],
                 'level_next_xp' => (int)$globalLevel['next_xp'],
