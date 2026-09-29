@@ -160,6 +160,30 @@ $pdo->exec("INSERT INTO lessons VALUES(11,4,'الدرس الثاني')");
 $pdo->exec('INSERT INTO student_lesson_progress VALUES(42,10,29)');
 $pdo->exec('INSERT INTO student_subject_state(student_id,subject_version_id,subject_xp,hearts) VALUES(42,12,0,3)');
 $pdo->exec('INSERT INTO version_test_settings(subject_version_id,review_heart_cost,mistakes_heart_cost) VALUES(12,2,1)');
+
+$heartPolicy = api_test_policy_effective($pdo, 12, 4);
+activity_check(
+    api_test_policy_heart_cost($heartPolicy, [
+        'activity_type' => 'review',
+        'activity_mode' => 'review',
+    ]) === 2,
+    'Regular review heart policy must use review_heart_cost.',
+);
+activity_check(
+    api_test_policy_heart_cost($heartPolicy, [
+        'activity_type' => 'smart_review',
+        'activity_mode' => 'review',
+    ]) === 1,
+    'Mistakes review heart policy must use mistakes_heart_cost.',
+);
+activity_check(
+    api_test_policy_heart_cost($heartPolicy, [
+        'activity_type' => 'choose_test',
+        'activity_mode' => 'practice',
+    ]) === 0,
+    'Ordinary practice must not consume a review heart.',
+);
+
 $pdo->exec('INSERT INTO student_unit_points VALUES(42,3,50,50,15,50,1)');
 $pdo->exec('INSERT INTO student_unit_points VALUES(42,4,50,50,0,50,5)');
 add_completed_attempt($pdo, 42, 3, 1);
