@@ -206,7 +206,22 @@ function api_question_progress_apply(
     }
 
     $mode = api_question_progress_mode($session);
-    $xpMax = api_question_progress_xp_max($policy, $mode);
+    $effectiveMode = $mode === 'mistakes' ? 'review' : $mode;
+
+    // A completed learn scope becomes review BEFORE reward calculation.
+    // Lesson-scoped sessions use the content-node state; otherwise the unit state.
+    if ($unitId > 0 && $effectiveMode === 'learn') {
+        if ($node !== null) {
+            if ((int)($node['learn_attempt_done'] ?? 0) === 1) {
+                $effectiveMode = 'review';
+            }
+        } elseif ((int)($unit['learn_attempt_done'] ?? 0) === 1) {
+            $effectiveMode = 'review';
+        }
+    }
+
+    $rewardMode = $mode === 'mistakes' ? 'mistakes' : $effectiveMode;
+    $xpMax = api_question_progress_xp_max($policy, $rewardMode);
     $percentExact = max(
         0.0,
         min(100.0, (float)($score['score_percent_exact'] ?? $score['score_percent'] ?? 0)),
@@ -217,7 +232,6 @@ function api_question_progress_apply(
     $correct = max(0, (int)($score['correct_answers'] ?? 0));
     $total = max(0, (int)($score['total_questions'] ?? 0));
 
-    $effectiveMode = $mode === 'mistakes' ? 'review' : $mode;
     if ($unitId > 0 && $effectiveMode === 'learn') {
         if ((int)($unit['learn_attempt_done'] ?? 0) !== 1) {
             $update = $pdo->prepare(
@@ -243,11 +257,7 @@ function api_question_progress_apply(
                     $studentId,
                     $contentNodeId,
                 ]);
-            } else {
-                $effectiveMode = 'review';
             }
-        } elseif ((int)($unit['learn_attempt_done'] ?? 0) === 1) {
-            $effectiveMode = 'review';
         }
     }
 
