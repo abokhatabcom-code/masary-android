@@ -650,6 +650,60 @@ function api_question_answer_grade_normalized(
     };
 }
 
+function api_question_answer_grade_score(
+    PDO $pdo,
+    array $session,
+    array $source,
+    array $answer,
+): float {
+    if (!empty($source['normalized_schema'])
+        && (string)($source['question_type'] ?? '') === 'connect') {
+        $columns = api_question_session_columns($pdo, 'question_match_pairs');
+        if (!isset($columns['id'], $columns['question_id'])) {
+            api_error('grading_source_unavailable', 'تعذر إثبات أزواج تصحيح هذا السؤال.', 503);
+        }
+        $statement = $pdo->prepare(
+            'SELECT id FROM question_match_pairs WHERE question_id=? ORDER BY id ASC',
+        );
+        $statement->execute([(string)$source['row_id']]);
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($rows === []) {
+            api_error('grading_source_unavailable', 'لا توجد أزواج تصحيح لهذا السؤال.', 503);
+        }
+
+        $expected = [];
+        foreach ($rows as $row) {
+            $pairId = (string)($row['id'] ?? '');
+            if ($pairId === '') continue;
+            $left = strtolower(api_question_session_opaque_id(
+                (string)$session['public_session_id'],
+                'questions',
+                (string)$source['row_id'],
+                'match-left:' . $pairId,
+            ));
+            $right = strtolower(api_question_session_opaque_id(
+                (string)$session['public_session_id'],
+                'questions',
+                (string)$source['row_id'],
+                'match-right:' . $pairId,
+            ));
+            $expected[$left] = $right;
+        }
+
+        $correct = 0;
+        foreach ((array)($answer['pairs'] ?? []) as $pair) {
+            $left = strtolower((string)($pair['left_id'] ?? ''));
+            $right = strtolower((string)($pair['right_id'] ?? ''));
+            if (isset($expected[$left]) && hash_equals($expected[$left], $right)) {
+                $correct += 1;
+            }
+        }
+        return count($expected) > 0 ? $correct / count($expected) : 0.0;
+    }
+
+    return api_question_answer_grade($session, $source, $answer, $pdo) ? 1.0 : 0.0;
+}
+
 function api_question_answer_grade(
     array $session,
     array $source,
@@ -726,7 +780,11 @@ function api_question_answer_submit(
     $source = api_question_answer_resolve_source($pdo, $session, $request['question_id']);
     $requestHash = api_question_answer_request_hash($request);
     $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
-    $correct = api_question_answer_grade($session, $source, $request['answer'], $pdo);
+    $questionScore = max(
+        0.0,
+        min(1.0, api_question_answer_grade_score($pdo, $session, $source, $request['answer'])),
+    );
+    $correct = $questionScore >= 0.999;
     $totalQuestions = count(api_question_session_questions($pdo, $session));
 
     $ownsTransaction = !$pdo->inTransaction();
@@ -774,6 +832,7 @@ function api_question_answer_submit(
             'question_id' => $request['question_id'],
             'accepted' => true,
             'correct' => $correct,
+            'score' => $questionScore,
             'replayed' => false,
             'progress' => [
                 'answered' => min($answered, $totalQuestions),
