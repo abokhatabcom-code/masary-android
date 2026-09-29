@@ -152,15 +152,31 @@ function api_question_progress_level(float $xp, float $step): array
 {
     $step = max(1.0, $step);
     $safeXp = max(0.0, $xp);
-    $level = min(10, (int)floor($safeXp / $step) + 1);
-    $levelStart = ($level - 1) * $step;
-    $progress = $level >= 10
-        ? 100
-        : (int)round((($safeXp - $levelStart) / $step) * 100);
+    $fallbackLevel = min(10, (int)floor($safeXp / $step) + 1);
+    $fallbackBase = ($fallbackLevel - 1) * $step;
+    $fallbackProgress = $fallbackLevel >= 10
+        ? 1.0
+        : max(0.0, min(1.0, ($safeXp - $fallbackBase) / $step));
+
+    $state = function_exists('calc_level')
+        ? (array)calc_level($safeXp, (int)$step)
+        : [];
+    $level = max(
+        1,
+        min(10, (int)($state['level'] ?? $fallbackLevel)),
+    );
+    $progressFraction = array_key_exists('progress', $state)
+        ? max(0.0, min(1.0, (float)$state['progress']))
+        : $fallbackProgress;
+
     return [
-        'level' => max(1, $level),
-        'progress_percent' => max(0, min(100, $progress)),
-        'next_xp' => $level >= 10 ? (int)round(10 * $step) : (int)round($level * $step),
+        'level' => $level,
+        'progress_percent' => $level >= 10
+            ? 100
+            : (int)round($progressFraction * 100),
+        'next_xp' => $level >= 10
+            ? (int)round(10 * $step)
+            : (int)round($level * $step),
     ];
 }
 
