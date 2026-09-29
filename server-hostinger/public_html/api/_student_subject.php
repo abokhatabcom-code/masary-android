@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_student_subjects.php';
 require_once __DIR__ . '/_student_subject_progress.php';
+require_once __DIR__ . '/_test_policy.php';
 
 function api_student_subject_columns(PDO $pdo, string $table): array
 {
@@ -14,6 +15,7 @@ function api_student_subject_columns(PDO $pdo, string $table): array
         'units',
         'lessons',
         'student_last_activity',
+        'student_unit_question_state',
     ];
     if (!in_array($table, $allowed, true)) {
         return [];
@@ -273,6 +275,52 @@ function api_student_subject_learning_state(bool $active, bool $inProgress): arr
     ];
 }
 
+function api_student_subject_unit_review_action(
+    PDO $pdo,
+    int $studentId,
+    int $subjectVersionId,
+    int $unitId,
+): array {
+    $policy = api_test_policy_effective($pdo, $subjectVersionId, $unitId);
+    $visible = (int)($policy['show_mistakes_button_unit'] ?? 1) === 1;
+    if (!$visible) {
+        return [
+            'visible' => false,
+            'available' => false,
+            'mistakes_count' => 0,
+            'reason' => 'أخفى الأدمن زر مراجعة الأخطاء لهذه الوحدة.',
+        ];
+    }
+
+    $columns = api_student_subject_columns($pdo, 'student_unit_question_state');
+    if (!isset($columns['student_id'], $columns['unit_id'], $columns['last_score'])) {
+        return [
+            'visible' => true,
+            'available' => false,
+            'mistakes_count' => 0,
+            'reason' => 'لم يثبت مصدر أخطاء الوحدة في هذه البيئة.',
+        ];
+    }
+
+    try {
+        $statement = $pdo->prepare(
+            'SELECT COUNT(*) FROM student_unit_question_state '
+            . 'WHERE student_id=? AND unit_id=? AND COALESCE(last_score,0)<0.999',
+        );
+        $statement->execute([$studentId, $unitId]);
+        $count = max(0, (int)$statement->fetchColumn());
+    } catch (Throwable) {
+        $count = 0;
+    }
+
+    return [
+        'visible' => true,
+        'available' => $count > 0,
+        'mistakes_count' => $count,
+        'reason' => $count > 0 ? '' : 'لا توجد أخطاء مؤكدة قابلة للمراجعة في هذه الوحدة.',
+    ];
+}
+
 function api_student_subject_content_details(
     PDO $pdo,
     int $studentId,
@@ -437,6 +485,23 @@ function api_student_subject_content_details(
         $standaloneLessons,
         $lastActivity,
     );
+    foreach ($projected['units'] as &$unit) {
+        $unitId = max(0, (int)($unit['id'] ?? 0));
+        $unit['review'] = $unitId > 0
+            ? api_student_subject_unit_review_action(
+                $pdo,
+                $studentId,
+                $subjectVersionId,
+                $unitId,
+            )
+            : [
+                'visible' => false,
+                'available' => false,
+                'mistakes_count' => 0,
+                'reason' => '',
+            ];
+    }
+    unset($unit);
     return [
         'details_available' => true,
         'units' => $projected['units'],
