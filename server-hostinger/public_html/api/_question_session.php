@@ -132,6 +132,7 @@ function api_question_session_lesson_allowed_question_types(array $settings): ar
         'mcq' => 'choose',
         'tf' => 'truefalse',
         'fill' => 'fill',
+        'direct' => 'direct',
         'match' => 'connect',
     ];
     $allowed = [];
@@ -353,6 +354,7 @@ function api_question_session_normalized_types(string $questionType): array
         'truefalse' => ['tf', 'truefalse', 'true_false'],
         'connect' => ['match', 'matching', 'connect'],
         'fill' => ['fill', 'fill_blank', 'completion'],
+        'direct' => ['direct', 'short_answer', 'text'],
         // Production speed tests draw from ordinary MCQ rows and add timing at the client/session layer.
         'speed' => ['mcq', 'choose', 'multiple_choice', 'choice', 'speed', 'speed_test'],
         default => [],
@@ -551,48 +553,141 @@ function api_question_session_normalized_mcq_options(
     }
 }
 
-function api_question_session_normalized_tf_ready(PDO $pdo, string $questionId): bool
-{
+function api_question_session_normalized_tf_payload(
+    PDO $pdo,
+    string $sessionId,
+    string $questionId,
+    ?array $settings = null,
+): ?array {
     $columns = api_question_session_columns($pdo, 'question_tf');
     if (!isset($columns['question_id'], $columns['correct_value'])) {
-        return false;
+        return null;
     }
     try {
-        $statement = $pdo->prepare('SELECT 1 FROM question_tf WHERE question_id=? LIMIT 1');
+        $select = isset($columns['requires_reason'])
+            ? 'requires_reason'
+            : '0 AS requires_reason';
+        $statement = $pdo->prepare(
+            'SELECT ' . $select . ' FROM question_tf WHERE question_id=? LIMIT 1',
+        );
         $statement->execute([$questionId]);
-        return (bool)$statement->fetchColumn();
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+
+        $requiresReason = (int)($row['requires_reason'] ?? 0) === 1;
+        $reasons = [];
+        if ($requiresReason) {
+            $reasonColumns = api_question_session_columns($pdo, 'question_tf_reasons');
+            if (!isset($reasonColumns['id'], $reasonColumns['question_id'], $reasonColumns['label'])) {
+                return null;
+            }
+            $where = 'question_id=?';
+            if (isset($reasonColumns['is_active'])) {
+                $where .= ' AND is_active=1';
+            }
+            $order = isset($reasonColumns['sort_order'])
+                ? 'sort_order ASC,id ASC'
+                : 'id ASC';
+            $reasonStatement = $pdo->prepare(
+                'SELECT id,label FROM question_tf_reasons WHERE ' . $where . ' ORDER BY ' . $order,
+            );
+            $reasonStatement->execute([$questionId]);
+            foreach ($reasonStatement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $reason) {
+                $id = (string)($reason['id'] ?? '');
+                $label = trim((string)($reason['label'] ?? ''));
+                if ($id === '' || $label === '') continue;
+                $reasons[] = [
+                    'id' => api_question_session_opaque_id(
+                        $sessionId,
+                        'questions',
+                        $questionId,
+                        'tf-reason:' . $id,
+                    ),
+                    'text' => $label,
+                ];
+            }
+            if ($reasons === []) {
+                return null;
+            }
+        }
+
+        return [
+            'options' => [
+                [
+                    'id' => api_question_session_opaque_id($sessionId, 'questions', $questionId, 'true'),
+                    'text' => 'صح',
+                ],
+                [
+                    'id' => api_question_session_opaque_id($sessionId, 'questions', $questionId, 'false'),
+                    'text' => 'خطأ',
+                ],
+            ],
+            'requires_reason' => $requiresReason,
+            'reason_only_on_false' =>
+                (int)($settings['tf_reason_only_on_false'] ?? 1) === 1,
+            'reasons' => $reasons,
+        ];
     } catch (Throwable) {
-        return false;
+        return null;
     }
 }
 
-function api_question_session_normalized_fill_ready(PDO $pdo, string $questionId): bool
-{
+
+function api_question_session_normalized_fill_payload(
+    PDO $pdo,
+    string $questionId,
+): ?array {
     $fillColumns = api_question_session_columns($pdo, 'question_fill');
     $answerColumns = api_question_session_columns($pdo, 'question_fill_answers');
     if (
         !isset($fillColumns['question_id'], $fillColumns['blanks_count'])
         || !isset($answerColumns['question_id'], $answerColumns['blank_index'], $answerColumns['answer_text'])
     ) {
-        return false;
+        return null;
     }
     try {
         $statement = $pdo->prepare('SELECT blanks_count FROM question_fill WHERE question_id=? LIMIT 1');
         $statement->execute([$questionId]);
-        if ((int)$statement->fetchColumn() !== 1) {
-            // Phase 13 Android contract currently carries one text answer per fill question.
-            return false;
+        $blanks = max(1, min(4, (int)$statement->fetchColumn()));
+        for ($index = 1; $index <= $blanks; $index++) {
+            $answer = $pdo->prepare(
+                "SELECT COUNT(*) FROM question_fill_answers "
+                . "WHERE question_id=? AND blank_index=? AND TRIM(COALESCE(answer_text,''))<>''",
+            );
+            $answer->execute([$questionId, $index]);
+            if ((int)$answer->fetchColumn() <= 0) {
+                return null;
+            }
         }
-        $answer = $pdo->prepare(
-            "SELECT COUNT(*) FROM question_fill_answers "
-            . "WHERE question_id=? AND blank_index=1 AND TRIM(COALESCE(answer_text,''))<>''",
+        return [
+            'input_mode' => 'text',
+            'blanks_count' => $blanks,
+        ];
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function api_question_session_normalized_direct_ready(PDO $pdo, string $questionId): bool
+{
+    $columns = api_question_session_columns($pdo, 'question_direct');
+    if (!isset($columns['question_id'], $columns['answer_text'])) {
+        return false;
+    }
+    try {
+        $statement = $pdo->prepare(
+            "SELECT answer_text FROM question_direct "
+            . "WHERE question_id=? AND TRIM(COALESCE(answer_text,''))<>'' LIMIT 1",
         );
-        $answer->execute([$questionId]);
-        return (int)$answer->fetchColumn() > 0;
+        $statement->execute([$questionId]);
+        return $statement->fetchColumn() !== false;
     } catch (Throwable) {
         return false;
     }
 }
+
 
 function api_question_session_normalized_match_pairs(
     PDO $pdo,
@@ -705,21 +800,24 @@ function api_question_session_normalized_questions(
             }
             $payload['options'] = $options;
         } elseif ($questionType === 'truefalse') {
-            if (!api_question_session_normalized_tf_ready($pdo, $rowId)) {
+            $tfPayload = api_question_session_normalized_tf_payload(
+                $pdo,
+                $sessionId,
+                $rowId,
+                $settings,
+            );
+            if ($tfPayload === null) {
                 continue;
             }
-            $payload['options'] = [
-                [
-                    'id' => api_question_session_opaque_id($sessionId, 'questions', $rowId, 'true'),
-                    'text' => 'صح',
-                ],
-                [
-                    'id' => api_question_session_opaque_id($sessionId, 'questions', $rowId, 'false'),
-                    'text' => 'خطأ',
-                ],
-            ];
+            $payload = $tfPayload;
         } elseif ($questionType === 'fill') {
-            if (!api_question_session_normalized_fill_ready($pdo, $rowId)) {
+            $fillPayload = api_question_session_normalized_fill_payload($pdo, $rowId);
+            if ($fillPayload === null) {
+                continue;
+            }
+            $payload = $fillPayload;
+        } elseif ($questionType === 'direct') {
+            if (!api_question_session_normalized_direct_ready($pdo, $rowId)) {
                 continue;
             }
             $payload['input_mode'] = 'text';
