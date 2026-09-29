@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_question_answer.php';
+require_once __DIR__ . '/_question_progress.php';
 
 final class ApiQuestionResultRejected extends RuntimeException
 {
@@ -184,19 +185,31 @@ function api_question_result_finish(
             );
         }
 
+        $policy = api_test_policy_for_session($pdo, $session);
+        $progress = api_question_progress_apply(
+            $pdo,
+            $studentId,
+            $session,
+            $score,
+            $policy,
+        );
+        $passPercent = max(1, min(100, (int)($policy['pass_percent'] ?? 60)));
+        $passed = (float)($score['score_percent'] ?? 0) >= $passPercent;
+
         $now = gmdate('Y-m-d H:i:s');
         $result = [
             'session_id' => $request['session_id'],
             'status' => 'completed',
             'completed_at' => $now,
             'replayed' => false,
-            'result' => $score,
-            'confirmed_delta' => [
-                'available' => false,
-                'reason' => 'لم تُثبت بعد قاعدة XP والمستوى والمكافآت لهذه الأنشطة.',
-                'profile' => null,
-                'subjects' => [],
-            ],
+            'result' => array_merge($score, [
+                'passed' => $passed,
+                'pass_percent' => $passPercent,
+                'xp_earned' => (float)($progress['xp_earned'] ?? 0),
+                'hearts_spent' => max(0, (int)($session['heart_debited'] ?? 0)),
+            ]),
+            'policy' => api_test_policy_public($policy),
+            'confirmed_delta' => (array)$progress['confirmed_delta'],
         ];
 
         $insert = $pdo->prepare(
