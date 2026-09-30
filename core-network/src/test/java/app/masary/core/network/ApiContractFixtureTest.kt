@@ -163,7 +163,7 @@ class ApiContractFixtureTest {
         assertEquals(70, finish.data?.result?.scorePercent)
         assertEquals(14.0, finish.data?.result?.xpEarned)
         assertTrue(finish.data?.confirmedDelta?.available == true)
-        assertEquals(14.0, finish.data?.confirmedDelta?.profile?.globalXp)
+        assertEquals(14, finish.data?.confirmedDelta?.profile?.globalXp)
     }
 
     @Test
