@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Masary Android API — Phase 13 question session extension",
-    "version": "13.0.0",
-    "description": "حزمة أسئلة جلسة النشاط المملوكة للطالب دون كشف مفاتيح الإجابات الصحيحة."
+    "version": "13.6.0",
+    "description": "حزمة جلسة الأسئلة وسياسة الاختبار المؤكدة من /admin/tests/، مع التصحيح العادل والمكافآت والنتيجة دون كشف مفاتيح التصحيح قبل الإنهاء."
   },
   "paths": {
     "/api/v1/student/activity/session": {
@@ -55,7 +55,7 @@
     "/api/v1/student/activity/answer": {
       "post": {
         "summary": "Submit one idempotent question answer",
-        "description": "يثبت إجابة واحدة لجلسة الطالب، ويعيد نتيجة التصحيح المؤكدة دون منح نقاط أو مستوى محليًا.",
+        "description": "يثبت النسخة النهائية من إجابة السؤال بصورة idempotent ويعيد درجة عادلة من 0 إلى 1؛ مفاتيح التصحيح تبقى على الخادم.",
         "security": [
           {
             "bearerAuth": []
@@ -114,7 +114,7 @@
     "/api/v1/student/activity/finish": {
       "post": {
         "summary": "Finish one authenticated question session idempotently",
-        "description": "يغلق جلسة الأسئلة بعد تثبيت جميع الإجابات ويعيد النتيجة المؤكدة من الخادم. لا يمنح XP أو مستوى أو مكافآت ما لم يثبت مصدرها الخادمي.",
+        "description": "يغلق الجلسة idempotently ويطبق Snapshot إعدادات الأدمن: النجاح وXP والقلوب والتقدم والوقت وتفاصيل المراجعة المسموح بها.",
         "security": [
           {
             "bearerAuth": []
@@ -242,11 +242,15 @@
           "id",
           "status",
           "expires_at",
+          "started_at",
+          "started_at_epoch_seconds",
           "subject_version_id",
           "unit_id",
           "lesson_id",
           "activity_type",
-          "activity_mode"
+          "activity_mode",
+          "source",
+          "guide_step_id"
         ],
         "properties": {
           "id": {
@@ -291,18 +295,53 @@
           "activity_type": {
             "type": "string",
             "enum": [
+              "lesson_practice",
               "choose_test",
               "true_false_test",
               "connect_test",
               "fill_test",
-              "speed_test"
+              "speed_test",
+              "review",
+              "smart_review"
             ]
           },
           "activity_mode": {
             "type": "string",
             "enum": [
+              "learn",
               "practice",
+              "review",
+              "test",
               "speed"
+            ]
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "started_at_epoch_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "subject",
+              "unit",
+              "lesson",
+              "review",
+              "home_guide",
+              "guide"
+            ]
+          },
+          "guide_step_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         }
@@ -362,7 +401,8 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "input_mode"
+          "input_mode",
+          "blanks_count"
         ],
         "properties": {
           "input_mode": {
@@ -370,6 +410,11 @@
             "enum": [
               "text"
             ]
+          },
+          "blanks_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
           }
         }
       },
@@ -434,6 +479,7 @@
               "truefalse",
               "connect",
               "fill",
+              "direct",
               "speed"
             ]
           },
@@ -447,7 +493,13 @@
                 "$ref": "#/components/schemas/QuestionOptionsPayload"
               },
               {
+                "$ref": "#/components/schemas/QuestionTrueFalsePayload"
+              },
+              {
                 "$ref": "#/components/schemas/QuestionFillPayload"
+              },
+              {
+                "$ref": "#/components/schemas/QuestionDirectPayload"
               },
               {
                 "$ref": "#/components/schemas/QuestionConnectPayload"
@@ -464,6 +516,7 @@
           "generated_at",
           "session",
           "progress",
+          "policy",
           "questions"
         ],
         "properties": {
@@ -486,6 +539,9 @@
             "items": {
               "$ref": "#/components/schemas/QuestionSessionQuestion"
             }
+          },
+          "policy": {
+            "$ref": "#/components/schemas/QuestionSessionPolicy"
           }
         }
       },
@@ -529,6 +585,18 @@
             "type": "string",
             "minLength": 16,
             "maxLength": 64
+          },
+          "reason_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 16,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -617,7 +685,13 @@
                 "$ref": "#/components/schemas/QuestionTextAnswer"
               },
               {
+                "$ref": "#/components/schemas/QuestionFillAnswer"
+              },
+              {
                 "$ref": "#/components/schemas/QuestionConnectionsAnswer"
+              },
+              {
+                "$ref": "#/components/schemas/QuestionSkipAnswer"
               }
             ]
           }
@@ -653,6 +727,7 @@
           "question_id",
           "accepted",
           "correct",
+          "score",
           "replayed",
           "progress"
         ],
@@ -678,6 +753,11 @@
           },
           "progress": {
             "$ref": "#/components/schemas/QuestionAnswerProgress"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
           }
         }
       },
@@ -717,6 +797,18 @@
             "type": "string",
             "minLength": 8,
             "maxLength": 128
+          },
+          "active_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 86400
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -725,12 +817,28 @@
         "additionalProperties": false,
         "required": [
           "correct_answers",
+          "partial_answers",
           "incorrect_answers",
+          "wrong_answers",
+          "answered_questions",
           "total_questions",
-          "score_percent"
+          "score_points",
+          "score_percent_exact",
+          "score_percent",
+          "passed",
+          "pass_percent",
+          "xp_earned",
+          "hearts_spent",
+          "timed_out",
+          "duration_seconds",
+          "attempt_id"
         ],
         "properties": {
           "correct_answers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "partial_answers": {
             "type": "integer",
             "minimum": 0
           },
@@ -738,13 +846,65 @@
             "type": "integer",
             "minimum": 0
           },
+          "wrong_answers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "answered_questions": {
+            "type": "integer",
+            "minimum": 0
+          },
           "total_questions": {
             "type": "integer",
             "minimum": 1
           },
+          "score_points": {
+            "type": "number",
+            "minimum": 0
+          },
+          "score_percent_exact": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
           "score_percent": {
             "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "pass_percent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "xp_earned": {
+            "type": "number",
             "minimum": 0
+          },
+          "hearts_spent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "timed_out": {
+            "type": "boolean"
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -817,6 +977,8 @@
           "completed_at",
           "replayed",
           "result",
+          "policy",
+          "review",
           "confirmed_delta"
         ],
         "properties": {
@@ -840,6 +1002,15 @@
           },
           "confirmed_delta": {
             "$ref": "#/components/schemas/QuestionConfirmedDelta"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/QuestionSessionPolicy"
+          },
+          "review": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionReviewItem"
+            }
           }
         }
       },
@@ -956,6 +1127,269 @@
           "hearts": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "QuestionTrueFalsePayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "options",
+          "requires_reason",
+          "reason_only_on_false",
+          "reasons"
+        ],
+        "properties": {
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionOption"
+            }
+          },
+          "requires_reason": {
+            "type": "boolean"
+          },
+          "reason_only_on_false": {
+            "type": "boolean"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionOption"
+            }
+          }
+        }
+      },
+      "QuestionDirectPayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input_mode"
+        ],
+        "properties": {
+          "input_mode": {
+            "type": "string",
+            "enum": [
+              "text"
+            ]
+          }
+        }
+      },
+      "QuestionResultPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "show_pass_badge",
+          "show_score",
+          "show_counts_correct",
+          "show_counts_partial",
+          "show_counts_wrong",
+          "show_xp",
+          "show_hearts_spent",
+          "show_retry_button",
+          "show_back_button",
+          "show_review_details",
+          "show_mistakes_button"
+        ],
+        "properties": {
+          "show_pass_badge": {
+            "type": "boolean"
+          },
+          "show_score": {
+            "type": "boolean"
+          },
+          "show_counts_correct": {
+            "type": "boolean"
+          },
+          "show_counts_partial": {
+            "type": "boolean"
+          },
+          "show_counts_wrong": {
+            "type": "boolean"
+          },
+          "show_xp": {
+            "type": "boolean"
+          },
+          "show_hearts_spent": {
+            "type": "boolean"
+          },
+          "show_retry_button": {
+            "type": "boolean"
+          },
+          "show_back_button": {
+            "type": "boolean"
+          },
+          "show_review_details": {
+            "type": "boolean"
+          },
+          "show_mistakes_button": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QuestionActiveTimePolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "idle_seconds",
+          "ping_interval"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "idle_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 900
+          },
+          "ping_interval": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60
+          }
+        }
+      },
+      "QuestionSessionPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allow_back",
+          "allow_skip",
+          "reveal_answers",
+          "tf_reason_only_on_false",
+          "pass_percent",
+          "timer_seconds",
+          "active_time",
+          "result"
+        ],
+        "properties": {
+          "allow_back": {
+            "type": "boolean"
+          },
+          "allow_skip": {
+            "type": "boolean"
+          },
+          "reveal_answers": {
+            "type": "boolean"
+          },
+          "tf_reason_only_on_false": {
+            "type": "boolean"
+          },
+          "pass_percent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "timer_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3600
+          },
+          "active_time": {
+            "$ref": "#/components/schemas/QuestionActiveTimePolicy"
+          },
+          "result": {
+            "$ref": "#/components/schemas/QuestionResultPolicy"
+          }
+        }
+      },
+      "QuestionFillAnswer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "blanks"
+        ],
+        "properties": {
+          "kind": {
+            "const": "fill"
+          },
+          "blanks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "QuestionSkipAnswer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "skip"
+          }
+        }
+      },
+      "QuestionReviewItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "question_id",
+          "type",
+          "prompt",
+          "score",
+          "status",
+          "student_answer",
+          "correct_answer"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "question_id": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 64
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "choose",
+              "truefalse",
+              "connect",
+              "fill",
+              "direct",
+              "speed"
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "correct",
+              "partial",
+              "wrong"
+            ]
+          },
+          "student_answer": {
+            "type": "string"
+          },
+          "correct_answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       }

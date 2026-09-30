@@ -7,6 +7,7 @@ import app.masary.feature.questionsession.domain.QuestionOption
 import app.masary.feature.questionsession.domain.QuestionPayload
 import app.masary.feature.questionsession.domain.QuestionSessionInfo
 import app.masary.feature.questionsession.domain.QuestionSessionPackage
+import app.masary.feature.questionsession.domain.QuestionSessionPolicy
 import app.masary.feature.questionsession.domain.QuestionSessionProgress
 import app.masary.feature.questionsession.domain.QuestionSessionRepository
 import app.masary.feature.questionsession.domain.QuestionSessionResult
@@ -120,6 +121,40 @@ class QuestionSessionViewModelTest {
         assertEquals(1, repository.finishCalls)
     }
 
+    @Test
+    fun `admin allow back keeps completed answers reviewable until explicit finish`() = runTest(dispatcher) {
+        val base = packageAt(index = 1, version = "cached").copy(
+            policy = QuestionSessionPolicy(allowBack = true),
+        )
+        val remote = CompletableDeferred<Result<QuestionSessionPackage>>()
+        val repository = FakeRepository(snapshot = base, remote = remote)
+        val model = QuestionSessionViewModel("activity-session-001", repository)
+
+        runCurrent()
+        model.submit(QuestionAnswerInput.Choice("option-a"))
+        runCurrent()
+
+        val reviewing = model.state.value as QuestionSessionUiState.Content
+        assertEquals(2, reviewing.data.progress.currentIndex)
+        assertEquals(1, reviewing.viewingIndex)
+        assertEquals(false, repository.savedCompleted)
+        assertEquals(0, repository.finishCalls)
+
+        model.previous()
+        val previous = model.state.value as QuestionSessionUiState.Content
+        assertEquals(0, previous.viewingIndex)
+
+        model.next()
+        val next = model.state.value as QuestionSessionUiState.Content
+        assertEquals(1, next.viewingIndex)
+
+        model.finish()
+        runCurrent()
+
+        assertTrue(model.state.value is QuestionSessionUiState.CompletedLocal)
+        assertEquals(1, repository.markCompletedCalls)
+    }
+
     private fun packageAt(index: Int, version: String): QuestionSessionPackage {
         val questions = listOf(
             question("q1"),
@@ -139,6 +174,7 @@ class QuestionSessionViewModelTest {
                 activityMode = "practice",
             ),
             progress = QuestionSessionProgress(index, questions.size),
+            policy = QuestionSessionPolicy(allowBack = false),
             questions = questions,
         )
     }
@@ -167,6 +203,7 @@ class QuestionSessionViewModelTest {
         var savedCompleted: Boolean = false
         var syncCalls: Int = 0
         var finishCalls: Int = 0
+        var markCompletedCalls: Int = 0
 
         override suspend fun loadPackage(sessionId: String): Result<QuestionSessionPackage> =
             remote.await()
@@ -199,6 +236,24 @@ class QuestionSessionViewModelTest {
                 ),
             )
         }
+
+        override suspend fun markCompletedLocal(
+            sessionId: String,
+            allowIncomplete: Boolean,
+        ): Result<Unit> {
+            markCompletedCalls += 1
+            local = local.copy(
+                session = local.session.copy(status = "completed_local"),
+            )
+            return Result.success(Unit)
+        }
+
+        override suspend fun loadActiveSeconds(sessionId: String): Int? = 0
+
+        override suspend fun saveActiveSeconds(
+            sessionId: String,
+            seconds: Int,
+        ): Result<Unit> = Result.success(Unit)
 
         override suspend fun loadResult(sessionId: String): QuestionSessionResult? = null
 

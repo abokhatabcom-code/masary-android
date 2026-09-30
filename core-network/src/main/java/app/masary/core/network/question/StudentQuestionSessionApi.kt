@@ -17,11 +17,15 @@ data class QuestionSessionDescriptorDto(
     val id: String = "",
     val status: String = "",
     @SerializedName("expires_at") val expiresAt: String = "",
+    @SerializedName("started_at") val startedAt: String = "",
+    @SerializedName("started_at_epoch_seconds") val startedAtEpochSeconds: Long = 0,
     @SerializedName("subject_version_id") val subjectVersionId: Int = 0,
     @SerializedName("unit_id") val unitId: Int? = null,
     @SerializedName("lesson_id") val lessonId: Int? = null,
     @SerializedName("activity_type") val activityType: String = "",
     @SerializedName("activity_mode") val activityMode: String = "",
+    val source: String = "",
+    @SerializedName("guide_step_id") val guideStepId: Int? = null,
 )
 
 data class QuestionSessionProgressDto(
@@ -36,11 +40,44 @@ data class QuestionSessionQuestionDto(
     val payload: JsonObject = JsonObject(),
 )
 
+data class QuestionResultPolicyDto(
+    @SerializedName("show_pass_badge") val showPassBadge: Boolean = true,
+    @SerializedName("show_score") val showScore: Boolean = true,
+    @SerializedName("show_counts_correct") val showCountsCorrect: Boolean = true,
+    @SerializedName("show_counts_partial") val showCountsPartial: Boolean = true,
+    @SerializedName("show_counts_wrong") val showCountsWrong: Boolean = true,
+    @SerializedName("show_xp") val showXp: Boolean = true,
+    @SerializedName("show_hearts_spent") val showHeartsSpent: Boolean = true,
+    @SerializedName("show_retry_button") val showRetryButton: Boolean = true,
+    @SerializedName("show_back_button") val showBackButton: Boolean = true,
+    @SerializedName("show_review_details") val showReviewDetails: Boolean = true,
+    @SerializedName("show_mistakes_button") val showMistakesButton: Boolean = true,
+)
+
+data class QuestionActiveTimePolicyDto(
+    val enabled: Boolean = true,
+    @SerializedName("idle_seconds") val idleSeconds: Int = 45,
+    @SerializedName("ping_interval") val pingInterval: Int = 15,
+)
+
+data class QuestionSessionPolicyDto(
+    @SerializedName("allow_back") val allowBack: Boolean = true,
+    @SerializedName("allow_skip") val allowSkip: Boolean = true,
+    @SerializedName("reveal_answers") val revealAnswers: Boolean = true,
+    @SerializedName("tf_reason_only_on_false") val tfReasonOnlyOnFalse: Boolean = true,
+    @SerializedName("pass_percent") val passPercent: Int = 60,
+    @SerializedName("timer_seconds") val timerSeconds: Int = 0,
+    @SerializedName("active_time") val activeTime: QuestionActiveTimePolicyDto =
+        QuestionActiveTimePolicyDto(),
+    val result: QuestionResultPolicyDto = QuestionResultPolicyDto(),
+)
+
 data class QuestionSessionPackageDataDto(
     val version: String = "",
     @SerializedName("generated_at") val generatedAt: String = "",
     val session: QuestionSessionDescriptorDto = QuestionSessionDescriptorDto(),
     val progress: QuestionSessionProgressDto = QuestionSessionProgressDto(),
+    val policy: QuestionSessionPolicyDto = QuestionSessionPolicyDto(),
     val questions: List<QuestionSessionQuestionDto> = emptyList(),
 )
 
@@ -81,13 +118,22 @@ data class QuestionAnswerResponseDto(
 
 data class QuestionFinishRequestDto(
     @SerializedName("session_id") val sessionId: String,
+    @SerializedName("active_seconds") val activeSeconds: Int? = null,
 )
 
 data class QuestionSessionScoreDto(
     @SerializedName("correct_answers") val correctAnswers: Int = 0,
+    @SerializedName("partial_answers") val partialAnswers: Int = 0,
     @SerializedName("incorrect_answers") val incorrectAnswers: Int = 0,
     @SerializedName("total_questions") val totalQuestions: Int = 0,
     @SerializedName("score_percent") val scorePercent: Int = 0,
+    val passed: Boolean = false,
+    @SerializedName("pass_percent") val passPercent: Int = 60,
+    @SerializedName("xp_earned") val xpEarned: Double = 0.0,
+    @SerializedName("hearts_spent") val heartsSpent: Int = 0,
+    @SerializedName("timed_out") val timedOut: Boolean = false,
+    @SerializedName("duration_seconds") val durationSeconds: Int = 0,
+    @SerializedName("attempt_id") val attemptId: Int? = null,
 )
 
 data class QuestionConfirmedProfileDeltaDto(
@@ -125,12 +171,25 @@ data class QuestionConfirmedDeltaDto(
     @SerializedName("confirmed_at_epoch_millis") val confirmedAtEpochMillis: Long? = null,
 )
 
+data class QuestionReviewItemDto(
+    val index: Int = 0,
+    @SerializedName("question_id") val questionId: String = "",
+    val type: String = "",
+    val prompt: String = "",
+    val score: Double = 0.0,
+    val status: String = "",
+    @SerializedName("student_answer") val studentAnswer: String = "",
+    @SerializedName("correct_answer") val correctAnswer: String? = null,
+)
+
 data class QuestionFinishResultDto(
     @SerializedName("session_id") val sessionId: String = "",
     val status: String = "",
     @SerializedName("completed_at") val completedAt: String = "",
     val replayed: Boolean = false,
     val result: QuestionSessionScoreDto = QuestionSessionScoreDto(),
+    val policy: QuestionSessionPolicyDto = QuestionSessionPolicyDto(),
+    val review: List<QuestionReviewItemDto> = emptyList(),
     @SerializedName("confirmed_delta") val confirmedDelta: QuestionConfirmedDeltaDto =
         QuestionConfirmedDeltaDto(),
 )

@@ -89,6 +89,17 @@ $pdo->exec("CREATE TABLE api_activity_answers(
     UNIQUE(user_id,idempotency_key_hash),
     UNIQUE(user_id,public_session_id,question_id)
 )");
+$pdo->exec("CREATE TABLE api_activity_answer_operations(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    public_session_id TEXT NOT NULL,
+    question_id TEXT NOT NULL,
+    idempotency_key_hash TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(user_id,idempotency_key_hash)
+)");
 
 $pdo->exec("INSERT INTO choose_questions VALUES
     (1,12,'ما ناتج 2 + 2؟','1','2','4','5','c',1)");
@@ -189,20 +200,112 @@ answer_check(
     'Second key created a duplicate answer.',
 );
 
+$revisedPayload = array_replace_recursive($payload, [
+    'answer' => ['kind' => 'choice', 'option_id' => $wrongOption],
+]);
+$revised = api_question_answer_submit(
+    $pdo,
+    ['user_id' => 42],
+    $revisedPayload,
+    'question-answer-key-00000003',
+);
+answer_check($revised['accepted'] === true, 'Admin-enabled answer revision was not accepted.');
+answer_check($revised['correct'] === false, 'Revised wrong answer was not stored as current.');
+answer_check(
+    (int)$pdo->query('SELECT COUNT(*) FROM api_activity_answers')->fetchColumn() === 1,
+    'Revision created a duplicate current answer row.',
+);
+answer_check(
+    (int)$pdo->query('SELECT COUNT(*) FROM api_activity_answer_operations')->fetchColumn() >= 3,
+    'Revision operation history was not preserved.',
+);
+
+// A delayed retry from the original operation must replay its original response
+// without rolling the current answer back.
+$oldRetry = api_question_answer_submit($pdo, ['user_id' => 42], $payload, $key);
+answer_check($oldRetry['replayed'] === true, 'Old operation retry was not replayed.');
+answer_check($oldRetry['correct'] === true, 'Old operation did not replay its original result.');
+$currentResultJson = (string)$pdo->query(
+    "SELECT result_json FROM api_activity_answers "
+    . "WHERE public_session_id='activity-session-answer-001'"
+)->fetchColumn();
+$currentResult = json_decode($currentResultJson, true);
+answer_check(
+    is_array($currentResult) && ($currentResult['correct'] ?? true) === false,
+    'Delayed old retry rolled the current revised answer backward.',
+);
+
+$noBackPolicy = api_test_policy_defaults();
+$noBackPolicy['allow_back'] = 0;
+$noBackRequestJson = json_encode([
+    '_test_policy' => [
+        'version' => 1,
+        'subject_version_id' => 12,
+        'unit_id' => null,
+        'settings' => $noBackPolicy,
+        'hash' => 'no-back-fixture',
+    ],
+], JSON_THROW_ON_ERROR);
+$stmt->execute([
+    'activity-session-answer-002',
+    42,
+    12,
+    null,
+    null,
+    'choose_test',
+    'practice',
+    'subject',
+    null,
+    'created',
+    str_repeat('c', 64),
+    str_repeat('d', 64),
+    $noBackRequestJson,
+    '{}',
+    'activity_session_pending_ui',
+    0,
+    0,
+    '2099-01-01 00:00:00',
+    null,
+    null,
+    '2026-09-28 00:00:00',
+    '2026-09-28 00:00:00',
+]);
+$noBackPackage = api_question_session_package($pdo, ['user_id' => 42], 'activity-session-answer-002');
+$noBackQuestion = $noBackPackage['questions'][0];
+$noBackOptions = $noBackQuestion['payload']['options'];
+$noBackCorrect = array_values(array_filter(
+    $noBackOptions,
+    static fn(array $option): bool => $option['text'] === '4',
+))[0]['id'];
+$noBackWrong = array_values(array_filter(
+    $noBackOptions,
+    static fn(array $option): bool => $option['text'] !== '4',
+))[0]['id'];
+$noBackBase = [
+    'session_id' => 'activity-session-answer-002',
+    'question_id' => $noBackQuestion['id'],
+    'answer' => ['kind' => 'choice', 'option_id' => $noBackCorrect],
+];
+api_question_answer_submit(
+    $pdo,
+    ['user_id' => 42],
+    $noBackBase,
+    'question-answer-key-00000005',
+);
 try {
     api_question_answer_submit(
         $pdo,
         ['user_id' => 42],
-        array_replace_recursive($payload, [
-            'answer' => ['kind' => 'choice', 'option_id' => $wrongOption],
+        array_replace_recursive($noBackBase, [
+            'answer' => ['kind' => 'choice', 'option_id' => $noBackWrong],
         ]),
-        'question-answer-key-00000003',
+        'question-answer-key-00000006',
     );
-    throw new RuntimeException('Expected conflicting second answer to fail.');
+    throw new RuntimeException('Expected revision to fail when allow_back is disabled.');
 } catch (QuestionAnswerTestError $error) {
     answer_check(
         $error->apiCode === 'question_already_answered' && $error->status === 409,
-        'Wrong conflict returned for a changed answer.',
+        'allow_back=false did not block answer revision.',
     );
 }
 

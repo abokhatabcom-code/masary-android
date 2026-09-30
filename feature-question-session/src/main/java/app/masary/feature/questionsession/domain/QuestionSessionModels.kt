@@ -5,6 +5,7 @@ enum class QuestionType(val wireValue: String) {
     TrueFalse("truefalse"),
     Connect("connect"),
     Fill("fill"),
+    Direct("direct"),
     Speed("speed"),
     ;
 
@@ -26,7 +27,17 @@ data class ConnectItem(
 
 sealed interface QuestionPayload {
     data class Options(val options: List<QuestionOption>) : QuestionPayload
-    data class Fill(val inputMode: String = "text") : QuestionPayload
+    data class TrueFalse(
+        val options: List<QuestionOption>,
+        val requiresReason: Boolean,
+        val reasonOnlyOnFalse: Boolean,
+        val reasons: List<QuestionOption>,
+    ) : QuestionPayload
+    data class Fill(
+        val inputMode: String = "text",
+        val blanksCount: Int = 1,
+    ) : QuestionPayload
+    data class Direct(val inputMode: String = "text") : QuestionPayload
     data class Connect(
         val leftItems: List<ConnectItem>,
         val rightItems: List<ConnectItem>,
@@ -49,6 +60,10 @@ data class QuestionSessionInfo(
     val lessonId: Int?,
     val activityType: String,
     val activityMode: String,
+    val source: String = "",
+    val guideStepId: Int? = null,
+    val startedAt: String = "",
+    val startedAtEpochSeconds: Long = 0,
 )
 
 data class QuestionSessionProgress(
@@ -56,11 +71,43 @@ data class QuestionSessionProgress(
     val totalQuestions: Int,
 )
 
+data class QuestionResultPolicy(
+    val showPassBadge: Boolean = true,
+    val showScore: Boolean = true,
+    val showCountsCorrect: Boolean = true,
+    val showCountsPartial: Boolean = true,
+    val showCountsWrong: Boolean = true,
+    val showXp: Boolean = true,
+    val showHeartsSpent: Boolean = true,
+    val showRetryButton: Boolean = true,
+    val showBackButton: Boolean = true,
+    val showReviewDetails: Boolean = true,
+    val showMistakesButton: Boolean = true,
+)
+
+data class QuestionActiveTimePolicy(
+    val enabled: Boolean = true,
+    val idleSeconds: Int = 45,
+    val pingInterval: Int = 15,
+)
+
+data class QuestionSessionPolicy(
+    val allowBack: Boolean = true,
+    val allowSkip: Boolean = true,
+    val revealAnswers: Boolean = true,
+    val tfReasonOnlyOnFalse: Boolean = true,
+    val passPercent: Int = 60,
+    val timerSeconds: Int = 0,
+    val activeTime: QuestionActiveTimePolicy = QuestionActiveTimePolicy(),
+    val result: QuestionResultPolicy = QuestionResultPolicy(),
+)
+
 data class QuestionSessionPackage(
     val version: String,
     val generatedAt: String,
     val session: QuestionSessionInfo,
     val progress: QuestionSessionProgress,
+    val policy: QuestionSessionPolicy = QuestionSessionPolicy(),
     val questions: List<QuestionItem>,
     val snapshotSavedAtEpochMillis: Long? = null,
 )
@@ -72,17 +119,41 @@ data class ConnectAnswerPair(
 )
 
 sealed interface QuestionAnswerInput {
-    data class Choice(val optionId: String) : QuestionAnswerInput
+    data class Choice(
+        val optionId: String,
+        val reasonId: String? = null,
+    ) : QuestionAnswerInput
     data class Text(val value: String) : QuestionAnswerInput
+    data class Fill(val values: List<String>) : QuestionAnswerInput
     data class Connections(val pairs: List<ConnectAnswerPair>) : QuestionAnswerInput
+    data object Skip : QuestionAnswerInput
 }
 
 
 data class QuestionSessionScore(
     val correctAnswers: Int,
+    val partialAnswers: Int = 0,
     val incorrectAnswers: Int,
     val totalQuestions: Int,
     val scorePercent: Int,
+    val passed: Boolean = false,
+    val passPercent: Int = 60,
+    val xpEarned: Double = 0.0,
+    val heartsSpent: Int = 0,
+    val timedOut: Boolean = false,
+    val durationSeconds: Int = 0,
+    val attemptId: Int? = null,
+)
+
+data class QuestionReviewItem(
+    val index: Int,
+    val questionId: String,
+    val type: String,
+    val prompt: String,
+    val score: Double,
+    val status: String,
+    val studentAnswer: String,
+    val correctAnswer: String?,
 )
 
 data class QuestionSessionResult(
@@ -90,6 +161,8 @@ data class QuestionSessionResult(
     val completedAt: String,
     val replayed: Boolean,
     val score: QuestionSessionScore,
+    val policy: QuestionSessionPolicy = QuestionSessionPolicy(),
+    val review: List<QuestionReviewItem> = emptyList(),
     val confirmedDeltaAvailable: Boolean,
     val confirmedDeltaReason: String,
 )

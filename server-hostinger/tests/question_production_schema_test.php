@@ -235,18 +235,38 @@ $matchResult = api_question_answer_submit($pdo, ['user_id' => 42], [
 prod_schema_check($matchResult['correct'] === true, 'Production match grading failed.');
 
 $fill = api_question_session_package($pdo, ['user_id' => 42], 'prod-fill-0001');
-prod_schema_check(count($fill['questions']) === 1, 'Only single-blank production fill questions should be exposed.');
+prod_schema_check(count($fill['questions']) === 2, 'Production fill package must expose single and multi-blank questions.');
 prod_schema_check($fill['questions'][0]['type'] === 'fill', 'Production fill renderer type mismatch.');
 prod_schema_check(
-    !str_contains(json_encode($fill, JSON_UNESCAPED_UNICODE), 'القاهرة'),
-    'Production fill package leaked accepted answer.',
+    (int)($fill['questions'][0]['payload']['blanks_count'] ?? 0) === 1,
+    'Single-blank metadata is wrong.',
+);
+prod_schema_check(
+    (int)($fill['questions'][1]['payload']['blanks_count'] ?? 0) === 2,
+    'Multi-blank metadata is wrong.',
+);
+prod_schema_check(
+    !str_contains(json_encode($fill, JSON_UNESCAPED_UNICODE), 'القاهرة')
+        && !str_contains(json_encode($fill, JSON_UNESCAPED_UNICODE), 'أول')
+        && !str_contains(json_encode($fill, JSON_UNESCAPED_UNICODE), 'ثان'),
+    'Production fill package leaked accepted answers.',
 );
 $fillResult = api_question_answer_submit($pdo, ['user_id' => 42], [
     'session_id' => 'prod-fill-0001',
     'question_id' => $fill['questions'][0]['id'],
     'answer' => ['kind' => 'text', 'text' => 'القاهرة'],
 ], 'prod-answer-key-fill-00001');
-prod_schema_check($fillResult['correct'] === true, 'Production fill grading failed.');
+prod_schema_check($fillResult['correct'] === true, 'Production single-fill grading failed.');
+
+$multiFillResult = api_question_answer_submit($pdo, ['user_id' => 42], [
+    'session_id' => 'prod-fill-0001',
+    'question_id' => $fill['questions'][1]['id'],
+    'answer' => ['kind' => 'fill', 'blanks' => ['أول', 'إجابة خاطئة']],
+], 'prod-answer-key-fill-00002');
+prod_schema_check(
+    abs((float)($multiFillResult['score'] ?? 0) - 0.5) < 0.0001,
+    'Production multi-fill partial grading failed.',
+);
 
 $speed = api_question_session_package($pdo, ['user_id' => 42], 'prod-speed-001');
 prod_schema_check(count($speed['questions']) === 1, 'Production speed package should reuse active MCQ questions.');

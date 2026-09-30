@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +60,8 @@ fun QuestionSessionRoute(
     sessionId: String,
     repository: QuestionSessionRepository,
     onBack: () -> Unit,
+    onRetryActivity: (QuestionSessionPackage) -> Unit,
+    onReviewMistakes: (QuestionSessionPackage) -> Unit,
 ) {
     val model: QuestionSessionViewModel = viewModel(
         key = "question-session-${sessionId}",
@@ -72,6 +75,12 @@ fun QuestionSessionRoute(
         onBack = onBack,
         onRetry = model::retry,
         onSubmit = model::submit,
+        onPrevious = model::previous,
+        onNext = model::next,
+        onFinish = model::finish,
+        onUserActivity = model::markUserActivity,
+        onRetryActivity = onRetryActivity,
+        onReviewMistakes = onReviewMistakes,
     )
 }
 
@@ -82,9 +91,23 @@ private fun QuestionSessionScreen(
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onSubmit: (QuestionAnswerInput) -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onFinish: () -> Unit,
+    onUserActivity: () -> Unit,
+    onRetryActivity: (QuestionSessionPackage) -> Unit,
+    onReviewMistakes: (QuestionSessionPackage) -> Unit,
 ) {
     CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
+            modifier = Modifier.pointerInput(onUserActivity) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent()
+                        onUserActivity()
+                    }
+                }
+            },
             containerColor = MasaryColors.background,
             topBar = {
                 TopAppBar(
@@ -110,10 +133,15 @@ private fun QuestionSessionScreen(
 
                 is QuestionSessionUiState.Content -> QuestionContent(
                     data = state.data,
+                    viewingIndex = state.viewingIndex,
+                    remainingSeconds = state.remainingSeconds,
                     isRefreshing = state.isRefreshing,
                     isSaving = state.isSaving,
                     message = state.message,
                     onSubmit = onSubmit,
+                    onPrevious = onPrevious,
+                    onNext = onNext,
+                    onFinish = onFinish,
                     modifier = Modifier.padding(paddingValues),
                 )
 
@@ -125,7 +153,10 @@ private fun QuestionSessionScreen(
 
                 is QuestionSessionUiState.Result -> ConfirmedResultState(
                     result = state.data,
+                    context = state.context,
                     onBack = onBack,
+                    onRetryActivity = onRetryActivity,
+                    onReviewMistakes = onReviewMistakes,
                     modifier = Modifier.padding(paddingValues),
                 )
 
@@ -174,16 +205,28 @@ private fun LoadingState(modifier: Modifier = Modifier) {
 @Composable
 private fun QuestionContent(
     data: QuestionSessionPackage,
+    viewingIndex: Int,
+    remainingSeconds: Int?,
     isRefreshing: Boolean,
     isSaving: Boolean,
     message: String?,
     onSubmit: (QuestionAnswerInput) -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val index = data.progress.currentIndex.coerceIn(0, data.questions.lastIndex)
+    val index = viewingIndex.coerceIn(0, data.questions.lastIndex)
     val question = data.questions[index]
     val shownNumber = index + 1
-    val progress = shownNumber.toFloat() / data.questions.size.coerceAtLeast(1).toFloat()
+    val answeredFrontier = data.progress.currentIndex.coerceIn(0, data.questions.size)
+    val progress = answeredFrontier.toFloat() /
+        data.questions.size.coerceAtLeast(1).toFloat()
+    val revisitingAnswered = index < answeredFrontier
+    val maxBrowsableIndex = minOf(answeredFrontier, data.questions.lastIndex)
+    val canGoPrevious = data.policy.allowBack && index > 0
+    val canGoNext = index < maxBrowsableIndex
+    val canFinish = answeredFrontier >= data.questions.size
 
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(horizontal = 18.dp),
@@ -202,6 +245,19 @@ private fun QuestionContent(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
                 )
+                if (remainingSeconds != null && data.policy.timerSeconds > 0) {
+                    val minutes = remainingSeconds / 60
+                    val seconds = remainingSeconds % 60
+                    Text(
+                        text = String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds),
+                        color = if (remainingSeconds <= 30) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MasaryColors.brandNavy
+                        },
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 if (isRefreshing) {
                     CircularProgressIndicator(
                         modifier = Modifier.height(18.dp),
@@ -229,6 +285,16 @@ private fun QuestionContent(
             }
         }
 
+        if (revisitingAnswered) {
+            item {
+                Text(
+                    text = "سبق تثبيت إجابة لهذا السؤال. يمكنك تثبيت إجابة جديدة لاستبدالها.",
+                    color = MasaryColors.muted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -248,6 +314,53 @@ private fun QuestionContent(
                         enabled = !isSaving,
                         onSubmit = onSubmit,
                     )
+                    if (data.policy.allowSkip) {
+                        OutlinedButton(
+                            onClick = { onSubmit(QuestionAnswerInput.Skip) },
+                            enabled = !isSaving,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("تخطي السؤال")
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (canGoPrevious) {
+                    OutlinedButton(
+                        onClick = onPrevious,
+                        enabled = !isSaving,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("السابق")
+                    }
+                }
+                if (canGoNext) {
+                    OutlinedButton(
+                        onClick = onNext,
+                        enabled = !isSaving,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("التالي")
+                    }
+                }
+            }
+        }
+
+        if (canFinish) {
+            item {
+                Button(
+                    onClick = onFinish,
+                    enabled = !isSaving,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (isSaving) "جارٍ الإنهاء…" else "إنهاء الاختبار")
                 }
             }
         }
@@ -264,7 +377,6 @@ private fun QuestionRenderer(
 ) {
     when (question.type) {
         QuestionType.Choose,
-        QuestionType.TrueFalse,
         QuestionType.Speed,
         -> OptionsRenderer(
             payload = question.payload as QuestionPayload.Options,
@@ -272,7 +384,19 @@ private fun QuestionRenderer(
             onSubmit = onSubmit,
         )
 
+        QuestionType.TrueFalse -> TrueFalseRenderer(
+            payload = question.payload as QuestionPayload.TrueFalse,
+            enabled = enabled,
+            onSubmit = onSubmit,
+        )
+
         QuestionType.Fill -> FillRenderer(
+            payload = question.payload as QuestionPayload.Fill,
+            enabled = enabled,
+            onSubmit = onSubmit,
+        )
+
+        QuestionType.Direct -> DirectRenderer(
             enabled = enabled,
             onSubmit = onSubmit,
         )
@@ -331,7 +455,134 @@ private fun OptionsRenderer(
 }
 
 @Composable
+private fun TrueFalseRenderer(
+    payload: QuestionPayload.TrueFalse,
+    enabled: Boolean,
+    onSubmit: (QuestionAnswerInput) -> Unit,
+) {
+    var selected by remember(payload.options) { mutableStateOf<String?>(null) }
+    var selectedReason by remember(payload.reasons) { mutableStateOf<String?>(null) }
+    val falseOptionId = payload.options
+        .firstOrNull { it.text.trim() == "خطأ" }
+        ?.id
+    val reasonRequiredNow = payload.requiresReason &&
+        (!payload.reasonOnlyOnFalse || selected == falseOptionId)
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        payload.options.forEach { option ->
+            Card(
+                onClick = {
+                    if (enabled) {
+                        selected = option.id
+                        if (payload.reasonOnlyOnFalse && option.id != falseOptionId) {
+                            selectedReason = null
+                        }
+                    }
+                },
+                enabled = enabled,
+                colors = CardDefaults.cardColors(containerColor = MasaryColors.iceSurface),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = selected == option.id,
+                        onClick = {
+                            if (enabled) {
+                                selected = option.id
+                                if (payload.reasonOnlyOnFalse && option.id != falseOptionId) {
+                                    selectedReason = null
+                                }
+                            }
+                        },
+                        enabled = enabled,
+                    )
+                    Text(
+                        text = option.text,
+                        color = MasaryColors.brandNavy,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        if (reasonRequiredNow) {
+            Text(
+                text = "اختر السبب",
+                fontWeight = FontWeight.Bold,
+                color = MasaryColors.brandNavy,
+            )
+            payload.reasons.forEach { reason ->
+                FilterChip(
+                    selected = selectedReason == reason.id,
+                    enabled = enabled,
+                    onClick = { if (enabled) selectedReason = reason.id },
+                    label = { Text(reason.text) },
+                )
+            }
+        }
+
+        Button(
+            onClick = {
+                selected?.let {
+                    onSubmit(
+                        QuestionAnswerInput.Choice(
+                            optionId = it,
+                            reasonId = selectedReason,
+                        ),
+                    )
+                }
+            },
+            enabled = enabled &&
+                selected != null &&
+                (!reasonRequiredNow || selectedReason != null),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (enabled) "تثبيت الإجابة والمتابعة" else "جارٍ الحفظ…")
+        }
+    }
+}
+
+@Composable
 private fun FillRenderer(
+    payload: QuestionPayload.Fill,
+    enabled: Boolean,
+    onSubmit: (QuestionAnswerInput) -> Unit,
+) {
+    var values by remember(payload.blanksCount) {
+        mutableStateOf(List(payload.blanksCount.coerceIn(1, 4)) { "" })
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        values.forEachIndexed { index, value ->
+            OutlinedTextField(
+                value = value,
+                onValueChange = { updated ->
+                    values = values.toMutableList().also { it[index] = updated }
+                },
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text(
+                        if (values.size == 1) "اكتب الإجابة"
+                        else "الفراغ " + (index + 1),
+                    )
+                },
+                singleLine = false,
+            )
+        }
+        Button(
+            onClick = { onSubmit(QuestionAnswerInput.Fill(values)) },
+            enabled = enabled && values.all(String::isNotBlank),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (enabled) "تثبيت الإجابة والمتابعة" else "جارٍ الحفظ…")
+        }
+    }
+}
+
+@Composable
+private fun DirectRenderer(
     enabled: Boolean,
     onSubmit: (QuestionAnswerInput) -> Unit,
 ) {
@@ -420,61 +671,202 @@ private fun ConnectRenderer(
 @Composable
 private fun ConfirmedResultState(
     result: QuestionSessionResult,
+    context: QuestionSessionPackage?,
     onBack: () -> Unit,
+    onRetryActivity: (QuestionSessionPackage) -> Unit,
+    onReviewMistakes: (QuestionSessionPackage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CheckCircle,
-                    contentDescription = null,
-                    tint = MasaryColors.brandGold,
-                )
-                Text(
-                    "تم تأكيد النتيجة",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MasaryColors.brandNavy,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = "${result.score.scorePercent}%",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MasaryColors.brandNavy,
-                )
-                Text(
-                    text = "الإجابات الصحيحة: ${result.score.correctAnswers}",
-                    color = MasaryColors.brandNavy,
-                )
-                Text(
-                    text = "الإجابات الخاطئة: ${result.score.incorrectAnswers}",
-                    color = MasaryColors.brandNavy,
-                )
-                Text(
-                    text = "إجمالي الأسئلة: ${result.score.totalQuestions}",
-                    color = MasaryColors.muted,
-                )
-                if (!result.confirmedDeltaAvailable &&
-                    result.confirmedDeltaReason.isNotBlank()
+    val policy = result.policy.result
+    val wrongAnswers = (result.score.incorrectAnswers - result.score.partialAnswers).coerceAtLeast(0)
+    val earnedXp = if (kotlin.math.abs(result.score.xpEarned - result.score.xpEarned.toInt()) < 0.0001) {
+        result.score.xpEarned.toInt().toString()
+    } else {
+        String.format(java.util.Locale.US, "%.2f", result.score.xpEarned)
+            .trimEnd('0')
+            .trimEnd('.')
+    }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item { Spacer(Modifier.height(8.dp)) }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = MasaryColors.brandGold,
+                    )
                     Text(
-                        text = result.confirmedDeltaReason,
-                        color = MasaryColors.muted,
-                        style = MaterialTheme.typography.bodySmall,
+                        "تم تأكيد النتيجة",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MasaryColors.brandNavy,
                         textAlign = TextAlign.Center,
                     )
-                }
-                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                    Text("العودة")
+                    if (policy.showPassBadge) {
+                        Text(
+                            text = if (result.score.passed) "ناجح" else "تحتاج محاولة أخرى",
+                            fontWeight = FontWeight.Bold,
+                            color = MasaryColors.brandNavy,
+                        )
+                    }
+                    if (policy.showScore) {
+                        Text(
+                            text = "${result.score.scorePercent}%",
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MasaryColors.brandNavy,
+                        )
+                    }
+                    if (policy.showCountsCorrect) {
+                        Text(
+                            text = "الإجابات الصحيحة: ${result.score.correctAnswers}",
+                            color = MasaryColors.brandNavy,
+                        )
+                    }
+                    if (policy.showCountsPartial && result.score.partialAnswers > 0) {
+                        Text(
+                            text = "الإجابات الجزئية: ${result.score.partialAnswers}",
+                            color = MasaryColors.brandNavy,
+                        )
+                    }
+                    if (policy.showCountsWrong) {
+                        Text(
+                            text = "الإجابات الخاطئة: $wrongAnswers",
+                            color = MasaryColors.brandNavy,
+                        )
+                    }
+                    Text(
+                        text = "إجمالي الأسئلة: ${result.score.totalQuestions}",
+                        color = MasaryColors.muted,
+                    )
+                    if (result.score.timedOut) {
+                        Text(
+                            text = "انتهى وقت الاختبار؛ احتُسبت الأسئلة غير المجابة بصفر.",
+                            color = MasaryColors.muted,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    if (policy.showXp) {
+                        Text(
+                            text = "XP المكتسب: +$earnedXp",
+                            color = MasaryColors.brandNavy,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    if (policy.showHeartsSpent && result.score.heartsSpent > 0) {
+                        Text(
+                            text = "القلوب المصروفة: ${result.score.heartsSpent}",
+                            color = MasaryColors.muted,
+                        )
+                    }
+                    if (!result.confirmedDeltaAvailable &&
+                        result.confirmedDeltaReason.isNotBlank()
+                    ) {
+                        Text(
+                            text = result.confirmedDeltaReason,
+                            color = MasaryColors.muted,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    if (policy.showRetryButton && context != null) {
+                        Button(
+                            onClick = { onRetryActivity(context) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("إعادة المحاولة")
+                        }
+                    }
+                    if (policy.showMistakesButton &&
+                        context != null &&
+                        context.session.unitId != null &&
+                        (result.score.incorrectAnswers > 0 || result.score.partialAnswers > 0)
+                    ) {
+                        OutlinedButton(
+                            onClick = { onReviewMistakes(context) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("راجع أخطاءك")
+                        }
+                    }
+                    if (policy.showBackButton) {
+                        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                            Text("العودة")
+                        }
+                    }
                 }
             }
         }
+
+        if (policy.showReviewDetails && result.review.isNotEmpty()) {
+            item {
+                Text(
+                    text = "مراجعة الأسئلة",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MasaryColors.brandNavy,
+                )
+            }
+            result.review.forEach { review ->
+                item(key = review.questionId) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "السؤال ${review.index}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MasaryColors.muted,
+                            )
+                            Text(
+                                text = review.prompt,
+                                fontWeight = FontWeight.Bold,
+                                color = MasaryColors.brandNavy,
+                            )
+                            Text(
+                                text = when (review.status) {
+                                    "correct" -> "صحيح"
+                                    "partial" -> "إجابة جزئية"
+                                    else -> "خطأ"
+                                },
+                                color = when (review.status) {
+                                    "correct" -> MasaryColors.success
+                                    "partial" -> MasaryColors.brandGold
+                                    else -> MaterialTheme.colorScheme.error
+                                },
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "إجابتك: " + review.studentAnswer.ifBlank { "لم تُجب" },
+                                color = MasaryColors.muted,
+                            )
+                            review.correctAnswer?.takeIf(String::isNotBlank)?.let { correct ->
+                                Text(
+                                    text = "الإجابة الصحيحة: $correct",
+                                    color = MasaryColors.brandNavy,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item { Spacer(Modifier.height(20.dp)) }
     }
 }
 

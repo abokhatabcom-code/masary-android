@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Prevent obsolete PR runs from consuming runner minutes and artifact storage.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-debug-apks:
     runs-on: ubuntu-latest
@@ -37,6 +42,9 @@ jobs:
 
       - name: Validate API contract
         run: python3 scripts/validate-api-contract.py
+
+      - name: Fail fast on Android DTO fixture incompatibility
+        run: ./gradlew --no-daemon :core-network:testDebugUnitTest
 
       - name: Validate official student identity
         shell: bash
@@ -103,7 +111,9 @@ jobs:
           if-no-files-found: error
 
   build-signed-production-student-apk:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.head_ref == 'phase-12-6-local-first-implementation') || (github.event_name == 'pull_request' && github.head_ref == 'phase-13-question-session-implementation')
+    # Never sign or publish a production APK before contract/unit/lint pass.
+    needs: build-debug-apks
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.head_ref == 'phase-12-6-local-first-implementation') || (github.event_name == 'pull_request' && github.head_ref == 'phase-13-question-session-implementation') || (github.event_name == 'pull_request' && github.head_ref == 'phase-13.6-admin-test-policy-implementation')
     runs-on: ubuntu-latest
     env:
       MASARY_DEVELOPMENT_BASE_URL: ${{ vars.MASARY_DEVELOPMENT_BASE_URL }}

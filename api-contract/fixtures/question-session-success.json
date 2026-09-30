@@ -1,21 +1,51 @@
 {
   "success": true,
   "data": {
-    "version": "phase13-question-package-v1",
-    "generated_at": "2026-09-28T09:00:00+00:00",
+    "version": "phase13-6-question-package-v1",
+    "generated_at": "2026-09-30T00:00:00+00:00",
     "session": {
       "id": "activity-session-001",
-      "status": "created",
-      "expires_at": "2026-09-28 11:00:00",
+      "status": "in_progress",
+      "expires_at": "2026-09-30 02:00:00",
+      "started_at": "2026-09-30 00:00:00",
+      "started_at_epoch_seconds": 1790726400,
       "subject_version_id": 12,
-      "unit_id": null,
-      "lesson_id": null,
-      "activity_type": "choose_test",
-      "activity_mode": "practice"
+      "unit_id": 64,
+      "lesson_id": 303,
+      "activity_type": "lesson_practice",
+      "activity_mode": "learn",
+      "source": "lesson",
+      "guide_step_id": null
     },
     "progress": {
       "current_index": 0,
-      "total_questions": 1
+      "total_questions": 2
+    },
+    "policy": {
+      "allow_back": true,
+      "allow_skip": true,
+      "reveal_answers": true,
+      "tf_reason_only_on_false": true,
+      "pass_percent": 60,
+      "timer_seconds": 0,
+      "active_time": {
+        "enabled": true,
+        "idle_seconds": 45,
+        "ping_interval": 15
+      },
+      "result": {
+        "show_pass_badge": true,
+        "show_score": true,
+        "show_counts_correct": true,
+        "show_counts_partial": true,
+        "show_counts_wrong": true,
+        "show_xp": true,
+        "show_hearts_spent": true,
+        "show_retry_button": true,
+        "show_back_button": true,
+        "show_review_details": true,
+        "show_mistakes_button": true
+      }
     },
     "questions": [
       {
@@ -29,18 +59,18 @@
               "text": "1"
             },
             {
-              "id": "1bd2127c8c836d1a0f4c9420ed9589f7",
-              "text": "2"
-            },
-            {
               "id": "64e9eed30a561f044813635277c5ee57",
               "text": "4"
-            },
-            {
-              "id": "e512a48611f4157bb39c58e55d6c4749",
-              "text": "5"
             }
           ]
+        }
+      },
+      {
+        "id": "2f4f59eaa74c43f8c3d1c2a297b6df4b",
+        "type": "direct",
+        "prompt": "اكتب عاصمة مصر",
+        "payload": {
+          "input_mode": "text"
         }
       }
     ]

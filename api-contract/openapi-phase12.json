@@ -93,7 +93,8 @@
           "title",
           "position",
           "state",
-          "lessons"
+          "lessons",
+          "review"
         ],
         "properties": {
           "id": {
@@ -123,6 +124,9 @@
           },
           "progress": {
             "$ref": "#/components/schemas/SubjectLearningProgress"
+          },
+          "review": {
+            "$ref": "#/components/schemas/SubjectUnitReview"
           }
         }
       },
@@ -183,6 +187,31 @@
           "review_progress_cap_points": {
             "type": "number",
             "exclusiveMinimum": 0
+          }
+        }
+      },
+      "SubjectUnitReview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "visible",
+          "available",
+          "mistakes_count",
+          "reason"
+        ],
+        "properties": {
+          "visible": {
+            "type": "boolean"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "mistakes_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
           }
         }
       }

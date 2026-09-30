@@ -53,8 +53,10 @@ function api_activity_from_action_key(string $actionKey): array
         return ['activity_type' => 'speed_test', 'activity_mode' => 'speed'];
     }
     if (str_contains($normalized, 'mistake')
-        || str_contains($normalized, 'error')
-        || str_contains($normalized, 'review')) {
+        || str_contains($normalized, 'error')) {
+        return ['activity_type' => 'smart_review', 'activity_mode' => 'review'];
+    }
+    if (str_contains($normalized, 'review')) {
         return ['activity_type' => 'review', 'activity_mode' => 'review'];
     }
     if (str_contains($normalized, 'test')
@@ -618,6 +620,34 @@ function api_activity_start_guarded(
     try {
         if ($ownsTransaction) {
             $pdo->beginTransaction();
+        }
+
+        $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
+        if (api_activity_table_exists($pdo, 'api_activity_sessions')) {
+            $existing = api_activity_fetch_idempotency($pdo, $studentId, $keyHash, true);
+            if ($existing) {
+                if (!hash_equals((string)$existing['request_hash'], $requestHash)) {
+                    api_activity_reject(
+                        'idempotency_key_conflict',
+                        'استُخدم مفتاح البدء لطلب مختلف.',
+                        409,
+                    );
+                }
+                $result = api_activity_response_from_row($existing, true);
+                if ($ownsTransaction && $pdo->inTransaction()) {
+                    $pdo->commit();
+                }
+                return $result;
+            }
+
+            $active = api_activity_find_active($pdo, $studentId, $requestHash);
+            if ($active) {
+                $result = api_activity_response_from_row($active, true);
+                if ($ownsTransaction && $pdo->inTransaction()) {
+                    $pdo->commit();
+                }
+                return $result;
+            }
         }
 
         $preview = api_activity_apply_authoritative_policy(

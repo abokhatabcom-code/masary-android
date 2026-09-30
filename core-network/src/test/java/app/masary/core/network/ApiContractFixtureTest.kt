@@ -17,6 +17,7 @@ import app.masary.core.network.question.QuestionSessionPackageResponseDto
 import app.masary.core.network.subjects.StudentSubjectsResponseDto
 import app.masary.core.network.training.StudentTrainingCenterResponseDto
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -134,9 +135,22 @@ class ApiContractFixtureTest {
         )
         assertTrue(questionSession.success)
         assertEquals("activity-session-001", questionSession.data?.session?.id)
-        assertEquals(1, questionSession.data?.questions?.size)
-        assertEquals("choose", questionSession.data?.questions?.first()?.type)
-        assertEquals(4, questionSession.data?.questions?.first()?.payload?.getAsJsonArray("options")?.size())
+        // The contract validator validates the fixture schema; this test verifies that
+        // Gson maps every sample question without freezing a duplicate example count.
+        val fixtureQuestions = JsonParser.parseString(resource("question-session-success.json"))
+            .asJsonObject.getAsJsonObject("data").getAsJsonArray("questions")
+        val mappedQuestions = requireNotNull(questionSession.data).questions
+        assertTrue(mappedQuestions.isNotEmpty())
+        assertEquals(fixtureQuestions.size(), mappedQuestions.size)
+        fixtureQuestions.forEachIndexed { index, fixtureQuestion ->
+            val raw = fixtureQuestion.asJsonObject
+            val mapped = mappedQuestions[index]
+            assertEquals(raw.get("id").asString, mapped.id)
+            assertEquals(raw.get("type").asString, mapped.type)
+            assertEquals(raw.get("prompt").asString, mapped.prompt)
+            assertEquals(raw.getAsJsonObject("payload"), mapped.payload)
+            assertFalse(raw.has("correct_answer"))
+        }
 
         val answer = parse(
             "question-answer-success.json",
@@ -154,12 +168,29 @@ class ApiContractFixtureTest {
             QuestionFinishResponseDto::class.java,
         )
         assertTrue(finish.success)
-        assertEquals("activity-session-001", finish.data?.sessionId)
-        assertEquals("completed", finish.data?.status)
-        assertEquals(8, finish.data?.result?.correctAnswers)
-        assertEquals(2, finish.data?.result?.incorrectAnswers)
-        assertEquals(80, finish.data?.result?.scorePercent)
-        assertFalse(finish.data?.confirmedDelta?.available == true)
+        val finishData = requireNotNull(finish.data)
+        val fixtureFinish = JsonParser.parseString(resource("question-finish-success.json"))
+            .asJsonObject.getAsJsonObject("data")
+        val fixtureScore = fixtureFinish.getAsJsonObject("result")
+        val fixtureDelta = fixtureFinish.getAsJsonObject("confirmed_delta")
+        assertEquals(fixtureFinish.get("session_id").asString, finishData.sessionId)
+        assertEquals(fixtureFinish.get("status").asString, finishData.status)
+        assertEquals(fixtureScore.get("correct_answers").asInt, finishData.result.correctAnswers)
+        assertEquals(fixtureScore.get("partial_answers").asInt, finishData.result.partialAnswers)
+        assertEquals(fixtureScore.get("incorrect_answers").asInt, finishData.result.incorrectAnswers)
+        assertEquals(fixtureScore.get("total_questions").asInt, finishData.result.totalQuestions)
+        assertEquals(fixtureScore.get("score_percent").asInt, finishData.result.scorePercent)
+        assertEquals(fixtureScore.get("xp_earned").asDouble, finishData.result.xpEarned)
+        assertEquals(fixtureDelta.get("available").asBoolean, finishData.confirmedDelta.available)
+        assertEquals(
+            fixtureDelta.getAsJsonObject("profile").get("global_xp").asInt,
+            finishData.confirmedDelta.profile?.globalXp,
+        )
+        assertEquals(fixtureDelta.getAsJsonArray("subjects").size(), finishData.confirmedDelta.subjects.size)
+        assertEquals(
+            fixtureFinish.getAsJsonObject("policy").get("pass_percent").asInt,
+            finishData.policy.passPercent,
+        )
     }
 
     @Test

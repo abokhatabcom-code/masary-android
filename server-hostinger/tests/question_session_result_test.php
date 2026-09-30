@@ -105,6 +105,20 @@ $pdo->exec("CREATE TABLE api_activity_results(
     UNIQUE(user_id,public_session_id)
 )");
 
+$pdo->exec("CREATE TABLE student_profile_stats(
+    student_id INTEGER PRIMARY KEY,
+    global_xp REAL NOT NULL DEFAULT 0,
+    gems INTEGER NOT NULL DEFAULT 0,
+    streak_days INTEGER NOT NULL DEFAULT 0
+)");
+$pdo->exec("CREATE TABLE student_subject_state(
+    student_id INTEGER NOT NULL,
+    subject_version_id INTEGER NOT NULL,
+    subject_xp REAL NOT NULL DEFAULT 0,
+    hearts INTEGER NOT NULL DEFAULT 3,
+    PRIMARY KEY(student_id,subject_version_id)
+)");
+
 $pdo->exec("INSERT INTO choose_questions VALUES
     (1,12,'السؤال الأول','أ','ب','ج','د','a',1),
     (2,12,'السؤال الثاني','أ','ب','ج','د','b',1)");
@@ -129,7 +143,7 @@ foreach ([
         null,
         null,
         'choose_test',
-        'practice',
+        'learn',
         'subject',
         null,
         $status,
@@ -203,8 +217,24 @@ result_check($result['result']['incorrect_answers'] === 1, 'Incorrect answer cou
 result_check($result['result']['total_questions'] === 2, 'Result total is wrong.');
 result_check($result['result']['score_percent'] === 50, 'Score percent is wrong.');
 result_check(
-    ($result['confirmed_delta']['available'] ?? true) === false,
-    'Rewards must remain unavailable until an authoritative rule is proven.',
+    ($result['confirmed_delta']['available'] ?? false) === true,
+    'Confirmed reward delta must be available after authoritative finish.',
+);
+result_check(
+    abs((float)($result['result']['xp_earned'] ?? -1) - 10.0) < 0.0001,
+    '50 percent with learn_xp_max=20 must award 10 XP.',
+);
+result_check(
+    abs((float)$pdo->query(
+        'SELECT global_xp FROM student_profile_stats WHERE student_id=42',
+    )->fetchColumn() - 10.0) < 0.0001,
+    'Global XP was not updated.',
+);
+result_check(
+    abs((float)$pdo->query(
+        'SELECT subject_xp FROM student_subject_state WHERE student_id=42 AND subject_version_id=12',
+    )->fetchColumn() - 10.0) < 0.0001,
+    'Subject XP was not updated.',
 );
 result_check(
     (int)$pdo->query('SELECT COUNT(*) FROM api_activity_results')->fetchColumn() === 1,
@@ -236,6 +266,12 @@ $replayed = api_question_result_finish(
 result_check(
     $replayed['replayed'] === true,
     'Stored final result must replay even after activity expiry.',
+);
+result_check(
+    abs((float)$pdo->query(
+        'SELECT global_xp FROM student_profile_stats WHERE student_id=42',
+    )->fetchColumn() - 10.0) < 0.0001,
+    'Replayed finish must not award XP twice.',
 );
 
 $secondKey = api_question_result_finish(

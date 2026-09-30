@@ -17,7 +17,10 @@ import app.masary.core.network.question.QuestionConfirmedProfileDeltaDto
 import app.masary.core.network.question.QuestionConfirmedSubjectDeltaDto
 import app.masary.core.network.question.QuestionFinishRequestDto
 import app.masary.core.network.question.QuestionFinishResultDto
+import app.masary.core.network.question.QuestionActiveTimePolicyDto
+import app.masary.core.network.question.QuestionResultPolicyDto
 import app.masary.core.network.question.QuestionSessionPackageDataDto
+import app.masary.core.network.question.QuestionSessionPolicyDto
 import app.masary.core.network.question.QuestionSessionQuestionDto
 import app.masary.core.network.question.StudentQuestionSessionApi
 import app.masary.feature.questionsession.domain.ConnectItem
@@ -29,10 +32,14 @@ import app.masary.feature.questionsession.domain.QuestionOption
 import app.masary.feature.questionsession.domain.QuestionPayload
 import app.masary.feature.questionsession.domain.QuestionSessionException
 import app.masary.feature.questionsession.domain.QuestionSessionExpiredException
+import app.masary.feature.questionsession.domain.QuestionActiveTimePolicy
+import app.masary.feature.questionsession.domain.QuestionResultPolicy
+import app.masary.feature.questionsession.domain.QuestionReviewItem
 import app.masary.feature.questionsession.domain.QuestionSessionInfo
 import app.masary.feature.questionsession.domain.QuestionSessionNetworkException
 import app.masary.feature.questionsession.domain.QuestionSessionNotFoundException
 import app.masary.feature.questionsession.domain.QuestionSessionPackage
+import app.masary.feature.questionsession.domain.QuestionSessionPolicy
 import app.masary.feature.questionsession.domain.QuestionSessionProgress
 import app.masary.feature.questionsession.domain.QuestionSessionRepository
 import app.masary.feature.questionsession.domain.QuestionSessionResult
@@ -50,6 +57,7 @@ import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 
 private const val QUESTION_RESULT_DOCUMENT_KIND = "question_session_result"
+private const val QUESTION_ACTIVE_TIME_DOCUMENT_KIND = "question_session_active_time"
 
 class NetworkQuestionSessionRepository(
     private val questionApi: StudentQuestionSessionApi,
@@ -100,7 +108,9 @@ class NetworkQuestionSessionRepository(
             val entity = localStore.readQuestionSession(studentId, safeSessionId) ?: return null
             val data = gson.fromJson(entity.packageJson, QuestionSessionPackageDataDto::class.java)
                 ?: return null
-            data.toDomain().copy(
+            val mapped = data.toDomain()
+            mapped.copy(
+                session = mapped.session.copy(status = entity.status),
                 progress = QuestionSessionProgress(
                     currentIndex = entity.currentQuestionIndex.coerceIn(0, data.questions.size),
                     totalQuestions = data.questions.size,
@@ -142,7 +152,8 @@ class NetworkQuestionSessionRepository(
             }
 
             val existingAnswers = localStore.readQuestionAnswers(studentId, safeSessionId)
-            if (existingAnswers.any { it.questionId == safeQuestionId }) {
+            val existingAnswer = existingAnswers.firstOrNull { it.questionId == safeQuestionId }
+            if (existingAnswer != null && !packageData.policy.allowBack) {
                 return@runCatching Unit
             }
 
@@ -187,7 +198,9 @@ class NetworkQuestionSessionRepository(
                     updatedAtEpochMillis = now,
                 ),
             )
-            runCatching(onPendingAnswerSaved)
+            if (!packageData.policy.allowBack || completed) {
+                runCatching(onPendingAnswerSaved)
+            }
             Unit
         }.recoverCatching { error ->
             if (error is CancellationException) throw error
@@ -204,10 +217,38 @@ class NetworkQuestionSessionRepository(
 
         return runCatching {
             localStore.recoverInterruptedOperations(studentId)
-            val ready = localStore.readyOperations(
-                studentId = studentId,
-                limit = 50,
-            ).filter { it.type == "question_answer" }
+            val ready = buildList {
+                for (operation in localStore.readyOperations(
+                    studentId = studentId,
+                    limit = 50,
+                )) {
+                    if (operation.type != "question_answer") continue
+
+                    val request = runCatching { operation.toAnswerRequest() }.getOrNull()
+                    if (request == null) {
+                        add(operation)
+                        continue
+                    }
+                    val session = localStore.readQuestionSession(studentId, request.sessionId)
+                    if (session == null) {
+                        add(operation)
+                        continue
+                    }
+                    val packageData = runCatching {
+                        gson.fromJson(
+                            session.packageJson,
+                            QuestionSessionPackageDataDto::class.java,
+                        )
+                    }.getOrNull()
+                    if (packageData == null ||
+                        !packageData.policy.allowBack ||
+                        session.status == "completed_local" ||
+                        session.status == "completed_confirmed"
+                    ) {
+                        add(operation)
+                    }
+                }
+            }
 
             if (ready.isEmpty()) {
                 return@runCatching QuestionAnswerSyncSummary(
@@ -276,6 +317,96 @@ class NetworkQuestionSessionRepository(
         }
     }
 
+    override suspend fun markCompletedLocal(
+        sessionId: String,
+        allowIncomplete: Boolean,
+    ): Result<Unit> {
+        val safeSessionId = sessionId.trim()
+        if (safeSessionId.length !in 8..128) {
+            return Result.failure(QuestionSessionNotFoundException())
+        }
+        val studentId = sessionManager.session.first()?.id
+            ?: return Result.failure(QuestionSessionExpiredException("انتهت جلسة الدخول."))
+
+        return runCatching {
+            val session = localStore.readQuestionSession(studentId, safeSessionId)
+                ?: throw QuestionSessionNotFoundException("الجلسة غير محفوظة على هذا الجهاز.")
+            val answers = localStore.readQuestionAnswers(studentId, safeSessionId)
+            val packageData = gson.fromJson(
+                session.packageJson,
+                QuestionSessionPackageDataDto::class.java,
+            ) ?: throw QuestionSessionServiceException("تعذر قراءة حزمة الجلسة المحلية.")
+            if (!allowIncomplete &&
+                answers.map { it.questionId }.toSet().size < packageData.questions.size
+            ) {
+                throw QuestionSessionServiceException("أكمل جميع الأسئلة قبل إنهاء الاختبار.")
+            }
+            val now = nowEpochMillis()
+            localStore.saveQuestionSession(
+                session.copy(
+                    currentQuestionIndex = packageData.questions.size,
+                    status = "completed_local",
+                    updatedAtEpochMillis = now,
+                    completedAtEpochMillis = now,
+                ),
+            )
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw when (error) {
+                is QuestionSessionException -> error
+                else -> QuestionSessionServiceException("تعذر تثبيت إكمال الجلسة محليًا.", error)
+            }
+        }
+    }
+
+    override suspend fun loadActiveSeconds(sessionId: String): Int? {
+        val safeSessionId = sessionId.trim()
+        if (safeSessionId.length !in 8..128) return null
+        val studentId = sessionManager.session.first()?.id ?: return null
+        return try {
+            val document = localStore.readDocument(
+                studentId = studentId,
+                kind = QUESTION_ACTIVE_TIME_DOCUMENT_KIND,
+                documentId = safeSessionId,
+            ) ?: return null
+            val payload = gson.fromJson(document.payloadJson, JsonObject::class.java)
+                ?: return null
+            payload.get("seconds")?.takeUnless { it.isJsonNull }?.asInt
+                ?.coerceIn(0, 86_400)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun saveActiveSeconds(
+        sessionId: String,
+        seconds: Int,
+    ): Result<Unit> {
+        val safeSessionId = sessionId.trim()
+        if (safeSessionId.length !in 8..128) {
+            return Result.failure(QuestionSessionNotFoundException())
+        }
+        val studentId = sessionManager.session.first()?.id
+            ?: return Result.failure(QuestionSessionExpiredException("انتهت جلسة الدخول."))
+        return runCatching {
+            val payload = JsonObject().apply {
+                addProperty("seconds", seconds.coerceIn(0, 86_400))
+            }
+            localStore.putDocument(
+                studentId = studentId,
+                kind = QUESTION_ACTIVE_TIME_DOCUMENT_KIND,
+                documentId = safeSessionId,
+                payloadJson = gson.toJson(payload),
+                savedAtEpochMillis = nowEpochMillis(),
+            )
+        }.recoverCatching { error ->
+            if (error is CancellationException) throw error
+            throw QuestionSessionServiceException("تعذر حفظ وقت النشاط محليًا.", error)
+        }
+    }
+
     override suspend fun loadResult(sessionId: String): QuestionSessionResult? {
         val safeSessionId = sessionId.trim()
         if (safeSessionId.length !in 8..128) return null
@@ -311,7 +442,10 @@ class NetworkQuestionSessionRepository(
             if (tokens.accessTokenNeedsRefresh(nowEpochSeconds())) {
                 tokens = refreshTokens(tokens.refreshToken)
             }
-            val request = QuestionFinishRequestDto(safeSessionId)
+            val request = QuestionFinishRequestDto(
+                sessionId = safeSessionId,
+                activeSeconds = loadActiveSeconds(safeSessionId),
+            )
             val idempotencyKey = stableFinishOperationId(studentId, safeSessionId)
             val data = try {
                 requestFinish(tokens, idempotencyKey, request)
@@ -395,9 +529,15 @@ class NetworkQuestionSessionRepository(
             result.completedAt.isBlank() ||
             result.score.totalQuestions <= 0 ||
             result.score.correctAnswers < 0 ||
+            result.score.partialAnswers < 0 ||
             result.score.incorrectAnswers < 0 ||
             result.score.correctAnswers + result.score.incorrectAnswers != result.score.totalQuestions ||
-            result.score.scorePercent !in 0..100
+            result.score.scorePercent !in 0..100 ||
+            result.score.passPercent !in 1..100 ||
+            result.score.xpEarned < 0.0 ||
+            result.score.heartsSpent < 0 ||
+            result.score.durationSeconds < 0 ||
+            (result.score.attemptId != null && result.score.attemptId <= 0)
         ) {
             throw QuestionSessionServiceException("نتيجة جلسة الأسئلة غير صالحة.")
         }
@@ -606,6 +746,7 @@ internal fun validateQuestionTypes(
             QuestionType.TrueFalse,
             QuestionType.Connect,
             QuestionType.Fill,
+            QuestionType.Direct,
         )
         else -> throw QuestionSessionSourceUnavailableException()
     }
@@ -676,10 +817,31 @@ internal fun QuestionFinishResultDto.toDomain(): QuestionSessionResult =
         replayed = replayed,
         score = QuestionSessionScore(
             correctAnswers = result.correctAnswers,
+            partialAnswers = result.partialAnswers,
             incorrectAnswers = result.incorrectAnswers,
             totalQuestions = result.totalQuestions,
             scorePercent = result.scorePercent,
+            passed = result.passed,
+            passPercent = result.passPercent,
+            xpEarned = result.xpEarned,
+            heartsSpent = result.heartsSpent,
+            timedOut = result.timedOut,
+            durationSeconds = result.durationSeconds,
+            attemptId = result.attemptId,
         ),
+        policy = policy.toDomain(),
+        review = review.map { item ->
+            QuestionReviewItem(
+                index = item.index.coerceAtLeast(1),
+                questionId = item.questionId.trim(),
+                type = item.type.trim(),
+                prompt = item.prompt.trim(),
+                score = item.score.coerceIn(0.0, 1.0),
+                status = item.status.trim(),
+                studentAnswer = item.studentAnswer.trim(),
+                correctAnswer = item.correctAnswer?.trim()?.takeIf(String::isNotBlank),
+            )
+        },
         confirmedDeltaAvailable = confirmedDelta.available,
         confirmedDeltaReason = confirmedDelta.reason.trim(),
     )
@@ -698,14 +860,53 @@ internal fun QuestionSessionPackageDataDto.toDomain(): QuestionSessionPackage {
             lessonId = session.lessonId,
             activityType = session.activityType.trim(),
             activityMode = session.activityMode.trim(),
+            source = session.source.trim(),
+            guideStepId = session.guideStepId,
+            startedAt = session.startedAt.trim(),
+            startedAtEpochSeconds = session.startedAtEpochSeconds,
         ),
         progress = QuestionSessionProgress(
             currentIndex = progress.currentIndex,
             totalQuestions = progress.totalQuestions,
         ),
+        policy = policy.toDomain(),
         questions = domainQuestions,
     )
 }
+
+private fun QuestionSessionPolicyDto.toDomain(): QuestionSessionPolicy =
+    QuestionSessionPolicy(
+        allowBack = allowBack,
+        allowSkip = allowSkip,
+        revealAnswers = revealAnswers,
+        tfReasonOnlyOnFalse = tfReasonOnlyOnFalse,
+        passPercent = passPercent.coerceIn(1, 100),
+        timerSeconds = timerSeconds.coerceIn(0, 3600),
+        activeTime = activeTime.toDomain(),
+        result = result.toDomain(),
+    )
+
+private fun QuestionActiveTimePolicyDto.toDomain(): QuestionActiveTimePolicy =
+    QuestionActiveTimePolicy(
+        enabled = enabled,
+        idleSeconds = idleSeconds.coerceIn(5, 900),
+        pingInterval = pingInterval.coerceIn(5, 60),
+    )
+
+private fun QuestionResultPolicyDto.toDomain(): QuestionResultPolicy =
+    QuestionResultPolicy(
+        showPassBadge = showPassBadge,
+        showScore = showScore,
+        showCountsCorrect = showCountsCorrect,
+        showCountsPartial = showCountsPartial,
+        showCountsWrong = showCountsWrong,
+        showXp = showXp,
+        showHeartsSpent = showHeartsSpent,
+        showRetryButton = showRetryButton,
+        showBackButton = showBackButton,
+        showReviewDetails = showReviewDetails,
+        showMistakesButton = showMistakesButton,
+    )
 
 private fun QuestionSessionQuestionDto.toDomain(): QuestionItem {
     val stableType = QuestionType.fromWire(type)
@@ -714,14 +915,37 @@ private fun QuestionSessionQuestionDto.toDomain(): QuestionItem {
     val safePrompt = prompt.trim().ifBlank { throw QuestionSessionServiceException("نص السؤال مفقود.") }
     val parsedPayload = when (stableType) {
         QuestionType.Choose,
-        QuestionType.TrueFalse,
         QuestionType.Speed,
         -> QuestionPayload.Options(payload.readOptions())
+
+        QuestionType.TrueFalse -> {
+            val options = payload.readOptions()
+            val requiresReason = payload.boolean("requires_reason")
+            val reasons = if (requiresReason) payload.readOptions("reasons") else emptyList()
+            if (requiresReason && reasons.isEmpty()) {
+                throw QuestionSessionServiceException("أسباب سؤال صح أو خطأ غير مكتملة.")
+            }
+            QuestionPayload.TrueFalse(
+                options = options,
+                requiresReason = requiresReason,
+                reasonOnlyOnFalse = payload.boolean("reason_only_on_false"),
+                reasons = reasons,
+            )
+        }
 
         QuestionType.Fill -> {
             val mode = payload.string("input_mode")
             if (mode != "text") throw QuestionSessionServiceException("صيغة سؤال الإكمال غير مدعومة.")
-            QuestionPayload.Fill(mode)
+            QuestionPayload.Fill(
+                inputMode = mode,
+                blanksCount = payload.int("blanks_count").coerceIn(1, 4),
+            )
+        }
+
+        QuestionType.Direct -> {
+            val mode = payload.string("input_mode")
+            if (mode != "text") throw QuestionSessionServiceException("صيغة السؤال المباشر غير مدعومة.")
+            QuestionPayload.Direct(mode)
         }
 
         QuestionType.Connect -> {
@@ -741,8 +965,8 @@ private fun QuestionSessionQuestionDto.toDomain(): QuestionItem {
     )
 }
 
-private fun JsonObject.readOptions(): List<QuestionOption> {
-    val array = getAsJsonArray("options") ?: JsonArray()
+private fun JsonObject.readOptions(key: String = "options"): List<QuestionOption> {
+    val array = getAsJsonArray(key) ?: JsonArray()
     val options = array.map { element ->
         val item = element.asJsonObject
         QuestionOption(
@@ -787,6 +1011,9 @@ private fun QuestionAnswerInput.toPendingJson(): String {
             if (safeOption.isBlank()) throw QuestionSessionServiceException("لم يتم اختيار إجابة.")
             payload.addProperty("kind", "choice")
             payload.addProperty("option_id", safeOption)
+            reasonId?.trim()?.takeIf(String::isNotBlank)?.let {
+                payload.addProperty("reason_id", it)
+            }
         }
 
         is QuestionAnswerInput.Text -> {
@@ -794,6 +1021,18 @@ private fun QuestionAnswerInput.toPendingJson(): String {
             if (safeText.isBlank()) throw QuestionSessionServiceException("أدخل الإجابة أولًا.")
             payload.addProperty("kind", "text")
             payload.addProperty("text", safeText)
+        }
+
+        is QuestionAnswerInput.Fill -> {
+            if (values.isEmpty() || values.size > 4) {
+                throw QuestionSessionServiceException("إجابات الفراغات غير مكتملة.")
+            }
+            val array = JsonArray()
+            values.forEach { value ->
+                array.add(value.trim())
+            }
+            payload.addProperty("kind", "fill")
+            payload.add("blanks", array)
         }
 
         is QuestionAnswerInput.Connections -> {
@@ -817,6 +1056,10 @@ private fun QuestionAnswerInput.toPendingJson(): String {
             }
             payload.addProperty("kind", "connections")
             payload.add("pairs", array)
+        }
+
+        QuestionAnswerInput.Skip -> {
+            payload.addProperty("kind", "skip")
         }
     }
     return Gson().toJson(payload)
@@ -845,3 +1088,9 @@ private fun stableFinishOperationId(
 
 private fun JsonObject.string(key: String): String =
     get(key)?.takeUnless { it.isJsonNull }?.asString?.trim().orEmpty()
+
+private fun JsonObject.boolean(key: String): Boolean =
+    get(key)?.takeUnless { it.isJsonNull }?.asBoolean ?: false
+
+private fun JsonObject.int(key: String): Int =
+    get(key)?.takeUnless { it.isJsonNull }?.asInt ?: 1

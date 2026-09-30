@@ -104,48 +104,12 @@ function api_question_session_question_type(string $activityType): ?string
 
 function api_question_session_default_test_settings(): array
 {
-    return [
-        'questions_per_attempt' => 10,
-        'allowed_types' => ['tf', 'mcq', 'fill', 'direct', 'match'],
-        'allowed_difficulties' => ['easy', 'medium', 'hard'],
-        'question_order' => 'random',
-        'shuffle_mcq_options' => 1,
-        'shuffle_match_right' => 1,
-    ];
+    return api_test_policy_defaults();
 }
 
 function api_question_session_merge_test_settings(array $base, array $row): array
 {
-    if ($row === []) {
-        return $base;
-    }
-    $types = json_decode((string)($row['allowed_types_json'] ?? '[]'), true);
-    $difficulties = json_decode((string)($row['allowed_difficulties_json'] ?? '[]'), true);
-
-    $base['questions_per_attempt'] = max(
-        1,
-        min(
-            API_QUESTION_SESSION_MAX_QUESTIONS,
-            (int)($row['questions_per_attempt'] ?? $base['questions_per_attempt']),
-        ),
-    );
-    if (is_array($types) && $types !== []) {
-        $base['allowed_types'] = array_values(array_unique(array_map('strval', $types)));
-    }
-    if (is_array($difficulties) && $difficulties !== []) {
-        $base['allowed_difficulties'] = array_values(
-            array_unique(array_map('strval', $difficulties)),
-        );
-    }
-    $base['question_order'] = (string)($row['question_order'] ?? $base['question_order']) === 'fixed'
-        ? 'fixed'
-        : 'random';
-    foreach (['shuffle_mcq_options', 'shuffle_match_right'] as $key) {
-        if (array_key_exists($key, $row)) {
-            $base[$key] = (int)$row[$key] === 1 ? 1 : 0;
-        }
-    }
-    return $base;
+    return api_test_policy_merge($base, $row);
 }
 
 function api_question_session_test_setting_row(
@@ -154,45 +118,12 @@ function api_question_session_test_setting_row(
     string $keyColumn,
     int $keyValue,
 ): array {
-    if ($keyValue <= 0 || !in_array($table, ['version_test_settings', 'unit_test_settings'], true)) {
-        return [];
-    }
-    try {
-        $statement = $pdo->prepare(
-            'SELECT * FROM ' . $table . ' WHERE ' . $keyColumn . '=? LIMIT 1',
-        );
-        $statement->execute([$keyValue]);
-        return $statement->fetch(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable) {
-        return [];
-    }
+    return api_test_policy_row($pdo, $table, $keyColumn, $keyValue);
 }
 
 function api_question_session_lesson_settings(PDO $pdo, array $session): array
 {
-    $settings = api_question_session_default_test_settings();
-    $subjectVersionId = (int)($session['subject_version_id'] ?? 0);
-    $unitId = (int)($session['unit_id'] ?? 0);
-
-    $settings = api_question_session_merge_test_settings(
-        $settings,
-        api_question_session_test_setting_row(
-            $pdo,
-            'version_test_settings',
-            'subject_version_id',
-            $subjectVersionId,
-        ),
-    );
-    $settings = api_question_session_merge_test_settings(
-        $settings,
-        api_question_session_test_setting_row(
-            $pdo,
-            'unit_test_settings',
-            'unit_id',
-            $unitId,
-        ),
-    );
-    return $settings;
+    return api_test_policy_for_session($pdo, $session);
 }
 
 function api_question_session_lesson_allowed_question_types(array $settings): array
@@ -201,6 +132,7 @@ function api_question_session_lesson_allowed_question_types(array $settings): ar
         'mcq' => 'choose',
         'tf' => 'truefalse',
         'fill' => 'fill',
+        'direct' => 'direct',
         'match' => 'connect',
     ];
     $allowed = [];
@@ -422,6 +354,7 @@ function api_question_session_normalized_types(string $questionType): array
         'truefalse' => ['tf', 'truefalse', 'true_false'],
         'connect' => ['match', 'matching', 'connect'],
         'fill' => ['fill', 'fill_blank', 'completion'],
+        'direct' => ['direct', 'short_answer', 'text'],
         // Production speed tests draw from ordinary MCQ rows and add timing at the client/session layer.
         'speed' => ['mcq', 'choose', 'multiple_choice', 'choice', 'speed', 'speed_test'],
         default => [],
@@ -620,48 +553,141 @@ function api_question_session_normalized_mcq_options(
     }
 }
 
-function api_question_session_normalized_tf_ready(PDO $pdo, string $questionId): bool
-{
+function api_question_session_normalized_tf_payload(
+    PDO $pdo,
+    string $sessionId,
+    string $questionId,
+    ?array $settings = null,
+): ?array {
     $columns = api_question_session_columns($pdo, 'question_tf');
     if (!isset($columns['question_id'], $columns['correct_value'])) {
-        return false;
+        return null;
     }
     try {
-        $statement = $pdo->prepare('SELECT 1 FROM question_tf WHERE question_id=? LIMIT 1');
+        $select = isset($columns['requires_reason'])
+            ? 'requires_reason'
+            : '0 AS requires_reason';
+        $statement = $pdo->prepare(
+            'SELECT ' . $select . ' FROM question_tf WHERE question_id=? LIMIT 1',
+        );
         $statement->execute([$questionId]);
-        return (bool)$statement->fetchColumn();
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+
+        $requiresReason = (int)($row['requires_reason'] ?? 0) === 1;
+        $reasons = [];
+        if ($requiresReason) {
+            $reasonColumns = api_question_session_columns($pdo, 'question_tf_reasons');
+            if (!isset($reasonColumns['id'], $reasonColumns['question_id'], $reasonColumns['label'])) {
+                return null;
+            }
+            $where = 'question_id=?';
+            if (isset($reasonColumns['is_active'])) {
+                $where .= ' AND is_active=1';
+            }
+            $order = isset($reasonColumns['sort_order'])
+                ? 'sort_order ASC,id ASC'
+                : 'id ASC';
+            $reasonStatement = $pdo->prepare(
+                'SELECT id,label FROM question_tf_reasons WHERE ' . $where . ' ORDER BY ' . $order,
+            );
+            $reasonStatement->execute([$questionId]);
+            foreach ($reasonStatement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $reason) {
+                $id = (string)($reason['id'] ?? '');
+                $label = trim((string)($reason['label'] ?? ''));
+                if ($id === '' || $label === '') continue;
+                $reasons[] = [
+                    'id' => api_question_session_opaque_id(
+                        $sessionId,
+                        'questions',
+                        $questionId,
+                        'tf-reason:' . $id,
+                    ),
+                    'text' => $label,
+                ];
+            }
+            if ($reasons === []) {
+                return null;
+            }
+        }
+
+        return [
+            'options' => [
+                [
+                    'id' => api_question_session_opaque_id($sessionId, 'questions', $questionId, 'true'),
+                    'text' => 'صح',
+                ],
+                [
+                    'id' => api_question_session_opaque_id($sessionId, 'questions', $questionId, 'false'),
+                    'text' => 'خطأ',
+                ],
+            ],
+            'requires_reason' => $requiresReason,
+            'reason_only_on_false' =>
+                (int)($settings['tf_reason_only_on_false'] ?? 1) === 1,
+            'reasons' => $reasons,
+        ];
     } catch (Throwable) {
-        return false;
+        return null;
     }
 }
 
-function api_question_session_normalized_fill_ready(PDO $pdo, string $questionId): bool
-{
+
+function api_question_session_normalized_fill_payload(
+    PDO $pdo,
+    string $questionId,
+): ?array {
     $fillColumns = api_question_session_columns($pdo, 'question_fill');
     $answerColumns = api_question_session_columns($pdo, 'question_fill_answers');
     if (
         !isset($fillColumns['question_id'], $fillColumns['blanks_count'])
         || !isset($answerColumns['question_id'], $answerColumns['blank_index'], $answerColumns['answer_text'])
     ) {
-        return false;
+        return null;
     }
     try {
         $statement = $pdo->prepare('SELECT blanks_count FROM question_fill WHERE question_id=? LIMIT 1');
         $statement->execute([$questionId]);
-        if ((int)$statement->fetchColumn() !== 1) {
-            // Phase 13 Android contract currently carries one text answer per fill question.
-            return false;
+        $blanks = max(1, min(4, (int)$statement->fetchColumn()));
+        for ($index = 1; $index <= $blanks; $index++) {
+            $answer = $pdo->prepare(
+                "SELECT COUNT(*) FROM question_fill_answers "
+                . "WHERE question_id=? AND blank_index=? AND TRIM(COALESCE(answer_text,''))<>''",
+            );
+            $answer->execute([$questionId, $index]);
+            if ((int)$answer->fetchColumn() <= 0) {
+                return null;
+            }
         }
-        $answer = $pdo->prepare(
-            "SELECT COUNT(*) FROM question_fill_answers "
-            . "WHERE question_id=? AND blank_index=1 AND TRIM(COALESCE(answer_text,''))<>''",
+        return [
+            'input_mode' => 'text',
+            'blanks_count' => $blanks,
+        ];
+    } catch (Throwable) {
+        return null;
+    }
+}
+
+function api_question_session_normalized_direct_ready(PDO $pdo, string $questionId): bool
+{
+    $columns = api_question_session_columns($pdo, 'question_direct');
+    if (!isset($columns['question_id'], $columns['answer_text'])) {
+        return false;
+    }
+    try {
+        $statement = $pdo->prepare(
+            "SELECT answer_text FROM question_direct "
+            . "WHERE question_id=? AND TRIM(COALESCE(answer_text,''))<>'' LIMIT 1",
         );
-        $answer->execute([$questionId]);
-        return (int)$answer->fetchColumn() > 0;
+        $statement->execute([$questionId]);
+        return $statement->fetchColumn() !== false;
     } catch (Throwable) {
         return false;
     }
 }
+
 
 function api_question_session_normalized_match_pairs(
     PDO $pdo,
@@ -774,21 +800,24 @@ function api_question_session_normalized_questions(
             }
             $payload['options'] = $options;
         } elseif ($questionType === 'truefalse') {
-            if (!api_question_session_normalized_tf_ready($pdo, $rowId)) {
+            $tfPayload = api_question_session_normalized_tf_payload(
+                $pdo,
+                $sessionId,
+                $rowId,
+                $settings,
+            );
+            if ($tfPayload === null) {
                 continue;
             }
-            $payload['options'] = [
-                [
-                    'id' => api_question_session_opaque_id($sessionId, 'questions', $rowId, 'true'),
-                    'text' => 'صح',
-                ],
-                [
-                    'id' => api_question_session_opaque_id($sessionId, 'questions', $rowId, 'false'),
-                    'text' => 'خطأ',
-                ],
-            ];
+            $payload = $tfPayload;
         } elseif ($questionType === 'fill') {
-            if (!api_question_session_normalized_fill_ready($pdo, $rowId)) {
+            $fillPayload = api_question_session_normalized_fill_payload($pdo, $rowId);
+            if ($fillPayload === null) {
+                continue;
+            }
+            $payload = $fillPayload;
+        } elseif ($questionType === 'direct') {
+            if (!api_question_session_normalized_direct_ready($pdo, $rowId)) {
                 continue;
             }
             $payload['input_mode'] = 'text';
@@ -817,6 +846,207 @@ function api_question_session_normalized_questions(
         }
         $questions[] = $question;
     }
+    return $questions;
+}
+
+function api_question_session_review_source_ids(PDO $pdo, array $session): array
+{
+    if (!api_activity_table_exists($pdo, 'student_unit_question_state')) {
+        return [];
+    }
+    $studentId = (int)($session['user_id'] ?? 0);
+    $subjectVersionId = (int)($session['subject_version_id'] ?? 0);
+    $unitId = (int)($session['unit_id'] ?? 0);
+    if ($studentId <= 0 || $subjectVersionId <= 0) {
+        return [];
+    }
+
+    try {
+        $where = [
+            's.student_id=?',
+            'u.subject_version_id=?',
+            'COALESCE(s.last_score,0)<0.999',
+        ];
+        $params = [$studentId, $subjectVersionId];
+        if ($unitId > 0) {
+            $where[] = 's.unit_id=?';
+            $params[] = $unitId;
+        }
+        $order = 's.updated_at DESC,s.question_id ASC';
+        $statement = $pdo->prepare(
+            'SELECT s.question_id FROM student_unit_question_state s '
+            . 'JOIN units u ON u.id=s.unit_id '
+            . 'WHERE ' . implode(' AND ', $where)
+            . ' ORDER BY ' . $order,
+        );
+        $statement->execute($params);
+        return array_values(array_unique(array_filter(array_map(
+            'intval',
+            $statement->fetchAll(PDO::FETCH_COLUMN) ?: [],
+        ), static fn(int $id): bool => $id > 0)));
+    } catch (Throwable) {
+        return [];
+    }
+}
+
+function api_question_session_review_questions(PDO $pdo, array $session): array
+{
+    $sourceIds = api_question_session_review_source_ids($pdo, $session);
+    if ($sourceIds === []) {
+        api_error(
+            'question_source_unavailable',
+            'لا توجد أخطاء مؤكدة قابلة للمراجعة الآن.',
+            503,
+        );
+    }
+
+    $settings = api_test_policy_for_session($pdo, $session);
+    $allowedTypes = api_question_session_lesson_allowed_question_types($settings);
+    $rank = array_flip(array_map('strval', $sourceIds));
+    $questions = [];
+
+    foreach ($allowedTypes as $questionType) {
+        $bucket = api_question_session_normalized_questions(
+            $pdo,
+            $session,
+            $questionType,
+            $settings,
+            true,
+        );
+        if (!is_array($bucket)) continue;
+        foreach ($bucket as $question) {
+            $sourceId = (string)($question['_source_id'] ?? '');
+            if ($sourceId !== '' && isset($rank[$sourceId])) {
+                $question['_review_rank'] = (int)$rank[$sourceId];
+                $questions[] = $question;
+            }
+        }
+    }
+
+    if ($questions === []) {
+        api_error(
+            'question_source_unavailable',
+            'أخطاء الطالب لا تطابق أسئلة نشطة مسموحة في إعدادات الاختبار الحالية.',
+            503,
+        );
+    }
+
+    $sessionId = (string)($session['public_session_id'] ?? '');
+    if ((string)($settings['question_order'] ?? 'random') === 'fixed') {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                ((int)($left['_review_rank'] ?? PHP_INT_MAX))
+                <=> ((int)($right['_review_rank'] ?? PHP_INT_MAX)),
+        );
+    } else {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                strcmp(
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'review-order',
+                        (string)($left['_source_id'] ?? ''),
+                    ),
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'review-order',
+                        (string)($right['_source_id'] ?? ''),
+                    ),
+                ),
+        );
+    }
+
+    $limit = max(
+        1,
+        min(
+            API_QUESTION_SESSION_MAX_QUESTIONS,
+            (int)($settings['questions_per_attempt'] ?? 10),
+        ),
+    );
+    $questions = array_slice($questions, 0, $limit);
+    foreach ($questions as &$question) {
+        unset($question['_source_id'], $question['_review_rank']);
+    }
+    unset($question);
+    return $questions;
+}
+
+function api_question_session_regular_review_questions(
+    PDO $pdo,
+    array $session,
+): array {
+    $settings = api_test_policy_for_session($pdo, $session);
+    $allowedQuestionTypes = api_question_session_lesson_allowed_question_types($settings);
+    if ($allowedQuestionTypes === []) {
+        api_error(
+            'question_source_unavailable',
+            'إعدادات المراجعة الحالية لا تسمح بأنواع أسئلة يدعمها تطبيق الطالب.',
+            503,
+        );
+    }
+
+    $questions = [];
+    foreach ($allowedQuestionTypes as $questionType) {
+        $bucket = api_question_session_normalized_questions(
+            $pdo,
+            $session,
+            $questionType,
+            $settings,
+            true,
+        );
+        if (is_array($bucket) && $bucket !== []) {
+            array_push($questions, ...$bucket);
+        }
+    }
+
+    if ($questions === []) {
+        api_error(
+            'question_source_unavailable',
+            'لا توجد أسئلة نشطة مطابقة لنطاق المراجعة وإعدادات الاختبار الحالية.',
+            503,
+        );
+    }
+
+    $sessionId = (string)($session['public_session_id'] ?? '');
+    if ((string)($settings['question_order'] ?? 'random') === 'fixed') {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                ((int)($left['_source_id'] ?? 0)) <=> ((int)($right['_source_id'] ?? 0)),
+        );
+    } else {
+        usort(
+            $questions,
+            static fn(array $left, array $right): int =>
+                strcmp(
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'regular-review-order',
+                        (string)($left['_source_id'] ?? ''),
+                    ),
+                    api_question_session_stable_sort_key(
+                        $sessionId,
+                        'regular-review-order',
+                        (string)($right['_source_id'] ?? ''),
+                    ),
+                ),
+        );
+    }
+
+    $limit = max(
+        1,
+        min(
+            API_QUESTION_SESSION_MAX_QUESTIONS,
+            (int)($settings['questions_per_attempt'] ?? 10),
+        ),
+    );
+    $questions = array_slice($questions, 0, $limit);
+    foreach ($questions as &$question) {
+        unset($question['_source_id']);
+    }
+    unset($question);
     return $questions;
 }
 
@@ -910,6 +1140,12 @@ function api_question_session_questions(PDO $pdo, array $session): array
     $activityType = (string)($session['activity_type'] ?? '');
     if ($activityType === 'lesson_practice') {
         return api_question_session_lesson_practice_questions($pdo, $session);
+    }
+    if ($activityType === 'smart_review') {
+        return api_question_session_review_questions($pdo, $session);
+    }
+    if ($activityType === 'review') {
+        return api_question_session_regular_review_questions($pdo, $session);
     }
 
     $questionType = api_question_session_question_type($activityType);
@@ -1046,10 +1282,35 @@ function api_question_session_answered_count(
     }
 }
 
+function api_question_session_ensure_started(PDO $pdo, array $session): array
+{
+    $startedAt = trim((string)($session['started_at'] ?? ''));
+    if ($startedAt !== '') {
+        return $session;
+    }
+    $id = (int)($session['id'] ?? 0);
+    if ($id <= 0) {
+        return $session;
+    }
+
+    $now = gmdate('Y-m-d H:i:s');
+    $statement = $pdo->prepare(
+        "UPDATE api_activity_sessions SET started_at=?,updated_at=? "
+        . "WHERE id=? AND (started_at IS NULL OR started_at='') "
+        . "AND status IN ('created','in_progress')",
+    );
+    $statement->execute([$now, $now, $id]);
+
+    $read = $pdo->prepare('SELECT * FROM api_activity_sessions WHERE id=? LIMIT 1');
+    $read->execute([$id]);
+    return $read->fetch(PDO::FETCH_ASSOC) ?: $session;
+}
+
 function api_question_session_package(PDO $pdo, array $authSession, string $sessionId): array
 {
     $studentId = (int)($authSession['user_id'] ?? 0);
     $session = api_question_session_owned_row($pdo, $studentId, $sessionId);
+    $session = api_question_session_ensure_started($pdo, $session);
     $questions = api_question_session_questions($pdo, $session);
     $answered = min(
         api_question_session_answered_count($pdo, $studentId, (string)$session['public_session_id']),
@@ -1062,6 +1323,10 @@ function api_question_session_package(PDO $pdo, array $authSession, string $sess
             'id' => (string)$session['public_session_id'],
             'status' => (string)($session['status'] ?? 'created'),
             'expires_at' => (string)($session['expires_at'] ?? ''),
+            'started_at' => (string)($session['started_at'] ?? ''),
+            'started_at_epoch_seconds' => (($started = strtotime((string)($session['started_at'] ?? ''))) !== false)
+                ? (int)$started
+                : 0,
             'subject_version_id' => (int)($session['subject_version_id'] ?? 0),
             'unit_id' => isset($session['unit_id']) && $session['unit_id'] !== null
                 ? (int)$session['unit_id']
@@ -1071,11 +1336,16 @@ function api_question_session_package(PDO $pdo, array $authSession, string $sess
                 : null,
             'activity_type' => (string)($session['activity_type'] ?? ''),
             'activity_mode' => (string)($session['activity_mode'] ?? ''),
+            'source' => (string)($session['source'] ?? ''),
+            'guide_step_id' => isset($session['guide_step_id']) && $session['guide_step_id'] !== null
+                ? (int)$session['guide_step_id']
+                : null,
         ],
         'progress' => [
             'current_index' => $answered,
             'total_questions' => count($questions),
         ],
+        'policy' => api_test_policy_public(api_test_policy_for_session($pdo, $session)),
         'questions' => $questions,
     ];
     $data['version'] = hash(

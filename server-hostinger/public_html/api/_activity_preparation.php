@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_student_training_center.php';
 require_once __DIR__ . '/_student_subject_progress.php';
+require_once __DIR__ . '/_test_policy.php';
 
 const API_ACTIVITY_TYPES = [
     'guide_step',
@@ -395,8 +396,8 @@ function api_activity_title(string $type): string
         'true_false_test' => 'صح أو خطأ',
         'connect_test' => 'التوصيل',
         'fill_test' => 'الإكمال',
-        'review' => 'مراجعة الأخطاء',
-        'smart_review' => 'مراجعة ذكية',
+        'review' => 'مراجعة',
+        'smart_review' => 'راجع أخطاءك',
         'speed_test' => 'اختبار السرعة',
         default => 'خطوتك التعليمية التالية',
     };
@@ -415,6 +416,51 @@ function api_activity_find_active(PDO $pdo, int $studentId, string $requestHash)
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+function api_activity_debit_hearts(
+    PDO $pdo,
+    int $studentId,
+    int $subjectVersionId,
+    int $cost,
+    int $knownBalance,
+): int {
+    $cost = max(0, min(3, $cost));
+    if ($cost === 0) return max(0, $knownBalance);
+    if (!api_activity_table_exists($pdo, 'student_subject_state')) {
+        api_activity_reject(
+            'progress_schema_missing',
+            'جدول قلوب المادة غير متاح في هذه البيئة.',
+            503,
+        );
+    }
+
+    $driver = strtolower((string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+    $prefix = $driver === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+    $pdo->prepare(
+        $prefix . ' INTO student_subject_state(student_id,subject_version_id,subject_xp,hearts) '
+        . 'VALUES(?,?,0,?)',
+    )->execute([$studentId, $subjectVersionId, max(0, $knownBalance)]);
+
+    $update = $pdo->prepare(
+        'UPDATE student_subject_state SET hearts=hearts-? '
+        . 'WHERE student_id=? AND subject_version_id=? AND hearts>=?',
+    );
+    $update->execute([$cost, $studentId, $subjectVersionId, $cost]);
+    if ($update->rowCount() !== 1) {
+        api_activity_reject(
+            'insufficient_hearts',
+            'لا توجد قلوب كافية لبدء هذا النشاط.',
+            409,
+        );
+    }
+
+    $read = $pdo->prepare(
+        'SELECT hearts FROM student_subject_state '
+        . 'WHERE student_id=? AND subject_version_id=? LIMIT 1',
+    );
+    $read->execute([$studentId, $subjectVersionId]);
+    return max(0, (int)$read->fetchColumn());
+}
+
 function api_activity_preview(PDO $pdo, array $session, array $payload): array
 {
     $studentId = (int)($session['user_id'] ?? 0);
@@ -430,7 +476,12 @@ function api_activity_preview(PDO $pdo, array $session, array $payload): array
     $trainingTool = api_activity_training_tool($pdo, $studentId, $request);
 
     $balances = api_activity_balances($pdo, $studentId, $subject);
-    $requiredHearts = in_array($request['activity_type'], API_ACTIVITY_HEART_REQUIRED_TYPES, true) ? 1 : 0;
+    $policy = api_test_policy_effective(
+        $pdo,
+        (int)$request['subject_version_id'],
+        $request['unit_id'],
+    );
+    $requiredHearts = api_test_policy_heart_cost($policy, $request);
     $toolAvailable = $trainingTool === null || !empty($trainingTool['available']);
     $heartsAvailable = $requiredHearts === 0 || $balances['hearts'] >= $requiredHearts;
     $available = $toolAvailable && $heartsAvailable;
@@ -477,7 +528,7 @@ function api_activity_preview(PDO $pdo, array $session, array $payload): array
         'balances' => $balances,
         'cost' => [
             'required_hearts' => $requiredHearts,
-            'heart_cost' => 0,
+            'heart_cost' => $requiredHearts,
             'gem_cost' => 0,
         ],
         'attempts' => api_activity_attempts($request),
@@ -575,14 +626,6 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
     $request = api_activity_normalize_request($payload);
     $requestHash = api_activity_request_hash($request);
     $keyHash = api_activity_idempotency_hash(api_activity_idempotency_key($rawKey));
-    $preview = api_activity_preview($pdo, $session, $request);
-    if (empty($preview['eligibility']['available'])) {
-        api_error(
-            (string)($preview['eligibility']['reason_code'] ?: 'activity_unavailable'),
-            (string)($preview['eligibility']['reason'] ?: 'النشاط غير متاح الآن.'),
-            409,
-        );
-    }
 
     $ownsTransaction = !$pdo->inTransaction();
     if ($ownsTransaction) {
@@ -605,17 +648,9 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
             return $result;
         }
 
-        $subject = api_activity_subject($pdo, $studentId, (int)$request['subject_version_id']);
-        $balances = api_activity_balances($pdo, $studentId, $subject);
-        $requiredHearts = in_array($request['activity_type'], API_ACTIVITY_HEART_REQUIRED_TYPES, true) ? 1 : 0;
-        if ($requiredHearts > 0 && $balances['hearts'] < $requiredHearts) {
-            api_activity_reject(
-                'insufficient_hearts',
-                'لا توجد قلوب كافية لبدء هذا النشاط.',
-                409,
-            );
-        }
-
+        // Idempotent replay and an already-active identical request are resolved
+        // before mutable eligibility checks. A successful first start may legitimately
+        // reduce hearts below the start cost; restoring that session must not charge again.
         $active = api_activity_find_active($pdo, $studentId, $requestHash);
         if ($active) {
             $result = api_activity_response_from_row($active, true);
@@ -625,17 +660,56 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
             return $result;
         }
 
+        $preview = api_activity_preview($pdo, $session, $request);
+        if (empty($preview['eligibility']['available'])) {
+            api_activity_reject(
+                (string)($preview['eligibility']['reason_code'] ?: 'activity_unavailable'),
+                (string)($preview['eligibility']['reason'] ?: 'النشاط غير متاح الآن.'),
+                409,
+            );
+        }
+
+        $subject = api_activity_subject($pdo, $studentId, (int)$request['subject_version_id']);
+        $balances = api_activity_balances($pdo, $studentId, $subject);
+        $policySnapshot = api_test_policy_snapshot(
+            $pdo,
+            (int)$request['subject_version_id'],
+            $request['unit_id'],
+        );
+        $requiredHearts = api_test_policy_heart_cost(
+            (array)$policySnapshot['settings'],
+            $request,
+        );
+        if ($requiredHearts > 0 && $balances['hearts'] < $requiredHearts) {
+            api_activity_reject(
+                'insufficient_hearts',
+                'لا توجد قلوب كافية لبدء هذا النشاط.',
+                409,
+            );
+        }
+
         $publicId = api_activity_uuid();
         $now = api_mysql_datetime(time());
         $expiresAt = api_mysql_datetime(time() + 7200);
+        $storedRequest = $request;
+        $storedRequest['_test_policy'] = $policySnapshot;
+
+        $remainingHearts = api_activity_debit_hearts(
+            $pdo,
+            $studentId,
+            (int)$request['subject_version_id'],
+            $requiredHearts,
+            (int)$balances['hearts'],
+        );
+
         $result = [
             'session_id' => $publicId,
             'status' => 'created',
             'destination' => 'activity_session_pending_ui',
             'replayed' => false,
-            'debit' => ['heart_debited' => 0, 'gems_debited' => 0],
+            'debit' => ['heart_debited' => $requiredHearts, 'gems_debited' => 0],
             'balances' => [
-                'hearts' => max(0, (int)$balances['hearts']),
+                'hearts' => $remainingHearts,
                 'gems' => max(0, (int)$balances['gems']),
             ],
             'expires_at' => $expiresAt,
@@ -660,10 +734,10 @@ function api_activity_start(PDO $pdo, array $session, array $payload, string $ra
             'created',
             $keyHash,
             $requestHash,
-            json_encode($request, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            json_encode($storedRequest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             'activity_session_pending_ui',
-            0,
+            $requiredHearts,
             0,
             $expiresAt,
             $now,

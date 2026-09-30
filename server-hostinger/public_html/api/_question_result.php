@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_question_answer.php';
+require_once __DIR__ . '/_question_progress.php';
+require_once __DIR__ . '/_question_attempt_log.php';
+require_once __DIR__ . '/_question_review.php';
 
 final class ApiQuestionResultRejected extends RuntimeException
 {
@@ -21,8 +24,13 @@ function api_question_result_reject(string $code, string $message, int $status):
 
 function api_question_result_request(array $payload): array
 {
+    $activeSeconds = null;
+    if (array_key_exists('active_seconds', $payload) && $payload['active_seconds'] !== null) {
+        $activeSeconds = max(0, min(86400, (int)$payload['active_seconds']));
+    }
     return [
         'session_id' => api_question_session_public_id((string)($payload['session_id'] ?? '')),
+        'active_seconds' => $activeSeconds,
     ];
 }
 
@@ -62,8 +70,12 @@ function api_question_result_stored(array $row, bool $replayed): array
     return $result;
 }
 
-function api_question_result_score(PDO $pdo, int $studentId, string $sessionId): array
-{
+function api_question_result_score(
+    PDO $pdo,
+    int $studentId,
+    string $sessionId,
+    ?int $expectedTotal = null,
+): array {
     $statement = $pdo->prepare(
         'SELECT result_json FROM api_activity_answers '
         . 'WHERE user_id=? AND public_session_id=? ORDER BY id ASC',
@@ -72,6 +84,8 @@ function api_question_result_score(PDO $pdo, int $studentId, string $sessionId):
     $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     $correct = 0;
+    $partial = 0;
+    $points = 0.0;
     foreach ($rows as $row) {
         $result = json_decode((string)($row['result_json'] ?? ''), true);
         if (!is_array($result) || !array_key_exists('correct', $result)) {
@@ -81,18 +95,48 @@ function api_question_result_score(PDO $pdo, int $studentId, string $sessionId):
                 500,
             );
         }
-        if (!empty($result['correct'])) {
+
+        $score = array_key_exists('score', $result)
+            ? (float)$result['score']
+            : (!empty($result['correct']) ? 1.0 : 0.0);
+        $score = max(0.0, min(1.0, $score));
+        $points += $score;
+
+        if ($score >= 0.999) {
             $correct += 1;
+        } elseif ($score > 0.000001) {
+            $partial += 1;
         }
     }
 
-    $total = count($rows);
+    $answered = count($rows);
+    $total = $expectedTotal === null ? $answered : max($answered, $expectedTotal);
+    $wrong = max(0, $total - $correct - $partial);
+    $percentExact = $total > 0 ? ($points / $total) * 100.0 : 0.0;
     return [
         'correct_answers' => $correct,
         'incorrect_answers' => max(0, $total - $correct),
+        'partial_answers' => $partial,
+        'wrong_answers' => $wrong,
+        'answered_questions' => $answered,
         'total_questions' => $total,
-        'score_percent' => $total > 0 ? (int)round(($correct / $total) * 100) : 0,
+        'score_points' => round($points, 6),
+        'score_percent_exact' => round($percentExact, 6),
+        'score_percent' => (int)round($percentExact),
     ];
+}
+
+function api_question_result_timer_expired(array $session, array $policy): bool
+{
+    $seconds = max(0, (int)($policy['timer_seconds'] ?? 0));
+    if ($seconds <= 0) {
+        return false;
+    }
+    $startedAt = strtotime((string)($session['started_at'] ?? ''));
+    if ($startedAt === false || $startedAt <= 0) {
+        return false;
+    }
+    return time() >= ($startedAt + $seconds);
 }
 
 function api_question_result_finish(
@@ -162,27 +206,123 @@ function api_question_result_finish(
             );
         }
 
+        $policy = api_test_policy_for_session($pdo, $session);
+        $timerExpired = api_question_result_timer_expired($session, $policy);
+
         $count = $pdo->prepare(
             'SELECT COUNT(*) FROM api_activity_answers WHERE user_id=? AND public_session_id=?',
         );
         $count->execute([$studentId, $request['session_id']]);
         $answered = max(0, (int)$count->fetchColumn());
-        if ($answered < $totalQuestions) {
+        if ($answered < $totalQuestions && !$timerExpired) {
             api_question_result_reject(
                 'session_incomplete',
                 'لا يمكن إنهاء الجلسة قبل تثبيت جميع الإجابات.',
                 409,
             );
         }
-
-        $score = api_question_result_score($pdo, $studentId, $request['session_id']);
-        if ((int)$score['total_questions'] !== $totalQuestions) {
+        if ($answered > $totalQuestions) {
             api_question_result_reject(
                 'session_answer_count_mismatch',
-                'عدد الإجابات المؤكدة لا يطابق حزمة الجلسة.',
+                'عدد الإجابات المؤكدة يتجاوز حزمة الجلسة.',
                 409,
             );
         }
+
+        $score = api_question_result_score(
+            $pdo,
+            $studentId,
+            $request['session_id'],
+            $totalQuestions,
+        );
+        $progress = api_question_progress_apply(
+            $pdo,
+            $studentId,
+            $session,
+            $score,
+            $policy,
+        );
+        $attempt = api_question_attempt_log(
+            $pdo,
+            $studentId,
+            $session,
+            $questions,
+            $score,
+            $policy,
+            (float)($progress['xp_earned'] ?? 0),
+            (string)($progress['effective_mode'] ?? $progress['mode'] ?? 'learn'),
+            $request['active_seconds'],
+        );
+
+        $confirmedDelta = (array)$progress['confirmed_delta'];
+        $today = (array)($attempt['today'] ?? []);
+        if (is_array($confirmedDelta['profile'] ?? null)) {
+            if ($today !== []) {
+                $todaySeconds = max(0, (int)($today['seconds_total'] ?? 0));
+                $confirmedDelta['profile']['today_seconds'] = $todaySeconds;
+                $confirmedDelta['profile']['today_minutes'] = (int)floor($todaySeconds / 60);
+                $confirmedDelta['profile']['today_attempts'] = max(
+                    0,
+                    (int)($today['sessions_count'] ?? 0),
+                );
+            }
+
+            if (function_exists('ik_dash_today_stats')) {
+                try {
+                    $todayStats = (array)ik_dash_today_stats($pdo, $studentId);
+                    $confirmedDelta['profile']['today_xp'] = max(
+                        0,
+                        (int)($todayStats['xp'] ?? 0),
+                    );
+                    $confirmedDelta['profile']['today_seconds'] = max(
+                        0,
+                        (int)($todayStats['seconds'] ?? ($confirmedDelta['profile']['today_seconds'] ?? 0)),
+                    );
+                    $confirmedDelta['profile']['today_minutes'] = max(
+                        0,
+                        (int)($todayStats['minutes'] ?? floor(
+                            ((int)($confirmedDelta['profile']['today_seconds'] ?? 0)) / 60,
+                        )),
+                    );
+                    $confirmedDelta['profile']['today_attempts'] = max(
+                        0,
+                        (int)($todayStats['attempts'] ?? ($confirmedDelta['profile']['today_attempts'] ?? 0)),
+                    );
+                } catch (Throwable) {
+                }
+            }
+
+            try {
+                $freshProfile = api_question_progress_profile($pdo, $studentId);
+                if (function_exists('student_streak_dashboard_state')) {
+                    $streak = (array)student_streak_dashboard_state(
+                        $freshProfile,
+                        function_exists('ik_dash_today_key') ? ik_dash_today_key() : null,
+                        $pdo,
+                    );
+                    $confirmedDelta['profile']['streak_current_days'] = max(
+                        0,
+                        (int)($streak['current_days'] ?? 0),
+                    );
+                } elseif (array_key_exists('streak_days', $freshProfile)) {
+                    $confirmedDelta['profile']['streak_current_days'] = max(
+                        0,
+                        (int)$freshProfile['streak_days'],
+                    );
+                }
+            } catch (Throwable) {
+            }
+        }
+
+        $passPercent = max(1, min(100, (int)($policy['pass_percent'] ?? 60)));
+        $passed = (float)($score['score_percent'] ?? 0) >= $passPercent;
+        $review = api_question_review_items(
+            $pdo,
+            $studentId,
+            $session,
+            $questions,
+            $policy,
+        );
 
         $now = gmdate('Y-m-d H:i:s');
         $result = [
@@ -190,13 +330,20 @@ function api_question_result_finish(
             'status' => 'completed',
             'completed_at' => $now,
             'replayed' => false,
-            'result' => $score,
-            'confirmed_delta' => [
-                'available' => false,
-                'reason' => 'لم تُثبت بعد قاعدة XP والمستوى والمكافآت لهذه الأنشطة.',
-                'profile' => null,
-                'subjects' => [],
-            ],
+            'result' => array_merge($score, [
+                'passed' => $passed,
+                'pass_percent' => $passPercent,
+                'xp_earned' => (float)($progress['xp_earned'] ?? 0),
+                'hearts_spent' => max(0, (int)($session['heart_debited'] ?? 0)),
+                'timed_out' => $timerExpired,
+                'duration_seconds' => max(0, (int)($attempt['duration_seconds'] ?? 0)),
+                'attempt_id' => isset($attempt['attempt_id']) && $attempt['attempt_id'] !== null
+                    ? (int)$attempt['attempt_id']
+                    : null,
+            ]),
+            'policy' => api_test_policy_public($policy),
+            'review' => $review,
+            'confirmed_delta' => $confirmedDelta,
         ];
 
         $insert = $pdo->prepare(
