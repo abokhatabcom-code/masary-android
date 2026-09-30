@@ -27,6 +27,11 @@ on:
 permissions:
   contents: read
 
+# Prevent obsolete PR runs from consuming runner minutes and artifact storage.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-hostinger-api:
     runs-on: ubuntu-latest
