@@ -158,10 +158,12 @@ class ApiContractFixtureTest {
         assertTrue(finish.success)
         assertEquals("activity-session-001", finish.data?.sessionId)
         assertEquals("completed", finish.data?.status)
-        assertEquals(8, finish.data?.result?.correctAnswers)
-        assertEquals(2, finish.data?.result?.incorrectAnswers)
-        assertEquals(80, finish.data?.result?.scorePercent)
-        assertFalse(finish.data?.confirmedDelta?.available == true)
+        assertEquals(7, finish.data?.result?.correctAnswers)
+        assertEquals(3, finish.data?.result?.incorrectAnswers)
+        assertEquals(70, finish.data?.result?.scorePercent)
+        assertEquals(14.0, finish.data?.result?.xpEarned)
+        assertTrue(finish.data?.confirmedDelta?.available == true)
+        assertEquals(14.0, finish.data?.confirmedDelta?.profile?.globalXp)
     }
 
     @Test
